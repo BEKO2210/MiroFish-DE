@@ -13,7 +13,7 @@
     <!-- 标题区域 -->
     <div class="section-header">
       <div class="section-line"></div>
-      <span class="section-title">推演记录</span>
+      <span class="section-title">SIMULATIONSAUFZEICHNUNGEN</span>
       <div class="section-line"></div>
     </div>
 
@@ -36,16 +36,16 @@
             <span 
               class="status-icon" 
               :class="{ available: project.project_id, unavailable: !project.project_id }"
-              title="图谱构建"
+              title="Graph erstellen"
             >◇</span>
             <span 
               class="status-icon available" 
-              title="环境搭建"
+              title="Umgebung aufbauen"
             >◈</span>
             <span 
               class="status-icon" 
               :class="{ available: project.report_id, unavailable: !project.report_id }"
-              title="分析报告"
+              title="Analysebericht"
             >◆</span>
           </div>
         </div>
@@ -67,13 +67,13 @@
             </div>
             <!-- 如果有更多文件，显示提示 -->
             <div v-if="project.files.length > 3" class="files-more">
-              +{{ project.files.length - 3 }} 个文件
+              +{{ project.files.length - 3 }} Dateien
             </div>
           </div>
           <!-- 无文件时的占位 -->
           <div class="files-empty" v-else>
             <span class="empty-file-icon">◇</span>
-            <span class="empty-file-text">暂无文件</span>
+            <span class="empty-file-text">Keine Dateien</span>
           </div>
         </div>
 
@@ -126,27 +126,27 @@
             <div class="modal-body">
               <!-- 模拟需求 -->
               <div class="modal-section">
-                <div class="modal-label">模拟需求</div>
+                <div class="modal-label">Simulationsbedarf</div>
                 <div class="modal-requirement">{{ selectedProject.simulation_requirement || '无' }}</div>
               </div>
 
               <!-- 文件列表 -->
               <div class="modal-section">
-                <div class="modal-label">关联文件</div>
+                <div class="modal-label">Zugehörige Dateien</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
                   <div v-for="(file, index) in selectedProject.files" :key="index" class="modal-file-item">
                     <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
                     <span class="modal-file-name">{{ file.filename }}</span>
                   </div>
                 </div>
-                <div class="modal-empty" v-else>暂无关联文件</div>
+                <div class="modal-empty" v-else>Keine zugehörigen Dateien</div>
               </div>
             </div>
 
             <!-- 推演回放分割线 -->
             <div class="modal-divider">
               <span class="divider-line"></span>
-              <span class="divider-text">推演回放</span>
+              <span class="divider-text">SIMULATIONSWIEDERGABE</span>
               <span class="divider-line"></span>
             </div>
 
@@ -159,7 +159,7 @@
               >
                 <span class="btn-step">Step1</span>
                 <span class="btn-icon">◇</span>
-                <span class="btn-text">图谱构建</span>
+                <span class="btn-text">Graph erstellen</span>
               </button>
               <button 
                 class="modal-btn btn-simulation" 
@@ -167,7 +167,7 @@
               >
                 <span class="btn-step">Step2</span>
                 <span class="btn-icon">◈</span>
-                <span class="btn-text">环境搭建</span>
+                <span class="btn-text">Umgebung aufbauen</span>
               </button>
               <button 
                 class="modal-btn btn-report" 
@@ -176,12 +176,12 @@
               >
                 <span class="btn-step">Step4</span>
                 <span class="btn-icon">◆</span>
-                <span class="btn-text">分析报告</span>
+                <span class="btn-text">Analysebericht</span>
               </button>
             </div>
             <!-- 不可回放提示 -->
             <div class="modal-playback-hint">
-              <span class="hint-text">Step3「开始模拟」与 Step5「深度互动」需在运行中启动，不支持历史回放</span>
+              <span class="hint-text">Schritt 3 "Simulation starten" und Schritt 5 "Tiefe Interaktion" müssen während der Laufzeit gestartet werden und unterstützen keine historische Wiedergabe</span>
             </div>
           </div>
         </div>
@@ -337,7 +337,7 @@ const truncateText = (text, maxLength) => {
 
 // 从模拟需求生成标题（取前20字）
 const getSimulationTitle = (requirement) => {
-  if (!requirement) return '未命名模拟'
+  if (!requirement) return 'Unbenannte Simulation'
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
@@ -353,7 +353,7 @@ const formatSimulationId = (simulationId) => {
 const formatRounds = (simulation) => {
   const current = simulation.current_round || 0
   const total = simulation.total_rounds || 0
-  if (total === 0) return '未开始'
+  if (total === 0) return 'Nicht gestartet'
   return `${current}/${total} 轮`
 }
 
