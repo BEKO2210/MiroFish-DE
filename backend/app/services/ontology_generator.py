@@ -1,6 +1,6 @@
 """
-本体生成服务
-接口1：分析文本内容，生成适合社会模拟的实体和关系类型定义
+Ontologie-Generierungs-Service
+Schnittstelle 1: Analysiert Textinhalt, generiert Entitäts- und Beziehungstyp-Definitionen für Sozialsimulation
 """
 
 import json
@@ -8,7 +8,7 @@ from typing import Dict, Any, List, Optional
 from ..utils.llm_client import LLMClient
 
 
-# 本体生成的系统提示词
+# System-Prompt für Ontologie-Generierung
 ONTOLOGY_SYSTEM_PROMPT = """你是一个专业的知识图谱本体设计专家。你的任务是分析给定的文本内容和模拟需求，设计适合**社交媒体舆论模拟**的实体类型和关系类型。
 
 **重要：你必须输出有效的JSON格式数据，不要输出任何其他内容。**
