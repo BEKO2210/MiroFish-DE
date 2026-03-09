@@ -19,17 +19,17 @@ Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
 
 ## ⚡ Projektübersicht
 
-**MiroFish** ist eine neue Generation von KI-Vorhersage-Engines basierend auf Multi-Agent-Technologie. Durch die Extraktion von Realitäts-Samen aus der realen Welt (wie Breaking News, Policy-Entwürfe, Finanzsignale) wird automatisch eine hochauflösende parallele digitale Welt erstellt. In diesem Raum interagieren und entwickeln sich Tausende von Agenten mit unabhängigen Persönlichkeiten, Langzeitgedächtnis und Verhaltenslogik frei. Über die "Gott-Perspektive" können dynamisch Variablen injiziert werden, um zukünftige Entwicklungen präzise zu antizipieren – **Lass die Zukunft im digitalen Sandkasten vorausspielen, lass Entscheidungen nach hunderten Simulationen triumphieren**.
+**MiroFish** ist eine neue Generation von KI-Vorhersage-Engines basierend auf Multi-Agent-Technologie. Durch die Extraktion von Realwelt-Daten (wie Breaking News, Richtlinienentwürfe, Finanzsignale) wird automatisch eine detailgetreue parallele digitale Welt erstellt. In diesem Raum interagieren und entwickeln sich Tausende von Agenten mit unabhängigen Persönlichkeiten, Langzeitgedächtnis und Verhaltenslogik frei. Über die "Gott-Perspektive" können dynamisch Variablen injiziert werden, um zukünftige Entwicklungen präzise zu antizipieren – **Lass die Zukunft im digitalen Sandkasten vorausspielen, lass Entscheidungen nach hunderten Simulationen triumphieren**.
 
-> Du musst nur: Samenmaterial hochladen (Datenanalyseberichte oder interessante Geschichten) und den Vorhersagebedarf in natürlicher Sprache beschreiben</br>
-> MiroFish liefert: Einen detaillierten Vorhersagebericht sowie eine interaktive, hochauflösende digitale Welt
+> Du musst nur: Ausgangsmaterial hochladen (Datenanalyseberichte oder interessante Geschichten) und den Vorhersagebedarf in natürlicher Sprache beschreiben</br>
+> MiroFish liefert: Einen detaillierten Vorhersagebericht sowie eine interaktive, realitätsnahe digitale Welt
 
 ### Unsere Vision
 
-MiroFish strebt danach, einen Spiegel der Schwarm-Intelligenz zu schaffen, der die Realität abbildet. Durch die Erfassung des kollektiven Emergenz-Verhaltagens, das durch individuelle Interaktionen entsteht, überwinden wir die Grenzen traditioneller Vorhersagen:
+MiroFish strebt danach, einen Spiegel der Schwarm-Intelligenz zu schaffen, der die Realität abbildet. Durch die Erfassung des kollektiven Emergenz-Verhaltens, das durch individuelle Interaktionen entsteht, überwinden wir die Grenzen traditioneller Vorhersagen:
 
 - **Makro**: Wir sind das Labor für Entscheidungsträger, wo Politik und PR risikofrei getestet werden können
-- **Mikro**: Wir sind der kreative Sandkasten für individuelle Nutzer, sei es zur Vorhersage von Romanenden oder zum Erkunden von Ideen – alles ist interessant, unterhaltsam und greifbar
+- **Mikro**: Wir sind der kreative Sandkasten für individuelle Nutzer, sei es zur Vorhersage von Roman-Enden oder zum Erkunden von Ideen – alles ist interessant, unterhaltsam und greifbar
 
 Von seriöser Vorhersage bis hin zu unterhaltsamer Simulation – wir machen jedes "Was wäre wenn" sichtbar und ermöglichen die Vorhersage von allem.
 
@@ -58,7 +58,7 @@ Besuche die Online-Demo-Umgebung und erlebe eine Simulation zu einem aktuellen �
 
 ## 🔄 Workflow
 
-1. **Graphen-Aufbau**: Realitäts-Samen-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau
+1. **Graphen-Aufbau**: Realwelt-Daten-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau
 2. **Umgebungsaufbau**: Entitätsbeziehungs-Extraktion & Charakter-Generierung & Umgebungskonfiguration
 3. **Simulation starten**: Duale Plattform-Parallel-Simulation & automatische Vorhersagebedarfsanalyse & dynamische Zeitreihen-Gedächtnis-Aktualisierung
 4. **Berichtsgenerierung**: ReportAgent mit reichhaltigem Toolset für tiefe Interaktion mit der simulierten Umgebung
