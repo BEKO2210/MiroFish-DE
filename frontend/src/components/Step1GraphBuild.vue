@@ -41,7 +41,7 @@
                
                <!-- Attributes -->
                <div class="detail-section" v-if="selectedOntologyItem.attributes?.length">
-                  <span class="section-label">ATTRIBUTES</span>
+                  <span class="section-label">ATTRIBUTE</span>
                   <div class="attr-list">
                      <div v-for="attr in selectedOntologyItem.attributes" :key="attr.name" class="attr-item">
                         <span class="attr-name">{{ attr.name }}</span>
@@ -53,7 +53,7 @@
 
                <!-- Examples (Entity) -->
                <div class="detail-section" v-if="selectedOntologyItem.examples?.length">
-                  <span class="section-label">EXAMPLES</span>
+                  <span class="section-label">BEISPIELE</span>
                   <div class="example-list">
                      <span v-for="ex in selectedOntologyItem.examples" :key="ex" class="example-tag">{{ ex }}</span>
                   </div>
@@ -61,7 +61,7 @@
 
                <!-- Source/Target (Relation) -->
                <div class="detail-section" v-if="selectedOntologyItem.source_targets?.length">
-                  <span class="section-label">CONNECTIONS</span>
+                  <span class="section-label">VERBINDUNGEN</span>
                   <div class="conn-list">
                      <div v-for="(conn, idx) in selectedOntologyItem.source_targets" :key="idx" class="conn-item">
                         <span class="conn-node">{{ conn.source }}</span>
@@ -75,7 +75,7 @@
 
           <!-- Generated Entity Tags -->
           <div v-if="projectData?.ontology?.entity_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERATED ENTITY TYPES</span>
+            <span class="tag-label">GENERIERTE ENTITÄTSTYPEN</span>
             <div class="tags-list">
               <span 
                 v-for="entity in projectData.ontology.entity_types" 
@@ -90,7 +90,7 @@
 
           <!-- Generated Relation Tags -->
           <div v-if="projectData?.ontology?.edge_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERATED RELATION TYPES</span>
+            <span class="tag-label">GENERIERTE BEZIEHUNGSTYPEN</span>
             <div class="tags-list">
               <span 
                 v-for="rel in projectData.ontology.edge_types" 
@@ -173,7 +173,7 @@
     <!-- Bottom Info / Logs -->
     <div class="system-logs">
       <div class="log-header">
-        <span class="log-title">SYSTEM DASHBOARD</span>
+        <span class="log-title">SYSTEMÜBERSICHT</span>
         <span class="log-id">{{ projectData?.project_id || 'NO_PROJECT' }}</span>
       </div>
       <div class="log-content" ref="logContent">
@@ -208,7 +208,7 @@ const selectedOntologyItem = ref(null)
 const logContent = ref(null)
 const creatingSimulation = ref(false)
 
-// 进入环境搭建 - 创建 simulation 并跳转
+// Umgebungseinrichtung betreten - Simulation erstellen und weiterleiten
 const handleEnterEnvSetup = async () => {
   if (!props.projectData?.project_id || !props.projectData?.graph_id) {
     console.error('Projekt- oder Graphinformationen fehlen')
@@ -226,7 +226,7 @@ const handleEnterEnvSetup = async () => {
     })
     
     if (res.success && res.data?.simulation_id) {
-      // 跳转到 simulation 页面
+      // Zur Simulationsseite weiterleiten
       router.push({
         name: 'Simulation',
         params: { simulationId: res.data.simulation_id }
@@ -257,10 +257,10 @@ const graphStats = computed(() => {
 const formatDate = (dateStr) => {
   if (!dateStr) return '--:--:--'
   const d = new Date(dateStr)
-  return d.toLocaleTimeString('en-US', { hour12: false }) + '.' + d.getMilliseconds()
+  return d.toLocaleTimeString('de-DE', { hour12: false }) + '.' + d.getMilliseconds()
 }
 
-// Auto-scroll logs
+// Protokolle automatisch scrollen
 watch(() => props.systemLogs.length, () => {
   nextTick(() => {
     if (logContent.value) {

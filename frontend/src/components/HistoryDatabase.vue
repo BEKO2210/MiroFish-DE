@@ -4,20 +4,20 @@
     :class="{ 'no-projects': projects.length === 0 && !loading }"
     ref="historyContainer"
   >
-    <!-- 背景装饰：技术网格线（只在有项目时显示） -->
+    <!-- Hintergrunddekoration: Technisches Gittermuster (nur bei vorhandenen Projekten anzeigen) -->
     <div v-if="projects.length > 0 || loading" class="tech-grid-bg">
       <div class="grid-pattern"></div>
       <div class="gradient-overlay"></div>
     </div>
 
-    <!-- 标题区域 -->
+    <!-- Titelbereich -->
     <div class="section-header">
       <div class="section-line"></div>
       <span class="section-title">SIMULATIONSAUFZEICHNUNGEN</span>
       <div class="section-line"></div>
     </div>
 
-    <!-- 卡片容器（只在有项目时显示） -->
+    <!-- Kartencontainer (nur bei vorhandenen Projekten anzeigen) -->
     <div v-if="projects.length > 0" class="cards-container" :class="{ expanded: isExpanded }" :style="containerStyle">
       <div 
         v-for="(project, index) in projects" 
@@ -29,7 +29,7 @@
         @mouseleave="hoveringCard = null"
         @click="navigateToProject(project)"
       >
-        <!-- 卡片头部：simulation_id 和 功能可用状态 -->
+        <!-- Kartenkopf: simulation_id und Funktionsverfügbarkeitsstatus -->
         <div class="card-header">
           <span class="card-id">{{ formatSimulationId(project.simulation_id) }}</span>
           <div class="card-status-icons">
@@ -50,12 +50,12 @@
           </div>
         </div>
 
-        <!-- 文件列表区域 -->
+        <!-- Dateilistenbereich -->
         <div class="card-files-wrapper">
-          <!-- 角落装饰 - 取景框风格 -->
+          <!-- Eckdekoration - Suchrahmen-Stil -->
           <div class="corner-mark top-left-only"></div>
           
-          <!-- 文件列表 -->
+          <!-- Dateiliste -->
           <div class="files-list" v-if="project.files && project.files.length > 0">
             <div 
               v-for="(file, fileIndex) in project.files.slice(0, 3)" 
@@ -65,25 +65,25 @@
               <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
               <span class="file-name">{{ truncateFilename(file.filename, 20) }}</span>
             </div>
-            <!-- 如果有更多文件，显示提示 -->
+            <!-- Wenn mehr Dateien vorhanden, Hinweis anzeigen -->
             <div v-if="project.files.length > 3" class="files-more">
               +{{ project.files.length - 3 }} Dateien
             </div>
           </div>
-          <!-- 无文件时的占位 -->
+          <!-- Platzhalter wenn keine Dateien vorhanden -->
           <div class="files-empty" v-else>
             <span class="empty-file-icon">◇</span>
             <span class="empty-file-text">Keine Dateien</span>
           </div>
         </div>
 
-        <!-- 卡片标题（使用模拟需求的前20字作为标题） -->
+        <!-- Kartentitel (erste 20 Zeichen der Simulationsanforderung als Titel) -->
         <h3 class="card-title">{{ getSimulationTitle(project.simulation_requirement) }}</h3>
 
-        <!-- 卡片描述（模拟需求完整展示） -->
+        <!-- Kartenbeschreibung (vollständige Simulationsanforderung) -->
         <p class="card-desc">{{ truncateText(project.simulation_requirement, 55) }}</p>
 
-        <!-- 卡片底部 -->
+        <!-- Kartenfußzeile -->
         <div class="card-footer">
           <div class="card-datetime">
             <span class="card-date">{{ formatDate(project.created_at) }}</span>
@@ -94,23 +94,23 @@
           </span>
         </div>
         
-        <!-- 底部装饰线 (hover时展开) -->
+        <!-- Untere Zierlinie (bei Hover erweitern) -->
         <div class="card-bottom-line"></div>
       </div>
     </div>
 
-    <!-- 加载状态 -->
+    <!-- Ladezustand -->
     <div v-if="loading" class="loading-state">
       <span class="loading-spinner"></span>
-      <span class="loading-text">加载中...</span>
+      <span class="loading-text">Wird geladen...</span>
     </div>
 
-    <!-- 历史回放详情弹窗 -->
+    <!-- Dialogfenster für historische Wiedergabedetails -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="selectedProject" class="modal-overlay" @click.self="closeModal">
           <div class="modal-content">
-            <!-- 弹窗头部 -->
+            <!-- Dialogkopf -->
             <div class="modal-header">
               <div class="modal-title-section">
                 <span class="modal-id">{{ formatSimulationId(selectedProject.simulation_id) }}</span>
@@ -122,15 +122,15 @@
               <button class="modal-close" @click="closeModal">×</button>
             </div>
 
-            <!-- 弹窗内容 -->
+            <!-- Dialoginhalt -->
             <div class="modal-body">
-              <!-- 模拟需求 -->
+              <!-- Simulationsanforderung -->
               <div class="modal-section">
                 <div class="modal-label">Simulationsbedarf</div>
-                <div class="modal-requirement">{{ selectedProject.simulation_requirement || '无' }}</div>
+                <div class="modal-requirement">{{ selectedProject.simulation_requirement || 'Keine' }}</div>
               </div>
 
-              <!-- 文件列表 -->
+              <!-- Dateiliste -->
               <div class="modal-section">
                 <div class="modal-label">Zugehörige Dateien</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
@@ -143,14 +143,14 @@
               </div>
             </div>
 
-            <!-- 推演回放分割线 -->
+            <!-- Trennlinie für Simulationswiedergabe -->
             <div class="modal-divider">
               <span class="divider-line"></span>
               <span class="divider-text">SIMULATIONSWIEDERGABE</span>
               <span class="divider-line"></span>
             </div>
 
-            <!-- 导航按钮 -->
+            <!-- Navigationsschaltflächen -->
             <div class="modal-actions">
               <button 
                 class="modal-btn btn-project" 
@@ -179,7 +179,7 @@
                 <span class="btn-text">Analysebericht</span>
               </button>
             </div>
-            <!-- 不可回放提示 -->
+            <!-- Hinweis: Wiedergabe nicht möglich -->
             <div class="modal-playback-hint">
               <span class="hint-text">Schritt 3 "Simulation starten" und Schritt 5 "Tiefe Interaktion" müssen während der Laufzeit gestartet werden und unterstützen keine historische Wiedergabe</span>
             </div>
@@ -198,56 +198,56 @@ import { getSimulationHistory } from '../api/simulation'
 const router = useRouter()
 const route = useRoute()
 
-// 状态
+// Zustand
 const projects = ref([])
 const loading = ref(true)
 const isExpanded = ref(false)
 const hoveringCard = ref(null)
 const historyContainer = ref(null)
-const selectedProject = ref(null)  // 当前选中的项目（用于弹窗）
+const selectedProject = ref(null)  // Aktuell ausgewähltes Projekt (für Dialog)
 let observer = null
-let isAnimating = false  // 动画锁，防止闪烁
-let expandDebounceTimer = null  // 防抖定时器
-let pendingState = null  // 记录待执行的目标状态
+let isAnimating = false  // Animationssperre, verhindert Flackern
+let expandDebounceTimer = null  // Entprellungs-Timer
+let pendingState = null  // Aufzeichnung des ausstehenden Zielzustands
 
-// 卡片布局配置 - 调整为更宽的比例
+// Kartenlayout-Konfiguration - Anpassung auf breiteres Verhältnis
 const CARDS_PER_ROW = 4
 const CARD_WIDTH = 280  
 const CARD_HEIGHT = 280 
 const CARD_GAP = 24
 
-// 动态计算容器高度样式
+// Dynamische Berechnung der Containerhöhe
 const containerStyle = computed(() => {
   if (!isExpanded.value) {
-    // 折叠态：固定高度
+    // Eingeklappt: Feste Höhe
     return { minHeight: '420px' }
   }
   
-  // 展开态：根据卡片数量动态计算高度
+  // Ausgeklappt: Höhe dynamisch nach Kartenanzahl berechnen
   const total = projects.value.length
   if (total === 0) {
     return { minHeight: '280px' }
   }
   
   const rows = Math.ceil(total / CARDS_PER_ROW)
-  // 计算实际需要的高度：行数 * 卡片高度 + (行数-1) * 间距 + 少量底部间距
+  // Tatsächlich benötigte Höhe berechnen: Zeilen * Kartenhöhe + (Zeilen-1) * Abstand + kleiner Bodenabstand
   const expandedHeight = rows * CARD_HEIGHT + (rows - 1) * CARD_GAP + 10
   
   return { minHeight: `${expandedHeight}px` }
 })
 
-// 获取卡片样式
+// Kartenstil abrufen
 const getCardStyle = (index) => {
   const total = projects.value.length
   
   if (isExpanded.value) {
-    // 展开态：网格布局
+    // Ausgeklappt: Rasterlayout
     const transition = 'transform 700ms cubic-bezier(0.23, 1, 0.32, 1), opacity 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.3s ease, border-color 0.3s ease'
 
     const col = index % CARDS_PER_ROW
     const row = Math.floor(index / CARDS_PER_ROW)
     
-    // 计算当前行的卡片数量，确保每行居中
+    // Kartenanzahl in aktueller Zeile berechnen, zentrierte Darstellung sicherstellen
     const currentRowStart = row * CARDS_PER_ROW
     const currentRowCards = Math.min(CARDS_PER_ROW, total - currentRowStart)
     
@@ -257,7 +257,7 @@ const getCardStyle = (index) => {
     const colInRow = index % CARDS_PER_ROW
     const x = startX + colInRow * (CARD_WIDTH + CARD_GAP)
     
-    // 向下展开，增加与标题的间距
+    // Nach unten aufklappen, Abstand zum Titel vergrößern
     const y = 20 + row * (CARD_HEIGHT + CARD_GAP)
 
     return {
@@ -267,14 +267,14 @@ const getCardStyle = (index) => {
       transition: transition
     }
   } else {
-    // 折叠态：扇形堆叠
+    // Eingeklappt: Fächerförmige Stapelung
     const transition = 'transform 700ms cubic-bezier(0.23, 1, 0.32, 1), opacity 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.3s ease, border-color 0.3s ease'
 
     const centerIndex = (total - 1) / 2
     const offset = index - centerIndex
     
     const x = offset * 35
-    // 调整起始位置，靠近标题但保持适当间距
+    // Startposition anpassen, nah am Titel aber mit angemessenem Abstand
     const y = 25 + Math.abs(offset) * 8
     const r = offset * 3
     const s = 0.95 - Math.abs(offset) * 0.05
@@ -288,24 +288,24 @@ const getCardStyle = (index) => {
   }
 }
 
-// 根据轮数进度获取样式类
+// Stilklasse basierend auf Rundenfortschritt ermitteln
 const getProgressClass = (simulation) => {
   const current = simulation.current_round || 0
   const total = simulation.total_rounds || 0
   
   if (total === 0 || current === 0) {
-    // 未开始
+    // Nicht gestartet
     return 'not-started'
   } else if (current >= total) {
-    // 已完成
+    // Abgeschlossen
     return 'completed'
   } else {
-    // 进行中
+    // In Bearbeitung
     return 'in-progress'
   }
 }
 
-// 格式化日期（只显示日期部分）
+// Datum formatieren (nur Datumsteil anzeigen)
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
   try {
@@ -316,7 +316,7 @@ const formatDate = (dateStr) => {
   }
 }
 
-// 格式化时间（显示时:分）
+// Zeit formatieren (Stunden:Minuten anzeigen)
 const formatTime = (dateStr) => {
   if (!dateStr) return ''
   try {
@@ -329,35 +329,35 @@ const formatTime = (dateStr) => {
   }
 }
 
-// 截断文本
+// Text kürzen
 const truncateText = (text, maxLength) => {
   if (!text) return ''
   return text.length > maxLength ? text.slice(0, maxLength) + '...' : text
 }
 
-// 从模拟需求生成标题（取前20字）
+// Titel aus Simulationsanforderung generieren (erste 20 Zeichen)
 const getSimulationTitle = (requirement) => {
   if (!requirement) return 'Unbenannte Simulation'
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
 
-// 格式化 simulation_id 显示（截取前6位）
+// Simulation-ID-Anzeige formatieren (erste 6 Zeichen)
 const formatSimulationId = (simulationId) => {
   if (!simulationId) return 'SIM_UNKNOWN'
   const prefix = simulationId.replace('sim_', '').slice(0, 6)
   return `SIM_${prefix.toUpperCase()}`
 }
 
-// 格式化轮数显示（当前轮/总轮数）
+// Rundenanzeige formatieren (aktuelle Runde/Gesamtrunden)
 const formatRounds = (simulation) => {
   const current = simulation.current_round || 0
   const total = simulation.total_rounds || 0
   if (total === 0) return 'Nicht gestartet'
-  return `${current}/${total} 轮`
+  return `${current}/${total} Runden`
 }
 
-// 获取文件类型（用于样式）
+// Dateityp ermitteln (für Stil)
 const getFileType = (filename) => {
   if (!filename) return 'other'
   const ext = filename.split('.').pop()?.toLowerCase()
@@ -373,16 +373,16 @@ const getFileType = (filename) => {
   return typeMap[ext] || 'other'
 }
 
-// 获取文件类型标签文本
+// Dateityp-Beschriftungstext ermitteln
 const getFileTypeLabel = (filename) => {
   if (!filename) return 'FILE'
   const ext = filename.split('.').pop()?.toUpperCase()
   return ext || 'FILE'
 }
 
-// 截断文件名（保留扩展名）
+// Dateinamen kürzen (Erweiterung beibehalten)
 const truncateFilename = (filename, maxLength) => {
-  if (!filename) return '未知文件'
+  if (!filename) return 'Unbekannte Datei'
   if (filename.length <= maxLength) return filename
   
   const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
@@ -391,17 +391,17 @@ const truncateFilename = (filename, maxLength) => {
   return truncatedName + ext
 }
 
-// 打开项目详情弹窗
+// Projektdetails-Dialog öffnen
 const navigateToProject = (simulation) => {
   selectedProject.value = simulation
 }
 
-// 关闭弹窗
+// Dialog schließen
 const closeModal = () => {
   selectedProject.value = null
 }
 
-// 导航到图谱构建页面（Project）
+// Zur Grapherstellungsseite navigieren (Projekt)
 const goToProject = () => {
   if (selectedProject.value?.project_id) {
     router.push({
@@ -412,7 +412,7 @@ const goToProject = () => {
   }
 }
 
-// 导航到环境配置页面（Simulation）
+// Zur Umgebungskonfigurationsseite navigieren (Simulation)
 const goToSimulation = () => {
   if (selectedProject.value?.simulation_id) {
     router.push({
@@ -423,7 +423,7 @@ const goToSimulation = () => {
   }
 }
 
-// 导航到分析报告页面（Report）
+// Zur Analyseberichtsseite navigieren (Bericht)
 const goToReport = () => {
   if (selectedProject.value?.report_id) {
     router.push({
@@ -434,7 +434,7 @@ const goToReport = () => {
   }
 }
 
-// 加载历史项目
+// Projekthistorie laden
 const loadHistory = async () => {
   try {
     loading.value = true
@@ -443,14 +443,14 @@ const loadHistory = async () => {
       projects.value = response.data || []
     }
   } catch (error) {
-    console.error('加载历史项目失败:', error)
+    console.error('Laden der Projekthistorie fehlgeschlagen:', error)
     projects.value = []
   } finally {
     loading.value = false
   }
 }
 
-// 初始化 IntersectionObserver
+// IntersectionObserver initialisieren
 const initObserver = () => {
   if (observer) {
     observer.disconnect()
@@ -461,47 +461,47 @@ const initObserver = () => {
       entries.forEach((entry) => {
         const shouldExpand = entry.isIntersecting
         
-        // 更新待执行的目标状态（无论是否在动画中都要记录最新的目标状态）
+        // Ausstehenden Zielzustand aktualisieren (neuesten Zielzustand immer aufzeichnen, unabhängig von Animation)
         pendingState = shouldExpand
         
-        // 清除之前的防抖定时器（新的滚动意图会覆盖旧的）
+        // Vorherigen Entprellungs-Timer löschen (neue Scrollabsicht überschreibt alte)
         if (expandDebounceTimer) {
           clearTimeout(expandDebounceTimer)
           expandDebounceTimer = null
         }
         
-        // 如果正在动画中，只记录状态，等动画结束后处理
+        // Wenn Animation läuft, nur Zustand aufzeichnen und nach Animationsende verarbeiten
         if (isAnimating) return
         
-        // 如果目标状态与当前状态相同，不需要处理
+        // Wenn Zielzustand gleich aktuellem Zustand, keine Verarbeitung nötig
         if (shouldExpand === isExpanded.value) {
           pendingState = null
           return
         }
         
-        // 使用防抖延迟状态切换，防止快速闪烁
-        // 展开时延迟较短(50ms)，收起时延迟较长(200ms)以增加稳定性
+        // Zustandswechsel mit Entprellung verzögern, schnelles Flackern verhindern
+        // Beim Aufklappen kürzere Verzögerung (50ms), beim Einklappen längere (200ms) für mehr Stabilität
         const delay = shouldExpand ? 50 : 200
         
         expandDebounceTimer = setTimeout(() => {
-          // 检查是否正在动画
+          // Prüfen ob Animation läuft
           if (isAnimating) return
           
-          // 检查待执行状态是否仍需要执行（可能已被后续滚动覆盖）
+          // Prüfen ob ausstehender Zustand noch ausgeführt werden muss (könnte durch nachfolgendes Scrollen überschrieben sein)
           if (pendingState === null || pendingState === isExpanded.value) return
           
-          // 设置动画锁
+          // Animationssperre setzen
           isAnimating = true
           isExpanded.value = pendingState
           pendingState = null
           
-          // 动画完成后解除锁定，并检查是否有待处理的状态变化
+          // Nach Animationsende Sperre aufheben und prüfen ob ausstehende Zustandsänderungen vorliegen
           setTimeout(() => {
             isAnimating = false
             
-            // 动画结束后，检查是否有新的待执行状态
+            // Nach Animationsende prüfen ob neue ausstehende Zustände vorliegen
             if (pendingState !== null && pendingState !== isExpanded.value) {
-              // 延迟一小段时间再执行，避免太快切换
+              // Kurz verzögern vor Ausführung, zu schnelles Umschalten vermeiden
               expandDebounceTimer = setTimeout(() => {
                 if (pendingState !== null && pendingState !== isExpanded.value) {
                   isAnimating = true
@@ -518,20 +518,20 @@ const initObserver = () => {
       })
     },
     {
-      // 使用多个阈值，使检测更平滑
+      // Mehrere Schwellenwerte verwenden für glattere Erkennung
       threshold: [0.4, 0.6, 0.8],
-      // 调整 rootMargin，视口底部向上收缩，需要滚动更多才触发展开
+      // rootMargin anpassen, Viewport-Unterseite nach oben verkleinern, mehr Scrollen nötig zum Aufklappen
       rootMargin: '0px 0px -150px 0px'
     }
   )
   
-  // 开始观察
+  // Beobachtung starten
   if (historyContainer.value) {
     observer.observe(historyContainer.value)
   }
 }
 
-// 监听路由变化，当返回首页时重新加载数据
+// Routenänderungen überwachen, Daten bei Rückkehr zur Startseite neu laden
 watch(() => route.path, (newPath) => {
   if (newPath === '/') {
     loadHistory()
@@ -539,28 +539,28 @@ watch(() => route.path, (newPath) => {
 })
 
 onMounted(async () => {
-  // 确保 DOM 渲染完成后再加载数据
+  // Sicherstellen, dass DOM-Rendering abgeschlossen ist, bevor Daten geladen werden
   await nextTick()
   await loadHistory()
   
-  // 等待 DOM 渲染后初始化观察器
+  // Nach DOM-Rendering Observer initialisieren
   setTimeout(() => {
     initObserver()
   }, 100)
 })
 
-// 如果使用 keep-alive，在组件激活时重新加载数据
+// Bei Verwendung von keep-alive, Daten bei Komponentenaktivierung neu laden
 onActivated(() => {
   loadHistory()
 })
 
 onUnmounted(() => {
-  // 清理 Intersection Observer
+  // Intersection Observer bereinigen
   if (observer) {
     observer.disconnect()
     observer = null
   }
-  // 清理防抖定时器
+  // Entprellungs-Timer bereinigen
   if (expandDebounceTimer) {
     clearTimeout(expandDebounceTimer)
     expandDebounceTimer = null
@@ -569,7 +569,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 容器 */
+/* Container */
 .history-database {
   position: relative;
   width: 100%;
@@ -579,13 +579,13 @@ onUnmounted(() => {
   overflow: visible;
 }
 
-/* 无项目时简化显示 */
+/* Vereinfachte Anzeige ohne Projekte */
 .history-database.no-projects {
   min-height: auto;
   padding: 40px 0 20px;
 }
 
-/* 技术网格背景 */
+/* Technischer Gitterhintergrund */
 .tech-grid-bg {
   position: absolute;
   top: 0;
@@ -596,7 +596,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* 使用CSS背景图案创建固定间距的正方形网格 */
+/* CSS-Hintergrundmuster für quadratisches Raster mit festem Abstand */
 .grid-pattern {
   position: absolute;
   top: 0;
@@ -607,7 +607,7 @@ onUnmounted(() => {
     linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   background-size: 50px 50px;
-  /* 从左上角开始定位，高度变化时只在底部扩展，不影响已有网格位置 */
+  /* Positionierung ab oberer linker Ecke, bei Höhenänderung nur am unteren Rand erweitern, bestehende Rasterposition bleibt unverändert */
   background-position: top left;
 }
 
@@ -623,7 +623,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* 标题区域 */
+/* Titelbereich */
 .section-header {
   position: relative;
   z-index: 100;
@@ -651,7 +651,7 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
-/* 卡片容器 */
+/* Kartencontainer */
 .cards-container {
   position: relative;
   display: flex;
@@ -659,10 +659,10 @@ onUnmounted(() => {
   align-items: flex-start;
   padding: 0 40px;
   transition: min-height 700ms cubic-bezier(0.23, 1, 0.32, 1);
-  /* min-height 由 JS 动态计算，根据卡片数量自适应 */
+  /* min-height wird durch JS dynamisch berechnet, passt sich an Kartenanzahl an */
 }
 
-/* 项目卡片 */
+/* Projektkarte */
 .project-card {
   position: absolute;
   width: 280px;
@@ -685,7 +685,7 @@ onUnmounted(() => {
   z-index: 1000 !important;
 }
 
-/* 卡片头部 */
+/* Kartenkopf */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -703,7 +703,7 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 功能状态图标组 */
+/* Funktionsstatus-Symbolgruppe */
 .card-status-icons {
   display: flex;
   align-items: center;
@@ -720,17 +720,17 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* 不同功能的颜色 */
-.status-icon:nth-child(1).available { color: #3B82F6; } /* 图谱构建 - 蓝色 */
-.status-icon:nth-child(2).available { color: #F59E0B; } /* 环境搭建 - 橙色 */
-.status-icon:nth-child(3).available { color: #10B981; } /* 分析报告 - 绿色 */
+/* Farben für verschiedene Funktionen */
+.status-icon:nth-child(1).available { color: #3B82F6; } /* Grapherstellung - Blau */
+.status-icon:nth-child(2).available { color: #F59E0B; } /* Umgebungsaufbau - Orange */
+.status-icon:nth-child(3).available { color: #10B981; } /* Analysebericht - Grün */
 
 .status-icon.unavailable {
   color: #D1D5DB;
   opacity: 0.5;
 }
 
-/* 轮数进度显示 */
+/* Rundenfortschrittsanzeige */
 .card-progress {
   display: flex;
   align-items: center;
@@ -744,13 +744,13 @@ onUnmounted(() => {
   font-size: 0.5rem;
 }
 
-/* 进度状态颜色 */
-.card-progress.completed { color: #10B981; }    /* 已完成 - 绿色 */
-.card-progress.in-progress { color: #F59E0B; }  /* 进行中 - 橙色 */
-.card-progress.not-started { color: #9CA3AF; }  /* 未开始 - 灰色 */
+/* Fortschrittsstatus-Farben */
+.card-progress.completed { color: #10B981; }    /* Abgeschlossen - Grün */
+.card-progress.in-progress { color: #F59E0B; }  /* In Bearbeitung - Orange */
+.card-progress.not-started { color: #9CA3AF; }  /* Nicht gestartet - Grau */
 .card-status.pending { color: #9CA3AF; }
 
-/* 文件列表区域 */
+/* Dateilistenbereich */
 .card-files-wrapper {
   position: relative;
   width: 100%;
@@ -770,7 +770,7 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-/* 更多文件提示 */
+/* Hinweis für weitere Dateien */
 .files-more {
   display: flex;
   align-items: center;
@@ -800,7 +800,7 @@ onUnmounted(() => {
   border-color: #e5e7eb;
 }
 
-/* 简约文件标签样式 */
+/* Minimalistischer Datei-Tag-Stil */
 .file-tag {
   display: inline-flex;
   align-items: center;
@@ -818,7 +818,7 @@ onUnmounted(() => {
   min-width: 28px;
 }
 
-/* 低饱和度配色方案 - Morandi色系 */
+/* Niedrige Sättigung Farbschema - Morandi-Farben */
 .file-tag.pdf { background: #f2e6e6; color: #a65a5a; }
 .file-tag.doc { background: #e6eff5; color: #5a7ea6; }
 .file-tag.xls { background: #e6f2e8; color: #5aa668; }
@@ -839,7 +839,7 @@ onUnmounted(() => {
   letter-spacing: 0.1px;
 }
 
-/* 无文件时的占位 */
+/* Platzhalter wenn keine Dateien vorhanden */
 .files-empty {
   display: flex;
   align-items: center;
@@ -860,13 +860,13 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* 悬停时文件区域效果 */
+/* Dateibereich-Effekt bei Hover */
 .project-card:hover .card-files-wrapper {
   border-color: #d1d5db;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
 }
 
-/* 角落装饰 */
+/* Eckdekoration */
 .corner-mark.top-left-only {
   position: absolute;
   top: 6px;
@@ -879,7 +879,7 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-/* 卡片标题 */
+/* Kartentitel */
 .card-title {
   font-family: 'Inter', -apple-system, sans-serif;
   font-size: 0.9rem;
@@ -897,7 +897,7 @@ onUnmounted(() => {
   color: #2563EB;
 }
 
-/* 卡片描述 */
+/* Kartenbeschreibung */
 .card-desc {
   font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
@@ -911,7 +911,7 @@ onUnmounted(() => {
   -webkit-box-orient: vertical;
 }
 
-/* 卡片底部 */
+/* Kartenfußzeile */
 .card-footer {
   position: relative;
   display: flex;
@@ -925,14 +925,14 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 日期时间组合 */
+/* Datum-Uhrzeit-Kombination */
 .card-datetime {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 底部轮数进度显示 */
+/* Rundenfortschrittsanzeige im Fußbereich */
 .card-footer .card-progress {
   display: flex;
   align-items: center;
@@ -946,12 +946,12 @@ onUnmounted(() => {
   font-size: 0.5rem;
 }
 
-/* 进度状态颜色 - 底部 */
+/* Fortschrittsstatus-Farben - Fußbereich */
 .card-footer .card-progress.completed { color: #10B981; }
 .card-footer .card-progress.in-progress { color: #F59E0B; }
 .card-footer .card-progress.not-started { color: #9CA3AF; }
 
-/* 底部装饰线 */
+/* Untere Zierlinie */
 .card-bottom-line {
   position: absolute;
   bottom: 0;
@@ -967,7 +967,7 @@ onUnmounted(() => {
   width: 100%;
 }
 
-/* 空状态 */
+/* Leerzustand */
 .empty-state, .loading-state {
   display: flex;
   flex-direction: column;
@@ -995,7 +995,7 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 响应式 */
+/* Responsiv */
 @media (max-width: 1200px) {
   .project-card {
     width: 240px;
@@ -1011,7 +1011,7 @@ onUnmounted(() => {
   }
 }
 
-/* ===== 历史回放详情弹窗样式 ===== */
+/* ===== Stil für historische Wiedergabe-Detaildialog ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1037,7 +1037,7 @@ onUnmounted(() => {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* 动画过渡 */
+/* Animationsübergang */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.3s ease;
@@ -1066,7 +1066,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* 弹窗头部 */
+/* Dialogkopf */
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -1133,7 +1133,7 @@ onUnmounted(() => {
   color: #111827;
 }
 
-/* 弹窗内容 */
+/* Dialoginhalt */
 .modal-body {
   padding: 24px 32px;
 }
@@ -1175,7 +1175,7 @@ onUnmounted(() => {
   padding-right: 4px;
 }
 
-/* 自定义滚动条样式 */
+/* Benutzerdefinierter Scrollbalken-Stil */
 .modal-files::-webkit-scrollbar {
   width: 4px;
 }
@@ -1229,7 +1229,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* 推演回放分割线 */
+/* Simulationswiedergabe-Trennlinie */
 .modal-divider {
   display: flex;
   align-items: center;
@@ -1253,7 +1253,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-/* 导航按钮 */
+/* Navigationsschaltflächen */
 .modal-actions {
   display: flex;
   gap: 16px;
@@ -1320,7 +1320,7 @@ onUnmounted(() => {
   color: #111827;
 }
 
-/* 不可回放提示 */
+/* Hinweis: Wiedergabe nicht möglich */
 .modal-playback-hint {
   display: flex;
   align-items: center;
