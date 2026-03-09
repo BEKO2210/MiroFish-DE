@@ -153,6 +153,15 @@ Standardmäßig wird die `.env` im Root-Verzeichnis gelesen und die Ports `3000 
 
 MiroFish wird angetrieben von **[OASIS](https://github.com/camel-ai/oasis)**. Wir danken dem CAMEL-AI-Team für ihren Open-Source-Beitrag!
 
+## 📝 Hinweis zu diesem Repository
+
+Dieses Repository ist eine **deutsche Übersetzung** des Originalprojekts [MiroFish von 666ghj](https://github.com/666ghj/MiroFish), um es dem deutschsprachigen Raum zugänglich zu machen. Das Originalprojekt steht unter der [AGPL-3.0 Lizenz](./LICENSE), die Modifikationen und Weiterverbreitung unter derselben Lizenz ausdrücklich erlaubt.
+
+Diese Übersetzung wird aktiv weiterentwickelt und gepflegt. Beiträge und Verbesserungsvorschläge sind jederzeit willkommen!
+
+> **Original**: [https://github.com/666ghj/MiroFish](https://github.com/666ghj/MiroFish)
+> **Lizenz**: AGPL-3.0 (identisch zum Originalprojekt)
+
 ## 📈 Projektstatistik
 
 <a href="https://www.star-history.com/#BEKO2210/MiroFish-DE&type=date&legend=top-left">
