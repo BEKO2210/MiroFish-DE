@@ -1,0 +1,3 @@
+MiroFish ist eine KI-gesteuerte Engine zur Vorhersage von Schwarmintelligenz. 
+Sie extrahiert Informationen aus der realen Welt und erstellt digitale Zwillinge.
+Agenten interagieren in dieser Simulation, um zukünftige Ereignisse zu prognostizieren.
