@@ -835,7 +835,7 @@ def stream_agent_log(report_id: str):
         })
         
     except Exception as e:
-        logger.error(f"获取Agent日志失败: {str(e)}")
+        logger.error(f"Agent-Log abrufen fehlgeschlagen: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -917,7 +917,7 @@ def stream_console_log(report_id: str):
         })
         
     except Exception as e:
-        logger.error(f"获取控制台日志失败: {str(e)}")
+        logger.error(f"Konsolen-Log abrufen fehlgeschlagen: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e),
