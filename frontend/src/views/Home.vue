@@ -24,6 +24,8 @@
             <span class="gradient-text">Erkenne die Zukunft sofort</span>
             <br>
             <span class="gradient-text">MiroFish ist jetzt auf Deutsch verfügbar.</span>
+            <br>
+            <span class="contributor-tag">Lokalisierung & Local LLM Integration von Belkis Aslani</span>
           </h1>
           
           <div class="hero-desc">
@@ -606,6 +608,19 @@ const startSimulation = () => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.contributor-tag {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #666;
+  background: #f0f0f0;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+  font-family: 'Inter', sans-serif;
 }
 
 .hero-desc {

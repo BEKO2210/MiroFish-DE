@@ -186,15 +186,20 @@ class Config:
         errors = []
         
         # Bei API-basierten Providern (nicht lokal) wird API-Key benötigt
-        if not cls.is_local_llm() and not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY nicht konfiguriert")
+        # Wir prüfen nur auf echtes Fehlen (None oder leerer String)
+        if not cls.is_local_llm():
+            if not cls.LLM_API_KEY or cls.LLM_API_KEY.strip() == "":
+                errors.append("LLM_API_KEY nicht konfiguriert")
         
-        # ZEP ist immer erforderlich
-        if not cls.ZEP_API_KEY:
+        # ZEP ist immer erforderlich für die Kern-Funktionalität
+        if not cls.ZEP_API_KEY or cls.ZEP_API_KEY.strip() == "":
             errors.append("ZEP_API_KEY nicht konfiguriert")
             
-        # Warnung statt Fehler wenn Keys maskiert sind
+        # Wenn Keys maskiert sind, geben wir nur eine Warnung aus, lassen den Start aber zu
         if cls.ZEP_API_KEY and '...****' in cls.ZEP_API_KEY:
-            print("⚠️ ZEP_API_KEY ist maskiert. Bitte im Frontend aktualisieren.")
+            print("⚠️ ZEP_API_KEY ist maskiert. Das System startet eingeschränkt.")
+            
+        if not cls.is_local_llm() and cls.LLM_API_KEY and '...****' in cls.LLM_API_KEY:
+            print("⚠️ LLM_API_KEY ist maskiert. KI-Anfragen könnten fehlschlagen.")
             
         return errors
