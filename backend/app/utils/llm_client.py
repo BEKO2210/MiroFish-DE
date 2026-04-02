@@ -72,7 +72,16 @@ class LLMClient:
         
         try:
             response = self.client.chat.completions.create(**kwargs)
+            if not response or not response.choices:
+                raise ValueError("Modell lieferte eine leere Antwort zurück (keine Choices).")
+                
             content = response.choices[0].message.content
+            if content is None:
+                # Prüfen ob es eine Refusal oder Tool-Calls gibt
+                if hasattr(response.choices[0].message, 'refusal') and response.choices[0].message.refusal:
+                    raise ValueError(f"Modell hat die Antwort verweigert: {response.choices[0].message.refusal}")
+                content = ""
+                
             # Einige Modelle (z.B. MiniMax M2.5) enthalten <think>-Überlegungen im content, diese müssen entfernt werden
             content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
             return content
@@ -131,12 +140,18 @@ class LLMClient:
                 max_tokens=10,
                 temperature=0
             )
+            
+            if not response or not response.choices:
+                raise ValueError("Keine Antwort vom Modell erhalten (leere Choices).")
+                
+            content = response.choices[0].message.content
+            
             return {
                 "status": "ok",
                 "provider": self.provider,
                 "model": self.model,
                 "base_url": self.base_url,
-                "response": response.choices[0].message.content
+                "response": content if content is not None else "Leere Antwort"
             }
         except Exception as e:
             return {

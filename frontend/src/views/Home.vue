@@ -82,6 +82,14 @@
             </div>
             
             <div v-if="showSettings" class="settings-content">
+              <!-- Mask warning -->
+              <div v-if="isConfigMasked" class="mask-warning-alert">
+                <span class="warning-icon">⚠️</span>
+                <div class="warning-text">
+                  <strong>Sicherheitshinweis:</strong> Einige API-Schlüssel sind maskiert. Bitte geben Sie Ihre Schlüssel erneut ein, um die Konfiguration zu aktualisieren.
+                </div>
+              </div>
+
               <div class="form-group">
                 <label>LLM Provider</label>
                 <select v-model="configData.llm_provider" class="settings-select">
@@ -335,6 +343,12 @@ const configData = ref({
   local_llm_model_name: '',
   local_llm_api_key: '',
   zep_api_key: ''
+})
+
+// Check if any required key is masked
+const isConfigMasked = computed(() => {
+  return (configData.value.zep_api_key && configData.value.zep_api_key.includes('...****')) ||
+         (configData.value.llm_provider === 'openai' && configData.value.llm_api_key && configData.value.llm_api_key.includes('...****'))
 })
 
 // Fetch system status
@@ -859,6 +873,33 @@ const startSimulation = () => {
   background: #ffebee;
   color: #c62828;
   border: 1px solid #ffcdd2;
+}
+
+/* Mask Warning Alert */
+.mask-warning-alert {
+  background: #fff3e0;
+  border: 1px solid #ffe0b2;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.warning-icon {
+  font-size: 18px;
+}
+
+.warning-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #e65100;
+}
+
+.warning-text strong {
+  display: block;
+  margin-bottom: 2px;
 }
 
 .section-title {

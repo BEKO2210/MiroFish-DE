@@ -153,6 +153,11 @@ class Config:
                 new_val = str(config_data[config_key])
                 if new_val == '***' or '...****' in new_val:
                     continue
+                
+                # Auto-Korrektur für lokale URLs: /v1 anhängen falls vergessen
+                if env_key == 'LOCAL_LLM_BASE_URL' and new_val.startswith('http') and not new_val.endswith('/v1'):
+                    new_val = new_val.rstrip('/') + '/v1'
+                    
                 new_lines.append(f"{env_key}={new_val}\n")
                 setattr(cls, env_key, new_val)
         
@@ -166,6 +171,11 @@ class Config:
                 new_val = str(config_data[config_key])
                 if new_val == '***' or '...****' in new_val:
                     continue
+                
+                # Auch hier Auto-Korrektur
+                if env_key == 'LOCAL_LLM_BASE_URL' and new_val.startswith('http') and not new_val.endswith('/v1'):
+                    new_val = new_val.rstrip('/') + '/v1'
+                    
                 os.environ[env_key] = new_val
         
         return True
@@ -177,10 +187,14 @@ class Config:
         
         # Bei API-basierten Providern (nicht lokal) wird API-Key benötigt
         if not cls.is_local_llm() and not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY nicht konfiguriert (für OpenAI/Cloud-Provider erforderlich)")
+            errors.append("LLM_API_KEY nicht konfiguriert")
         
-        # ZEP ist immer erforderlich (unabhängig vom LLM)
+        # ZEP ist immer erforderlich
         if not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY nicht konfiguriert")
+            
+        # Warnung statt Fehler wenn Keys maskiert sind
+        if cls.ZEP_API_KEY and '...****' in cls.ZEP_API_KEY:
+            print("⚠️ ZEP_API_KEY ist maskiert. Bitte im Frontend aktualisieren.")
             
         return errors
