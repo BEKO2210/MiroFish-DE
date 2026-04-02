@@ -8,6 +8,18 @@
 </br>
 <em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
 
+## 🚀 Recent Updates (April 2026)
+
+MiroFish has been significantly upgraded for better flexibility and accessibility:
+
+*   **🇩🇪 Full German Localization:** The entire UI and documentation are now available in German.
+*   **🏠 Local LLM Support (LM Studio & Ollama):** MiroFish now supports local LLM providers. Run your own models (e.g., Llama 3, Qwen, WhiteRabbitNeo) privately with zero API costs.
+*   **🧠 DeepSeek & Reasoning Support:** Enhanced parsing for models using `<think>` tags, ensuring clean processing of complex reasoning chains.
+*   **⚙️ Dynamic Configuration:** You can now change LLM providers and test API connectivity directly from the web dashboard.
+*   **🛠️ System Stability:** Fully validated end-to-end workflow (Ontology -> Graph -> Profiles -> Simulation) for maximum reliability.
+
+---
+
 <a href="https://www.shanda.com/" target="_blank"><img src="./static/image/shanda_logo.png" alt="666ghj%2MiroFish | Shanda" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/MiroFish?style=flat-square&color=DAA520)](https://github.com/666ghj/MiroFish/stargazers)

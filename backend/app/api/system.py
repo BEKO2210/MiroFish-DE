@@ -10,6 +10,13 @@ from ..config import Config
 from ..utils.llm_client import LLMClient
 
 
+def mask_key(key):
+    if not key or key == 'not-needed-for-local-llm' or key == 'lm-studio':
+        return key
+    if len(key) > 8:
+        return f"{key[:4]}...****{key[-4:]}"
+    return "***"
+
 @graph_bp.route('/system/status', methods=['GET'])
 def system_status():
     """System-Status abrufen"""
@@ -24,13 +31,13 @@ def system_status():
             # Detaillierte Konfiguration für das Frontend
             'config': {
                 'llm_provider': Config.LLM_PROVIDER,
-                'llm_api_key': Config.LLM_API_KEY,
+                'llm_api_key': mask_key(Config.LLM_API_KEY),
                 'llm_base_url': Config.LLM_BASE_URL,
                 'llm_model_name': Config.LLM_MODEL_NAME,
                 'local_llm_base_url': Config.LOCAL_LLM_BASE_URL,
                 'local_llm_model_name': Config.LOCAL_LLM_MODEL_NAME,
-                'local_llm_api_key': Config.LOCAL_LLM_API_KEY,
-                'zep_api_key': Config.ZEP_API_KEY
+                'local_llm_api_key': mask_key(Config.LOCAL_LLM_API_KEY),
+                'zep_api_key': mask_key(Config.ZEP_API_KEY)
             }
         }
     })

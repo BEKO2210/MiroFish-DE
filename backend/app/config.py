@@ -131,10 +131,17 @@ class Config:
                 # Prüfen ob dieser Key in unserem Mapping ist
                 config_key = next((k for k, v in mapping.items() if v == key), None)
                 if config_key and config_key in config_data:
-                    new_lines.append(f"{key}={config_data[config_key]}\n")
+                    new_val = str(config_data[config_key])
+                    # Maskierte Werte ignorieren
+                    if new_val == '***' or '...****' in new_val:
+                        new_lines.append(line)
+                        updated_keys.add(key)
+                        continue
+                        
+                    new_lines.append(f"{key}={new_val}\n")
                     updated_keys.add(key)
                     # Auch Klassenattribut aktualisieren
-                    setattr(cls, key, config_data[config_key])
+                    setattr(cls, key, new_val)
                 else:
                     new_lines.append(line)
             else:
@@ -143,8 +150,11 @@ class Config:
         # Neue Schlüssel hinzufügen
         for config_key, env_key in mapping.items():
             if env_key not in updated_keys and config_key in config_data:
-                new_lines.append(f"{env_key}={config_data[config_key]}\n")
-                setattr(cls, env_key, config_data[config_key])
+                new_val = str(config_data[config_key])
+                if new_val == '***' or '...****' in new_val:
+                    continue
+                new_lines.append(f"{env_key}={new_val}\n")
+                setattr(cls, env_key, new_val)
         
         # In .env schreiben
         with open(env_path, 'w', encoding='utf-8') as f:
@@ -153,7 +163,10 @@ class Config:
         # Umgebungsvariablen für aktuellen Prozess aktualisieren
         for config_key, env_key in mapping.items():
             if config_key in config_data:
-                os.environ[env_key] = str(config_data[config_key])
+                new_val = str(config_data[config_key])
+                if new_val == '***' or '...****' in new_val:
+                    continue
+                os.environ[env_key] = new_val
         
         return True
 

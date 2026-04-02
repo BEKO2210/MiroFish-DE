@@ -8,6 +8,18 @@ Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
 </br>
 <em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
 
+## 🚀 Neuigkeiten & Aktuelle Updates (April 2026)
+
+MiroFish wurde massiv erweitert, um flexibler und benutzerfreundlicher zu sein:
+
+*   **🇩🇪 Vollständige deutsche Lokalisierung:** Die gesamte Benutzeroberfläche und Dokumentation ist jetzt auf Deutsch verfügbar.
+*   **🏠 Lokale LLM-Unterstützung (LM Studio & Ollama):** MiroFish unterstützt jetzt lokale LLM-Provider. Nutze deine eigenen Modelle (z.B. Llama 3, Qwen, WhiteRabbitNeo) privat und ohne API-Kosten.
+*   **🧠 DeepSeek & Reasoning Support:** Optimiertes Parsing für Modelle mit `<think>`-Tags, was eine saubere Verarbeitung komplexer Denkprozesse ermöglicht.
+*   **⚙️ Dynamische Konfiguration:** LLM-Provider und API-Einstellungen können nun direkt über das Web-Dashboard geändert und getestet werden.
+*   **🛠️ Systemstabilität:** Vollständige Validierung der Workflow-Kette (Ontologie -> Graph -> Profile -> Simulation) für maximale Zuverlässigkeit.
+
+---
+
 [![GitHub Stars](https://img.shields.io/github/stars/BEKO2210/MiroFish-DE?style=flat-square&color=DAA520)](https://github.com/BEKO2210/MiroFish-DE/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/BEKO2210/MiroFish-DE?style=flat-square)](https://github.com/BEKO2210/MiroFish-DE/watchers)
 [![GitHub Forks](https://img.shields.io/github/forks/BEKO2210/MiroFish-DE?style=flat-square)](https://github.com/BEKO2210/MiroFish-DE/network)
