@@ -777,33 +777,39 @@ const startSimulation = () => {
 /* Settings Panel */
 .settings-panel {
   border: 1px solid #eaeaea;
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 30px;
   overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
 }
 
 .settings-header {
-  padding: 12px 20px;
-  background: #f1f1f1;
+  padding: 18px 24px;
+  background: #f8f9fa;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
   transition: background 0.2s;
+  border-left: 5px solid #ff5722;
 }
 
 .settings-header:hover {
-  background: #e9e9e9;
+  background: #f1f1f1;
 }
 
 .settings-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: -0.2px;
 }
 
 .toggle-icon {
-  font-size: 10px;
-  color: #666;
+  font-size: 12px;
+  color: #ff5722;
+  font-weight: bold;
 }
 
 .settings-content {
