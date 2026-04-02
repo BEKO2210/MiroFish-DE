@@ -55,10 +55,95 @@
         <!-- Left Panel: Status & Steps -->
         <div class="left-panel">
           <div class="panel-header">
-            <span class="status-dot">■</span> Systemstatus
+            <span class="status-dot" :class="{ 'status-red': !systemStatus.ready }">■</span> Systemstatus: {{ systemStatus.ready ? 'Bereit' : 'Konfiguration erforderlich' }}
           </div>
           
-          <h2 class="section-title">Bereit</h2>
+          <h2 class="section-title">Status</h2>
+          <div class="system-details-card">
+            <div class="detail-item">
+              <span class="detail-label">Provider:</span>
+              <span class="detail-value">{{ systemStatus.llm_provider }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Modell:</span>
+              <span class="detail-value">{{ systemStatus.llm_model }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Local Mode:</span>
+              <span class="detail-value">{{ systemStatus.is_local_llm ? 'Aktiv' : 'Deaktiviert' }}</span>
+            </div>
+          </div>
+
+          <!-- LLM Settings Panel -->
+          <div class="settings-panel">
+            <div class="settings-header" @click="showSettings = !showSettings">
+              <span class="settings-title">⚙️ LLM-Konfiguration (LM Studio / Ollama / OpenAI)</span>
+              <span class="toggle-icon">{{ showSettings ? '▲' : '▼' }}</span>
+            </div>
+            
+            <div v-if="showSettings" class="settings-content">
+              <div class="form-group">
+                <label>LLM Provider</label>
+                <select v-model="configData.llm_provider" class="settings-select">
+                  <option value="openai">OpenAI (Cloud)</option>
+                  <option value="lmstudio">LM Studio (Lokal)</option>
+                  <option value="ollama">Ollama (Lokal)</option>
+                  <option value="local">Generischer lokaler Endpunkt</option>
+                </select>
+              </div>
+
+              <!-- Cloud Settings -->
+              <div v-if="configData.llm_provider === 'openai'" class="provider-settings">
+                <div class="form-group">
+                  <label>API Key</label>
+                  <input type="password" v-model="configData.llm_api_key" placeholder="sk-..." class="settings-input">
+                </div>
+                <div class="form-group">
+                  <label>Base URL</label>
+                  <input type="text" v-model="configData.llm_base_url" placeholder="https://api.openai.com/v1" class="settings-input">
+                </div>
+                <div class="form-group">
+                  <label>Modell-Name</label>
+                  <input type="text" v-model="configData.llm_model_name" placeholder="gpt-4o-mini" class="settings-input">
+                </div>
+              </div>
+
+              <!-- Local Settings -->
+              <div v-else class="provider-settings">
+                <div class="form-group">
+                  <label>Local Base URL</label>
+                  <input type="text" v-model="configData.local_llm_base_url" placeholder="http://localhost:1234/v1" class="settings-input">
+                </div>
+                <div class="form-group">
+                  <label>Local Modell-Name</label>
+                  <input type="text" v-model="configData.local_llm_model_name" placeholder="Modell-Name aus LM Studio / Ollama" class="settings-input">
+                </div>
+                <div class="form-group">
+                  <label>Local API Key (Optional)</label>
+                  <input type="password" v-model="configData.local_llm_api_key" placeholder="Meist nicht nötig für lokal" class="settings-input">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Zep API Key (Erforderlich)</label>
+                <input type="password" v-model="configData.zep_api_key" placeholder="Zep Cloud/Local API Key" class="settings-input">
+              </div>
+
+              <div class="settings-actions">
+                <button @click="saveSettings" class="save-btn" :disabled="saving">
+                  {{ saving ? 'Speichere...' : 'Speichern' }}
+                </button>
+                <button @click="testLlmConnection" class="test-btn" :disabled="testing">
+                  {{ testing ? 'Teste...' : 'Verbindung testen' }}
+                </button>
+              </div>
+
+              <div v-if="testResult" :class="['test-message', testResult.success ? 'success' : 'error']">
+                {{ testResult.message }}
+              </div>
+            </div>
+          </div>
+          
           <p class="section-desc">
             Vorhersage-Engine im Standby. Lade unstrukturierte Daten hoch, um die Simulationssequenz zu initialisieren.
           </p>
@@ -209,9 +294,10 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import service from '../api/index'
 
 const router = useRouter()
 
@@ -227,6 +313,94 @@ const files = ref([])
 const loading = ref(false)
 const error = ref('')
 const isDragOver = ref(false)
+
+// System & Settings State
+const showSettings = ref(false)
+const saving = ref(false)
+const testing = ref(false)
+const testResult = ref(null)
+const systemStatus = ref({
+  ready: false,
+  llm_provider: '-',
+  llm_model: '-',
+  is_local_llm: false
+})
+
+const configData = ref({
+  llm_provider: 'openai',
+  llm_api_key: '',
+  llm_base_url: '',
+  llm_model_name: '',
+  local_llm_base_url: '',
+  local_llm_model_name: '',
+  local_llm_api_key: '',
+  zep_api_key: ''
+})
+
+// Fetch system status
+const fetchStatus = async () => {
+  try {
+    const res = await service.get('/api/graph/system/status')
+    if (res.data && res.data.success) {
+      const data = res.data.data
+      systemStatus.value = {
+        ready: true,
+        llm_provider: data.llm_provider,
+        llm_model: data.llm_model,
+        is_local_llm: data.is_local_llm
+      }
+      // Populate config form
+      if (data.config) {
+        configData.value = { ...data.config }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch system status:', err)
+    systemStatus.value.ready = false
+  }
+}
+
+// Save settings
+const saveSettings = async () => {
+  saving.value = true
+  try {
+    const res = await service.post('/api/graph/system/config', configData.value)
+    if (res.data && res.data.success) {
+      alert('Konfiguration gespeichert!')
+      await fetchStatus()
+    }
+  } catch (err) {
+    alert('Fehler beim Speichern: ' + (err.response?.data?.error || err.message))
+  } finally {
+    saving.value = false
+  }
+}
+
+// Test LLM Connection
+const testLlmConnection = async () => {
+  testing.value = true
+  testResult.value = null
+  try {
+    const res = await service.post('/api/graph/system/test-llm')
+    if (res.data && res.data.success) {
+      testResult.value = {
+        success: true,
+        message: `Erfolg! Modell antwortet: "${res.data.data.response}"`
+      }
+    }
+  } catch (err) {
+    testResult.value = {
+      success: false,
+      message: 'Test fehlgeschlagen: ' + (err.response?.data?.error || err.message)
+    }
+  } finally {
+    testing.value = false
+  }
+}
+
+onMounted(() => {
+  fetchStatus()
+})
 
 // File input ref
 const fileInput = ref(null)
@@ -534,6 +708,157 @@ const startSimulation = () => {
 
 .status-dot {
   color: #4caf50;
+}
+
+.status-red {
+  color: #f44336 !important;
+}
+
+/* System Details Card */
+.system-details-card {
+  background: #f8f9fa;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.detail-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* Settings Panel */
+.settings-panel {
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  overflow: hidden;
+}
+
+.settings-header {
+  padding: 12px 20px;
+  background: #f1f1f1;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.settings-header:hover {
+  background: #e9e9e9;
+}
+
+.settings-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toggle-icon {
+  font-size: 10px;
+  color: #666;
+}
+
+.settings-content {
+  padding: 20px;
+  background: #fff;
+  border-top: 1px solid #eaeaea;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #555;
+}
+
+.settings-select, .settings-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.settings-select:focus, .settings-input:focus {
+  outline: none;
+  border-color: #ff5722;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.save-btn, .test-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.save-btn {
+  background: #ff5722;
+  color: white;
+}
+
+.test-btn {
+  background: #333;
+  color: white;
+}
+
+.save-btn:disabled, .test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.test-message {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.test-message.success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #c8e6c9;
+}
+
+.test-message.error {
+  background: #ffebee;
+  color: #c62828;
+  border: 1px solid #ffcdd2;
 }
 
 .section-title {

@@ -97,6 +97,67 @@ class Config:
         return cls.LLM_PROVIDER in ('lmstudio', 'ollama', 'local')
     
     @classmethod
+    def save(cls, config_data: dict):
+        """Konfiguration in .env-Datei speichern und aktuelle Klasse aktualisieren"""
+        # Aktuelle .env laden oder neue erstellen
+        env_path = project_root_env
+        
+        # Mapping von config_data keys zu .env keys
+        mapping = {
+            'llm_provider': 'LLM_PROVIDER',
+            'llm_api_key': 'LLM_API_KEY',
+            'llm_base_url': 'LLM_BASE_URL',
+            'llm_model_name': 'LLM_MODEL_NAME',
+            'local_llm_base_url': 'LOCAL_LLM_BASE_URL',
+            'local_llm_model_name': 'LOCAL_LLM_MODEL_NAME',
+            'local_llm_api_key': 'LOCAL_LLM_API_KEY',
+            'zep_api_key': 'ZEP_API_KEY'
+        }
+        
+        # Bestehende .env lesen
+        lines = []
+        if os.path.exists(env_path):
+            with open(env_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+        
+        # Schlüssel aktualisieren oder hinzufügen
+        updated_keys = set()
+        new_lines = []
+        
+        for line in lines:
+            line_strip = line.strip()
+            if line_strip and not line_strip.startswith('#') and '=' in line_strip:
+                key = line_strip.split('=')[0].strip()
+                # Prüfen ob dieser Key in unserem Mapping ist
+                config_key = next((k for k, v in mapping.items() if v == key), None)
+                if config_key and config_key in config_data:
+                    new_lines.append(f"{key}={config_data[config_key]}\n")
+                    updated_keys.add(key)
+                    # Auch Klassenattribut aktualisieren
+                    setattr(cls, key, config_data[config_key])
+                else:
+                    new_lines.append(line)
+            else:
+                new_lines.append(line)
+        
+        # Neue Schlüssel hinzufügen
+        for config_key, env_key in mapping.items():
+            if env_key not in updated_keys and config_key in config_data:
+                new_lines.append(f"{env_key}={config_data[config_key]}\n")
+                setattr(cls, env_key, config_data[config_key])
+        
+        # In .env schreiben
+        with open(env_path, 'w', encoding='utf-8') as f:
+            f.writelines(new_lines)
+            
+        # Umgebungsvariablen für aktuellen Prozess aktualisieren
+        for config_key, env_key in mapping.items():
+            if config_key in config_data:
+                os.environ[env_key] = str(config_data[config_key])
+        
+        return True
+
+    @classmethod
     def validate(cls):
         """Erforderliche Konfiguration validieren"""
         errors = []
