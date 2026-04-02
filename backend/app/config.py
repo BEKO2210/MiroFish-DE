@@ -27,10 +27,22 @@ class Config:
     # JSON-Konfiguration - ASCII-Escaping deaktivieren, Unicode direkt anzeigen (statt \uXXXX-Format)
     JSON_AS_ASCII = False
     
+    # LLM-Provider: 'openai', 'lmstudio', 'ollama', 'local'
+    # 'openai' = OpenAI API (oder kompatible APIs wie Azure, DashScope)
+    # 'lmstudio' = LM Studio lokaler Server (OpenAI-kompatibel)
+    # 'ollama' = Ollama lokaler Server (OpenAI-kompatibel)
+    # 'local' = Generischer lokaler Endpunkt
+    LLM_PROVIDER = os.environ.get('LLM_PROVIDER', 'openai').lower()
+    
     # LLM-Konfiguration (einheitliches OpenAI-Format)
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+    
+    # Lokale LLM-Konfiguration (für LM Studio/Ollama)
+    LOCAL_LLM_BASE_URL = os.environ.get('LOCAL_LLM_BASE_URL', 'http://localhost:1234/v1')
+    LOCAL_LLM_MODEL_NAME = os.environ.get('LOCAL_LLM_MODEL_NAME', 'whiterabbitneo-2.5-qwen-2.5-coder-7b')
+    LOCAL_LLM_API_KEY = os.environ.get('LOCAL_LLM_API_KEY', 'not-needed-for-local-llm')
     
     # Zep-Konfiguration
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
@@ -64,12 +76,37 @@ class Config:
     REPORT_AGENT_TEMPERATURE = float(os.environ.get('REPORT_AGENT_TEMPERATURE', '0.5'))
     
     @classmethod
+    def get_llm_config(cls):
+        """LLM-Konfiguration basierend auf Provider zurückgeben"""
+        if cls.LLM_PROVIDER in ('lmstudio', 'ollama', 'local'):
+            return {
+                'api_key': cls.LOCAL_LLM_API_KEY,
+                'base_url': cls.LOCAL_LLM_BASE_URL,
+                'model': cls.LOCAL_LLM_MODEL_NAME
+            }
+        else:  # openai oder andere API-basierte Provider
+            return {
+                'api_key': cls.LLM_API_KEY,
+                'base_url': cls.LLM_BASE_URL,
+                'model': cls.LLM_MODEL_NAME
+            }
+    
+    @classmethod
+    def is_local_llm(cls):
+        """Prüfen ob ein lokales LLM verwendet wird"""
+        return cls.LLM_PROVIDER in ('lmstudio', 'ollama', 'local')
+    
+    @classmethod
     def validate(cls):
         """Erforderliche Konfiguration validieren"""
         errors = []
-        if not cls.LLM_API_KEY:
-            errors.append("LLM_API_KEY nicht konfiguriert")
+        
+        # Bei API-basierten Providern (nicht lokal) wird API-Key benötigt
+        if not cls.is_local_llm() and not cls.LLM_API_KEY:
+            errors.append("LLM_API_KEY nicht konfiguriert (für OpenAI/Cloud-Provider erforderlich)")
+        
+        # ZEP ist immer erforderlich (unabhängig vom LLM)
         if not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY nicht konfiguriert")
+            
         return errors
-

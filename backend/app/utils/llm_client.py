@@ -1,6 +1,7 @@
 """
 LLM-Client-Wrapper
 Einheitliche Verwendung des OpenAI-Formats
+Unterstützt: OpenAI, LM Studio, Ollama und andere OpenAI-kompatible APIs
 """
 
 import json
@@ -12,7 +13,7 @@ from ..config import Config
 
 
 class LLMClient:
-    """LLM客户端"""
+    """LLM客户端 - Unterstützt Cloud- und lokale LLMs"""
     
     def __init__(
         self,
@@ -20,12 +21,20 @@ class LLMClient:
         base_url: Optional[str] = None,
         model: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model = model or Config.LLM_MODEL_NAME
+        # Konfiguration basierend auf Provider laden
+        llm_config = Config.get_llm_config()
+        
+        self.api_key = api_key or llm_config['api_key']
+        self.base_url = base_url or llm_config['base_url']
+        self.model = model or llm_config['model']
+        self.provider = Config.LLM_PROVIDER
+        
+        # Für lokale LLMs: Dummy-API-Key verwenden falls nicht gesetzt
+        if Config.is_local_llm() and (not self.api_key or self.api_key == 'not-needed-for-local-llm'):
+            self.api_key = 'lm-studio'  # LM Studio akzeptiert beliebigen String
         
         if not self.api_key:
-            raise ValueError("LLM_API_KEY nicht konfiguriert")
+            raise ValueError(f"LLM_API_KEY nicht konfiguriert (Provider: {self.provider})")
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -61,11 +70,15 @@ class LLMClient:
         if response_format:
             kwargs["response_format"] = response_format
         
-        response = self.client.chat.completions.create(**kwargs)
-        content = response.choices[0].message.content
-        # Einige Modelle (z.B. MiniMax M2.5) enthalten <think>-Überlegungen im content, diese müssen entfernt werden
-        content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
-        return content
+        try:
+            response = self.client.chat.completions.create(**kwargs)
+            content = response.choices[0].message.content
+            # Einige Modelle (z.B. MiniMax M2.5) enthalten <think>-Überlegungen im content, diese müssen entfernt werden
+            content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
+            return content
+        except Exception as e:
+            # Detaillierte Fehlermeldung für Debugging
+            raise Exception(f"LLM-Anfrage fehlgeschlagen (Provider: {self.provider}, URL: {self.base_url}, Modell: {self.model}): {str(e)}")
     
     def chat_json(
         self,
@@ -100,4 +113,36 @@ class LLMClient:
             return json.loads(cleaned_response)
         except json.JSONDecodeError:
             raise ValueError(f"Ungültiges JSON-Format von LLM zurückgegeben: {cleaned_response}")
-
+    
+    def test_connection(self) -> Dict[str, Any]:
+        """
+        Testet die Verbindung zum LLM und gibt Status-Informationen zurück
+        
+        Returns:
+            Dict mit Status, Provider, Modell und ggf. Fehlermeldung
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "Say 'OK' and nothing else."}
+                ],
+                max_tokens=10,
+                temperature=0
+            )
+            return {
+                "status": "ok",
+                "provider": self.provider,
+                "model": self.model,
+                "base_url": self.base_url,
+                "response": response.choices[0].message.content
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "provider": self.provider,
+                "model": self.model,
+                "base_url": self.base_url,
+                "error": str(e)
+            }
