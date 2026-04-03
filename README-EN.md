@@ -12,11 +12,11 @@
 
 MiroFish has been significantly upgraded for better flexibility and accessibility:
 
+*   **📁 Local Obsidian Integration (New):** Store your knowledge graph locally as Markdown files in an Obsidian vault structure. Ideal for maximum privacy and human-readability of agent memories.
+*   **🧠 Hybrid Memory Provider:** Combine the speed of Zep Cloud with the local persistence of Markdown files.
 *   **🇩🇪 Full German Localization:** The entire UI and documentation are now available in German.
 *   **🏠 Local LLM Support (LM Studio & Ollama):** MiroFish now supports local LLM providers. Run your own models (e.g., Llama 3, Qwen, WhiteRabbitNeo) privately with zero API costs.
-*   **🧠 DeepSeek & Reasoning Support:** Enhanced parsing for models using `<think>` tags, ensuring clean processing of complex reasoning chains.
-*   **⚙️ Dynamic Configuration:** You can now change LLM providers and test API connectivity directly from the web dashboard.
-*   **🛠️ System Stability:** Fully validated end-to-end workflow (Ontology -> Graph -> Profiles -> Simulation) for maximum reliability.
+*   **⚙️ Dynamic Configuration:** Memory providers, LLM providers, and API settings can now be changed and tested directly from the web dashboard.
 
 ---
 
@@ -134,7 +134,11 @@ LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
 
-# Zep Cloud Configuration
+# Memory Provider Configuration ('zep', 'obsidian', or 'hybrid')
+# obsidian stores everything locally in Markdown files (zero cloud costs for memory)
+MEMORY_PROVIDER=zep
+
+# Zep Cloud Configuration (only needed if MEMORY_PROVIDER=zep or hybrid)
 # Free monthly quota is sufficient for simple usage: https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
 ```

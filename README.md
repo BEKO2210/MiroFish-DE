@@ -12,11 +12,11 @@ Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
 
 MiroFish wurde massiv erweitert, um flexibler und benutzerfreundlicher zu sein:
 
+*   **📁 Lokale Obsidian-Integration (Neu):** Speichere deinen Wissensgraphen lokal als Markdown-Dateien in einer Obsidian-Vault-Struktur. Ideal für maximale Privatsphäre und menschliche Lesbarkeit des Agenten-Gedächtnisses.
+*   **🧠 Hybrid-Memory-Provider:** Kombiniere die Geschwindigkeit der Zep Cloud mit der lokalen Persistenz von Markdown-Dateien.
 *   **🇩🇪 Vollständige deutsche Lokalisierung:** Die gesamte Benutzeroberfläche und Dokumentation ist jetzt auf Deutsch verfügbar.
 *   **🏠 Lokale LLM-Unterstützung (LM Studio & Ollama):** MiroFish unterstützt jetzt lokale LLM-Provider. Nutze deine eigenen Modelle (z.B. Llama 3, Qwen, WhiteRabbitNeo) privat und ohne API-Kosten.
-*   **🧠 DeepSeek & Reasoning Support:** Optimiertes Parsing für Modelle mit `<think>`-Tags, was eine saubere Verarbeitung komplexer Denkprozesse ermöglicht.
-*   **⚙️ Dynamische Konfiguration:** LLM-Provider und API-Einstellungen können nun direkt über das Web-Dashboard geändert und getestet werden.
-*   **🛠️ Systemstabilität:** Vollständige Validierung der Workflow-Kette (Ontologie -> Graph -> Profile -> Simulation) für maximale Zuverlässigkeit.
+*   **⚙️ Dynamische Konfiguration:** Memory-Provider, LLM-Provider und API-Einstellungen können nun direkt über das Web-Dashboard geändert und getestet werden.
 
 ---
 
@@ -107,7 +107,11 @@ LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
 
-# Zep Cloud Konfiguration
+# Memory-Provider Konfiguration ('zep', 'obsidian' oder 'hybrid')
+# obsidian speichert alles lokal in Markdown-Dateien (keine Cloud-Kosten für Memory)
+MEMORY_PROVIDER=zep
+
+# Zep Cloud Konfiguration (nur bei MEMORY_PROVIDER=zep oder hybrid nötig)
 # Kostenloses Kontingent pro Monat für einfache Nutzung: https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
 ```
