@@ -44,6 +44,17 @@ class Config:
     LOCAL_LLM_MODEL_NAME = os.environ.get('LOCAL_LLM_MODEL_NAME', 'whiterabbitneo-2.5-qwen-2.5-coder-7b')
     LOCAL_LLM_API_KEY = os.environ.get('LOCAL_LLM_API_KEY', 'not-needed-for-local-llm')
     
+    # Memory-Provider: 'zep', 'obsidian', 'hybrid'
+    MEMORY_PROVIDER = os.environ.get('MEMORY_PROVIDER', 'zep').lower()
+    
+    # Obsidian-Konfiguration
+    OBSIDIAN_VAULT_ROOT = os.environ.get('OBSIDIAN_VAULT_ROOT') # Standardmäßig in Simulationen-Ordner
+    OBSIDIAN_AUTO_INDEX = os.environ.get('OBSIDIAN_AUTO_INDEX', 'True').lower() == 'true'
+    
+    # Hybrid-Konfiguration
+    HYBRID_INDEX_MODE = os.environ.get('HYBRID_INDEX_MODE', 'simple') # 'simple' (JSON) oder 'sqlite'
+    HYBRID_EMBEDDINGS_ENABLED = os.environ.get('HYBRID_EMBEDDINGS_ENABLED', 'False').lower() == 'true'
+    
     # Zep-Konfiguration
     ZEP_API_KEY = os.environ.get('ZEP_API_KEY')
     
@@ -111,7 +122,8 @@ class Config:
             'local_llm_base_url': 'LOCAL_LLM_BASE_URL',
             'local_llm_model_name': 'LOCAL_LLM_MODEL_NAME',
             'local_llm_api_key': 'LOCAL_LLM_API_KEY',
-            'zep_api_key': 'ZEP_API_KEY'
+            'zep_api_key': 'ZEP_API_KEY',
+            'memory_provider': 'MEMORY_PROVIDER'
         }
         
         # Bestehende .env lesen

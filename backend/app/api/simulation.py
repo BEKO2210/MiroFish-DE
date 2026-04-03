@@ -56,7 +56,7 @@ def get_graph_entities(graph_id: str):
         enrich: Ob zugehörige Kanteninformationen abgerufen werden sollen (Standard: true)
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY nicht konfiguriert"
@@ -93,7 +93,7 @@ def get_graph_entities(graph_id: str):
 def get_entity_detail(graph_id: str, entity_uuid: str):
     """Detailinformationen einer einzelnen Entität abrufen"""
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY nicht konfiguriert"
@@ -126,7 +126,7 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
 def get_entities_by_type(graph_id: str, entity_type: str):
     """Alle Entitäten eines bestimmten Typs abrufen"""
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY nicht konfiguriert"

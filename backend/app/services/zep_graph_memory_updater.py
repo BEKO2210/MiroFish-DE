@@ -200,49 +200,30 @@ class AgentActivity:
 
 class ZepGraphMemoryUpdater:
     """
-    Zep-Graph-Speicher-Updater
+    Memory-Graph-Speicher-Updater (früher ZepGraphMemoryUpdater)
     
-    Überwacht Simulations-Actions-Logdateien, aktualisiert neue Agent-Aktivitäten in Echtzeit in den Zep-Graphen.
-    Nach Plattform gruppiert, Batch-Sendung an Zep nach Erreichen von BATCH_SIZE Aktivitäten.
-    
-    Alle bedeutungsvollen Verhaltensweisen werden in Zep aktualisiert, action_args enthält vollständige Kontextinformationen:
-    - Originalbeitragstext von Likes/Dislikes
-    - Originalbeitragstext von Reposts/Zitaten
-    - Benutzername von Follows/Stummschaltungen
-    - Originalkommentartext von Likes/Dislikes
+    Überwacht Simulations-Actions-Logdateien, aktualisiert neue Agent-Aktivitäten via Provider.
     """
     
-    # Batch-Sendungsgröße (wie viele pro Plattform akkumuliert werden, bevor gesendet wird)
+    # Batch-Sendungsgröße
     BATCH_SIZE = 5
     
-    # Plattformnamen-Zuordnung (für Konsolenanzeige)
+    # Plattformnamen-Zuordnung
     PLATFORM_DISPLAY_NAMES = {
         'twitter': 'Welt 1',
         'reddit': 'Welt 2',
     }
     
-    # Sendeintervall (Sekunden), um zu schnelle Anfragen zu vermeiden
+    # Sendeintervall
     SEND_INTERVAL = 0.5
     
     # Retry-Konfiguration
     MAX_RETRIES = 3
-    RETRY_DELAY = 2  # Sekunden
+    RETRY_DELAY = 2
     
     def __init__(self, graph_id: str, api_key: Optional[str] = None):
-        """
-        Updater initialisieren
-        
-        Args:
-            graph_id: Zep-Graph-ID
-            api_key: Zep API Key (optional, standardmäßig aus Konfiguration gelesen)
-        """
         self.graph_id = graph_id
-        self.api_key = api_key or Config.ZEP_API_KEY
-        
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY nicht konfiguriert")
-        
-        self.client = Zep(api_key=self.api_key)
+        self.provider = MemoryFactory.get_provider()
         
         # Aktivitätswarteschlange
         self._activity_queue: Queue = Queue()
@@ -389,7 +370,7 @@ class ZepGraphMemoryUpdater:
     
     def _send_batch_activities(self, activities: List[AgentActivity], platform: str):
         """
-        Aktivitäten batchweise an Zep-Graphen senden (zu einem Text zusammengeführt)
+        Aktivitäten batchweise via Provider an Speicher senden
         
         Args:
             activities: Agent-Aktivitätsliste
@@ -398,33 +379,26 @@ class ZepGraphMemoryUpdater:
         if not activities:
             return
         
-        # Mehrere Aktivitäten zu einem Text zusammenführen, durch Zeilenumbruch getrennt
+        # Mehrere Aktivitäten zu einem Text zusammenführen
         episode_texts = [activity.to_episode_text() for activity in activities]
         combined_text = "\n".join(episode_texts)
         
-        # Senden mit Retry
-        for attempt in range(self.MAX_RETRIES):
-            try:
-                self.client.graph.add(
-                    graph_id=self.graph_id,
-                    type="text",
-                    data=combined_text
-                )
-                
-                self._total_sent += 1
-                self._total_items_sent += len(activities)
-                display_name = self._get_platform_display_name(platform)
-                logger.info(f"Erfolgreich {len(activities)} {display_name}-Aktivitäten batchweise an Graph {self.graph_id} gesendet")
-                logger.debug(f"Batch-Inhaltsvorschau: {combined_text[:200]}...")
-                return
-                
-            except Exception as e:
-                if attempt < self.MAX_RETRIES - 1:
-                    logger.warning(f"Batch-Sendung an Zep fehlgeschlagen (Versuch {attempt + 1}/{self.MAX_RETRIES}): {e}")
-                    time.sleep(self.RETRY_DELAY * (attempt + 1))
-                else:
-                    logger.error(f"Batch-Sendung an Zep fehlgeschlagen, {self.MAX_RETRIES} Wiederholungen: {e}")
-                    self._failed_count += 1
+        # Senden via Provider
+        try:
+            self.provider.add_text(
+                graph_id=self.graph_id,
+                text=combined_text
+            )
+            
+            self._total_sent += 1
+            self._total_items_sent += len(activities)
+            display_name = self._get_platform_display_name(platform)
+            logger.info(f"Erfolgreich {len(activities)} {display_name}-Aktivitäten an Provider gesendet")
+            return
+            
+        except Exception as e:
+            logger.error(f"Batch-Sendung an Provider fehlgeschlagen: {e}")
+            self._failed_count += 1
     
     def _flush_remaining(self):
         """Verbleibende Aktivitäten in Warteschlange und Puffern senden"""

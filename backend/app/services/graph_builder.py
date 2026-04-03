@@ -17,6 +17,7 @@ from ..config import Config
 from ..models.task import TaskManager, TaskStatus
 from ..utils.zep_paging import fetch_all_nodes, fetch_all_edges
 from .text_processor import TextProcessor
+from .memory.factory import MemoryFactory
 
 
 @dataclass
@@ -39,15 +40,11 @@ class GraphInfo:
 class GraphBuilderService:
     """
     Graph-Aufbau-Dienst
-    Verantwortlich für den Aufruf der Zep API zum Aufbau des Wissensgraphen
+    Verantwortlich für den Aufruf des Memory-Providers zum Aufbau des Wissensgraphen
     """
     
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or Config.ZEP_API_KEY
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY nicht konfiguriert")
-        
-        self.client = Zep(api_key=self.api_key)
+        self.provider = MemoryFactory.get_provider()
         self.task_manager = TaskManager()
     
     def build_graph_async(
@@ -185,33 +182,38 @@ class GraphBuilderService:
             self.task_manager.fail_task(task_id, error_msg)
     
     def create_graph(self, name: str) -> str:
-        """Zep-Graph erstellen (öffentliche Methode)"""
-        graph_id = f"mirofish_{uuid.uuid4().hex[:16]}"
-        
-        self.client.graph.create(
-            graph_id=graph_id,
-            name=name,
-            description="MiroFish Social Simulation Graph"
-        )
-        
-        return graph_id
+        """Graph erstellen via Provider"""
+        # Wir übergeben eine Dummy-Sim-ID falls nicht vorhanden, 
+        # der Provider kümmert sich um die Details.
+        return self.provider.initialize(simulation_id=str(uuid.uuid4()), graph_name=name)
     
     def set_ontology(self, graph_id: str, ontology: Dict[str, Any]):
-        """Graph-Ontologie setzen (öffentliche Methode)"""
+        """Graph-Ontologie setzen"""
+        # Die komplexe Pydantic-Logik bleibt hier, da sie Zep-spezifisch ist
+        # und wir sie evtl. auch für andere Zwecke brauchen.
+        # Wenn der Provider Zep ist, nutzen wir die Zep-API.
+        
+        if Config.MEMORY_PROVIDER == 'zep':
+            self._set_zep_ontology(graph_id, ontology)
+        else:
+            # Für Obsidian/Hybrid speichern wir sie einfach als Metadaten
+            self.provider.set_ontology(graph_id, ontology)
+
+    def _set_zep_ontology(self, graph_id: str, ontology: Dict[str, Any]):
+        """Zep-spezifische Ontologie-Logik (verschoben von set_ontology)"""
         import warnings
         from typing import Optional
         from pydantic import Field
         from zep_cloud.external_clients.ontology import EntityModel, EntityText, EdgeModel
+        from zep_cloud import EntityEdgeSourceTarget
         
         # Pydantic v2 Warnung über Field(default=None) unterdrücken
-        # Dies ist die von Zep SDK geforderte Verwendung, Warnungen stammen von dynamischer Klassenerstellung und können sicher ignoriert werden
         warnings.filterwarnings('ignore', category=UserWarning, module='pydantic')
         
-        # Zep reservierte Namen, können nicht als Attributnamen verwendet werden
+        # Zep reservierte Namen
         RESERVED_NAMES = {'uuid', 'name', 'group_id', 'name_embedding', 'summary', 'created_at'}
         
         def safe_attr_name(attr_name: str) -> str:
-            """Reservierte Namen in sichere Namen umwandeln"""
             if attr_name.lower() in RESERVED_NAMES:
                 return f"entity_{attr_name}"
             return attr_name
@@ -221,23 +223,15 @@ class GraphBuilderService:
         for entity_def in ontology.get("entity_types", []):
             name = entity_def["name"]
             description = entity_def.get("description", f"A {name} entity.")
-            
-            # Attribut-Dictionary und Typ-Annotationen erstellen (Pydantic v2 erfordert)
             attrs = {"__doc__": description}
             annotations = {}
-            
             for attr_def in entity_def.get("attributes", []):
-                attr_name = safe_attr_name(attr_def["name"])  # Sicheren Namen verwenden
+                attr_name = safe_attr_name(attr_def["name"])
                 attr_desc = attr_def.get("description", attr_name)
-                # Zep API benötigt Field description, dies ist erforderlich
                 attrs[attr_name] = Field(description=attr_desc, default=None)
-                annotations[attr_name] = Optional[EntityText]  # Typ-Annotation
-            
+                annotations[attr_name] = Optional[EntityText]
             attrs["__annotations__"] = annotations
-            
-            # Klasse dynamisch erstellen
             entity_class = type(name, (EntityModel,), attrs)
-            entity_class.__doc__ = description
             entity_types[name] = entity_class
         
         # Kantentypen dynamisch erstellen
@@ -245,46 +239,32 @@ class GraphBuilderService:
         for edge_def in ontology.get("edge_types", []):
             name = edge_def["name"]
             description = edge_def.get("description", f"A {name} relationship.")
-            
-            # Attribut-Dictionary und Typ-Annotationen erstellen
             attrs = {"__doc__": description}
             annotations = {}
-            
             for attr_def in edge_def.get("attributes", []):
-                attr_name = safe_attr_name(attr_def["name"])  # Sicheren Namen verwenden
+                attr_name = safe_attr_name(attr_def["name"])
                 attr_desc = attr_def.get("description", attr_name)
-                # Zep API benötigt Field description, dies ist erforderlich
                 attrs[attr_name] = Field(description=attr_desc, default=None)
-                annotations[attr_name] = Optional[str]  # Kanten-Attribute verwenden str-Typ
-            
+                annotations[attr_name] = Optional[str]
             attrs["__annotations__"] = annotations
-            
-            # Klasse dynamisch erstellen
             class_name = ''.join(word.capitalize() for word in name.split('_'))
             edge_class = type(class_name, (EdgeModel,), attrs)
-            edge_class.__doc__ = description
-            
-            # source_targets erstellen
-            source_targets = []
-            for st in edge_def.get("source_targets", []):
-                source_targets.append(
-                    EntityEdgeSourceTarget(
-                        source=st.get("source", "Entity"),
-                        target=st.get("target", "Entity")
-                    )
-                )
-            
+            source_targets = [
+                EntityEdgeSourceTarget(source=st.get("source", "Entity"), target=st.get("target", "Entity"))
+                for st in edge_def.get("source_targets", [])
+            ]
             if source_targets:
                 edge_definitions[name] = (edge_class, source_targets)
         
-        # Zep API aufrufen um Ontologie zu setzen
-        if entity_types or edge_definitions:
-            self.client.graph.set_ontology(
-                graph_ids=[graph_id],
-                entities=entity_types if entity_types else None,
-                edges=edge_definitions if edge_definitions else None,
-            )
-    
+        # Zep API aufrufen (Wir nutzen hier direkt den Zep-Client des Providers falls verfügbar)
+        if hasattr(self.provider, 'client'):
+            if entity_types or edge_definitions:
+                self.provider.client.graph.set_ontology(
+                    graph_ids=[graph_id],
+                    entities=entity_types if entity_types else None,
+                    edges=edge_definitions if edge_definitions else None,
+                )
+
     def add_text_batches(
         self,
         graph_id: str,
@@ -292,8 +272,8 @@ class GraphBuilderService:
         batch_size: int = 3,
         progress_callback: Optional[Callable] = None
     ) -> List[str]:
-        """Text in Batches zum Graph hinzufügen, alle Episode-UUIDs zurückgeben"""
-        episode_uuids = []
+        """Text in Batches zum Graph hinzufügen"""
+        episode_ids = []
         total_chunks = len(chunks)
         
         for i in range(0, total_chunks, batch_size):
@@ -304,39 +284,20 @@ class GraphBuilderService:
             if progress_callback:
                 progress = (i + len(batch_chunks)) / total_chunks
                 progress_callback(
-                    f"Batch {batch_num}/{total_batches} wird gesendet ({len(batch_chunks)} Blöcke)...",
+                    f"Batch {batch_num}/{total_batches} wird gesendet...",
                     progress
                 )
             
-            # Episode-Daten erstellen
-            episodes = [
-                EpisodeData(data=chunk, type="text")
-                for chunk in batch_chunks
-            ]
+            for chunk in batch_chunks:
+                try:
+                    ep_id = self.provider.add_text(graph_id, chunk)
+                    if ep_id: episode_ids.append(ep_id)
+                except Exception as e:
+                    logger.error(f"Fehler beim Hinzufügen von Text: {e}")
             
-            # An Zep senden
-            try:
-                batch_result = self.client.graph.add_batch(
-                    graph_id=graph_id,
-                    episodes=episodes
-                )
-                
-                # Zurückgegebene Episode-UUIDs sammeln
-                if batch_result and isinstance(batch_result, list):
-                    for ep in batch_result:
-                        ep_uuid = getattr(ep, 'uuid_', None) or getattr(ep, 'uuid', None)
-                        if ep_uuid:
-                            episode_uuids.append(ep_uuid)
-                
-                # Zu schnelle Anfragen vermeiden
-                time.sleep(1)
-                
-            except Exception as e:
-                if progress_callback:
-                    progress_callback(f"Batch {batch_num} Senden fehlgeschlagen: {str(e)}", 0)
-                raise
-        
-        return episode_uuids
+            time.sleep(0.5) # Throttle
+            
+        return episode_ids
     
     def _wait_for_episodes(
         self,
@@ -344,12 +305,16 @@ class GraphBuilderService:
         progress_callback: Optional[Callable] = None,
         timeout: int = 600
     ):
-        """Auf Verarbeitung aller Episoden warten (durch Abfrage des processed-Status jeder Episode)"""
-        if not episode_uuids:
-            if progress_callback:
-                progress_callback("Kein Warten erforderlich (keine Episoden)", 1.0)
+        """Warten auf Verarbeitung (Nur relevant für Zep)"""
+        if Config.MEMORY_PROVIDER != 'zep' or not episode_uuids:
+            if progress_callback: progress_callback("Verarbeitung abgeschlossen", 1.0)
             return
-        
+
+        if not hasattr(self.provider, 'client'):
+            if progress_callback: progress_callback("Provider hat keinen Client", 1.0)
+            return
+            
+        client = self.provider.client
         start_time = time.time()
         pending_episodes = set(episode_uuids)
         completed_count = 0
@@ -367,42 +332,33 @@ class GraphBuilderService:
                     )
                 break
             
-            # Verarbeitungsstatus jeder Episode prüfen
             for ep_uuid in list(pending_episodes):
                 try:
-                    episode = self.client.graph.episode.get(uuid_=ep_uuid)
-                    is_processed = getattr(episode, 'processed', False)
-                    
-                    if is_processed:
+                    episode = client.graph.episode.get(uuid_=ep_uuid)
+                    if getattr(episode, 'processed', False):
                         pending_episodes.remove(ep_uuid)
                         completed_count += 1
-                        
-                except Exception as e:
-                    # Einzelne Abfragefehler ignorieren, fortfahren
+                except Exception:
                     pass
             
             elapsed = int(time.time() - start_time)
             if progress_callback:
                 progress_callback(
-                    f"Zep-Verarbeitung... {completed_count}/{total_episodes} abgeschlossen, {len(pending_episodes)} ausstehend ({elapsed}s)",
+                    f"Zep-Verarbeitung... {completed_count}/{total_episodes} abgeschlossen ({elapsed}s)",
                     completed_count / total_episodes if total_episodes > 0 else 0
                 )
             
             if pending_episodes:
-                time.sleep(3)  # Alle 3 Sekunden prüfen
+                time.sleep(3)
         
         if progress_callback:
             progress_callback(f"Verarbeitung abgeschlossen: {completed_count}/{total_episodes}", 1.0)
     
     def _get_graph_info(self, graph_id: str) -> GraphInfo:
-        """Graph-Informationen abrufen"""
-        # Knoten abrufen (paginiert)
-        nodes = fetch_all_nodes(self.client, graph_id)
+        """Graph-Informationen abrufen via Provider"""
+        nodes = self.provider.fetch_nodes(graph_id)
+        edges = self.provider.fetch_edges(graph_id)
 
-        # Kanten abrufen (paginiert)
-        edges = fetch_all_edges(self.client, graph_id)
-
-        # Entitätstypen zählen
         entity_types = set()
         for node in nodes:
             if node.labels:
@@ -418,73 +374,39 @@ class GraphBuilderService:
         )
     
     def get_graph_data(self, graph_id: str) -> Dict[str, Any]:
-        """
-        Vollständige Graph-Daten abrufen (mit Detailinformationen)
-        
-        Args:
-            graph_id: Graph-ID
-            
-        Returns:
-            Dictionary mit nodes und edges, einschließlich Zeitinformationen, Attributen und weiteren Detaildaten
-        """
-        nodes = fetch_all_nodes(self.client, graph_id)
-        edges = fetch_all_edges(self.client, graph_id)
+        """Vollständige Graph-Daten abrufen via Provider"""
+        nodes = self.provider.fetch_nodes(graph_id)
+        edges = self.provider.fetch_edges(graph_id)
 
-        # Knotenzuordnung zum Abrufen von Knotennamen erstellen
-        node_map = {}
-        for node in nodes:
-            node_map[node.uuid_] = node.name or ""
+        node_map = {n.uuid: n.name or "" for n in nodes}
         
-        nodes_data = []
-        for node in nodes:
-            # Erstellungszeit abrufen
-            created_at = getattr(node, 'created_at', None)
-            if created_at:
-                created_at = str(created_at)
-            
-            nodes_data.append({
-                "uuid": node.uuid_,
-                "name": node.name,
-                "labels": node.labels or [],
-                "summary": node.summary or "",
-                "attributes": node.attributes or {},
-                "created_at": created_at,
-            })
+        nodes_data = [
+            {
+                "uuid": n.uuid,
+                "name": n.name,
+                "labels": n.labels,
+                "summary": n.summary,
+                "attributes": n.attributes,
+                "created_at": n.created_at,
+            } for n in nodes
+        ]
         
-        edges_data = []
-        for edge in edges:
-            # Zeitinformationen abrufen
-            created_at = getattr(edge, 'created_at', None)
-            valid_at = getattr(edge, 'valid_at', None)
-            invalid_at = getattr(edge, 'invalid_at', None)
-            expired_at = getattr(edge, 'expired_at', None)
-            
-            # Episoden abrufen
-            episodes = getattr(edge, 'episodes', None) or getattr(edge, 'episode_ids', None)
-            if episodes and not isinstance(episodes, list):
-                episodes = [str(episodes)]
-            elif episodes:
-                episodes = [str(e) for e in episodes]
-            
-            # fact_type abrufen
-            fact_type = getattr(edge, 'fact_type', None) or edge.name or ""
-            
-            edges_data.append({
-                "uuid": edge.uuid_,
-                "name": edge.name or "",
-                "fact": edge.fact or "",
-                "fact_type": fact_type,
-                "source_node_uuid": edge.source_node_uuid,
-                "target_node_uuid": edge.target_node_uuid,
-                "source_node_name": node_map.get(edge.source_node_uuid, ""),
-                "target_node_name": node_map.get(edge.target_node_uuid, ""),
-                "attributes": edge.attributes or {},
-                "created_at": str(created_at) if created_at else None,
-                "valid_at": str(valid_at) if valid_at else None,
-                "invalid_at": str(invalid_at) if invalid_at else None,
-                "expired_at": str(expired_at) if expired_at else None,
-                "episodes": episodes or [],
-            })
+        edges_data = [
+            {
+                "uuid": e.uuid,
+                "name": e.name,
+                "fact": e.fact,
+                "source_node_uuid": e.source_node_uuid,
+                "target_node_uuid": e.target_node_uuid,
+                "source_node_name": node_map.get(e.source_node_uuid, ""),
+                "target_node_name": node_map.get(e.target_node_uuid, ""),
+                "attributes": e.attributes,
+                "created_at": e.created_at,
+                "valid_at": e.valid_at,
+                "invalid_at": e.invalid_at,
+                "expired_at": e.expired_at,
+            } for e in edges
+        ]
         
         return {
             "graph_id": graph_id,
@@ -495,6 +417,6 @@ class GraphBuilderService:
         }
     
     def delete_graph(self, graph_id: str):
-        """Graph löschen"""
-        self.client.graph.delete(graph_id=graph_id)
+        """Graph löschen via Provider"""
+        self.provider.delete_graph(graph_id)
 

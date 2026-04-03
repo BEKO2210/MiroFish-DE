@@ -284,7 +284,7 @@ def build_graph():
 
         # Konfiguration prüfen
         errors = []
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             errors.append("ZEP_API_KEY nicht konfiguriert")
         if errors:
             logger.error(f"Konfigurationsfehler: {errors}")
@@ -382,7 +382,7 @@ def build_graph():
                 )
                 
                 # Graph-Aufbau-Dienst erstellen
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+                builder = GraphBuilderService()
                 
                 # Chunking
                 task_manager.update_task(
@@ -567,13 +567,13 @@ def get_graph_data(graph_id: str):
     Graphdaten abrufen (Knoten und Kanten)
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY nicht konfiguriert"
             }), 500
         
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+        builder = GraphBuilderService()
         graph_data = builder.get_graph_data(graph_id)
         
         return jsonify({
@@ -595,13 +595,13 @@ def delete_graph(graph_id: str):
     Zep-Graph löschen
     """
     try:
-        if not Config.ZEP_API_KEY:
+        if Config.MEMORY_PROVIDER == 'zep' and not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY nicht konfiguriert"
             }), 500
         
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+        builder = GraphBuilderService()
         builder.delete_graph(graph_id)
         
         return jsonify({

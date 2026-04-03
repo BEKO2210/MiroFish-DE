@@ -28,6 +28,7 @@ def system_status():
             'llm_model': llm_cfg['model'],
             'llm_base_url': llm_cfg['base_url'],
             'is_local_llm': Config.is_local_llm(),
+            'memory_provider': Config.MEMORY_PROVIDER,
             # Detaillierte Konfiguration für das Frontend
             'config': {
                 'llm_provider': Config.LLM_PROVIDER,
@@ -37,7 +38,8 @@ def system_status():
                 'local_llm_base_url': Config.LOCAL_LLM_BASE_URL,
                 'local_llm_model_name': Config.LOCAL_LLM_MODEL_NAME,
                 'local_llm_api_key': mask_key(Config.LOCAL_LLM_API_KEY),
-                'zep_api_key': mask_key(Config.ZEP_API_KEY)
+                'zep_api_key': mask_key(Config.ZEP_API_KEY),
+                'memory_provider': Config.MEMORY_PROVIDER
             }
         }
     })

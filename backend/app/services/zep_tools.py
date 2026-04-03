@@ -422,14 +422,10 @@ class ZepToolsService:
     RETRY_DELAY = 2.0
     
     def __init__(self, api_key: Optional[str] = None, llm_client: Optional[LLMClient] = None):
-        self.api_key = api_key or Config.ZEP_API_KEY
-        if not self.api_key:
-            raise ValueError("ZEP_API_KEY nicht konfiguriert")
-        
-        self.client = Zep(api_key=self.api_key)
+        self.provider = MemoryFactory.get_provider()
         # LLM-Client für InsightForge Sub-Problem-Generierung
         self._llm_client = llm_client
-        logger.info("ZepToolsService Initialisierung abgeschlossen")
+        logger.info(f"ZepToolsService Initialisierung abgeschlossen (Provider: {Config.MEMORY_PROVIDER})")
     
     @property
     def llm(self) -> LLMClient:
@@ -437,29 +433,6 @@ class ZepToolsService:
         if self._llm_client is None:
             self._llm_client = LLMClient()
         return self._llm_client
-    
-    def _call_with_retry(self, func, operation_name: str, max_retries: int = None):
-        """API-Aufruf mit Retry-Mechanismus"""
-        max_retries = max_retries or self.MAX_RETRIES
-        last_exception = None
-        delay = self.RETRY_DELAY
-        
-        for attempt in range(max_retries):
-            try:
-                return func()
-            except Exception as e:
-                last_exception = e
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        f"Zep {operation_name} Versuch {attempt + 1} fehlgeschlagen: {str(e)[:100]}, "
-                        f"Wiederholung in {delay:.1f}s..."
-                    )
-                    time.sleep(delay)
-                    delay *= 2
-                else:
-                    logger.error(f"Zep {operation_name} nach {max_retries} Versuchen fehlgeschlagen: {str(e)}")
-        
-        raise last_exception
     
     def search_graph(
         self, 
@@ -469,13 +442,10 @@ class ZepToolsService:
         scope: str = "edges"
     ) -> SearchResult:
         """
-        Graph-Semantiksuche
-        
-        Verwendet hybride Suche (Semantik+BM25) im Graph nach relevanten Informationen.
-        Wenn Zep Cloud Search API nicht verfügbar, wird auf lokale Keyword-Matching herabgestuft.
+        Graph-Semantiksuche via Provider
         
         Args:
-            graph_id: Graph-ID (Standalone Graph)
+            graph_id: Graph-ID
             query: Suchanfrage
             limit: Anzahl der zurückgegebenen Ergebnisse
             scope: Suchbereich, "edges" oder "nodes"
@@ -485,48 +455,27 @@ class ZepToolsService:
         """
         logger.info(f"Graph-Suche: graph_id={graph_id}, query={query[:50]}...")
         
-        # Versuche Zep Cloud Search API zu verwenden
         try:
-            search_results = self._call_with_retry(
-                func=lambda: self.client.graph.search(
-                    graph_id=graph_id,
-                    query=query,
-                    limit=limit,
-                    scope=scope,
-                    reranker="cross_encoder"
-                ),
-                operation_name=f"Graph-Suche(graph={graph_id})"
-            )
+            mem_result = self.provider.search(graph_id, query, limit, scope)
             
-            facts = []
-            edges = []
-            nodes = []
-            
-            # Edge-Suchergebnisse analysieren
-            if hasattr(search_results, 'edges') and search_results.edges:
-                for edge in search_results.edges:
-                    if hasattr(edge, 'fact') and edge.fact:
-                        facts.append(edge.fact)
-                    edges.append({
-                        "uuid": getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', ''),
-                        "name": getattr(edge, 'name', ''),
-                        "fact": getattr(edge, 'fact', ''),
-                        "source_node_uuid": getattr(edge, 'source_node_uuid', ''),
-                        "target_node_uuid": getattr(edge, 'target_node_uuid', ''),
-                    })
-            
-            # Node-Suchergebnisse analysieren
-            if hasattr(search_results, 'nodes') and search_results.nodes:
-                for node in search_results.nodes:
-                    nodes.append({
-                        "uuid": getattr(node, 'uuid_', None) or getattr(node, 'uuid', ''),
-                        "name": getattr(node, 'name', ''),
-                        "labels": getattr(node, 'labels', []),
-                        "summary": getattr(node, 'summary', ''),
-                    })
-                    # Node-Zusammenfassung zählt auch als Fakt
-                    if hasattr(node, 'summary') and node.summary:
-                        facts.append(f"[{node.name}]: {node.summary}")
+            facts = mem_result.facts
+            edges = [
+                {
+                    "uuid": e.uuid,
+                    "name": e.name,
+                    "fact": e.fact,
+                    "source_node_uuid": e.source_node_uuid,
+                    "target_node_uuid": e.target_node_uuid,
+                } for e in mem_result.edges
+            ]
+            nodes = [
+                {
+                    "uuid": n.uuid,
+                    "name": n.name,
+                    "labels": n.labels,
+                    "summary": n.summary,
+                } for n in mem_result.nodes
+            ]
             
             logger.info(f"Suche abgeschlossen: {len(facts)} relevante Fakten gefunden")
             
@@ -539,8 +488,7 @@ class ZepToolsService:
             )
             
         except Exception as e:
-            logger.warning(f"Zep Search API fehlgeschlagen, Herabstufung auf lokale Suche: {str(e)}")
-            # Herabstufung: Lokale Keyword-Matching-Suche verwenden
+            logger.warning(f"Provider-Suche fehlgeschlagen, Herabstufung auf lokale Suche: {str(e)}")
             return self._local_search(graph_id, query, limit, scope)
     
     def _local_search(
@@ -648,102 +596,57 @@ class ZepToolsService:
         )
     
     def get_all_nodes(self, graph_id: str) -> List[NodeInfo]:
-        """
-        Alle Nodes des Graphs abrufen (paginiert)
-
-        Args:
-            graph_id: Graph-ID
-
-        Returns:
-            Node-Liste
-        """
+        """Alle Nodes via Provider abrufen"""
         logger.info(f"Alle Nodes des Graphs {graph_id} werden abgerufen...")
-
-        nodes = fetch_all_nodes(self.client, graph_id)
-
-        result = []
-        for node in nodes:
-            node_uuid = getattr(node, 'uuid_', None) or getattr(node, 'uuid', None) or ""
-            result.append(NodeInfo(
-                uuid=str(node_uuid) if node_uuid else "",
-                name=node.name or "",
-                labels=node.labels or [],
-                summary=node.summary or "",
-                attributes=node.attributes or {}
-            ))
-
-        logger.info(f"{len(result)} Nodes abgerufen")
-        return result
+        mem_nodes = self.provider.fetch_nodes(graph_id)
+        
+        return [
+            NodeInfo(
+                uuid=n.uuid,
+                name=n.name,
+                labels=n.labels,
+                summary=n.summary,
+                attributes=n.attributes
+            ) for n in mem_nodes
+        ]
 
     def get_all_edges(self, graph_id: str, include_temporal: bool = True) -> List[EdgeInfo]:
-        """
-        Alle Edges des Graphs abrufen (paginiert, mit Zeitinformationen)
-
-        Args:
-            graph_id: Graph-ID
-            include_temporal: Ob Zeitinformationen eingeschlossen werden sollen (Standard True)
-
-        Returns:
-            Edge-Liste (enthält created_at, valid_at, invalid_at, expired_at)
-        """
+        """Alle Edges via Provider abrufen"""
         logger.info(f"Alle Edges des Graphs {graph_id} werden abgerufen...")
-
-        edges = fetch_all_edges(self.client, graph_id)
-
-        result = []
-        for edge in edges:
-            edge_uuid = getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', None) or ""
-            edge_info = EdgeInfo(
-                uuid=str(edge_uuid) if edge_uuid else "",
-                name=edge.name or "",
-                fact=edge.fact or "",
-                source_node_uuid=edge.source_node_uuid or "",
-                target_node_uuid=edge.target_node_uuid or ""
-            )
-
-            # Zeitinformationen hinzufügen
-            if include_temporal:
-                edge_info.created_at = getattr(edge, 'created_at', None)
-                edge_info.valid_at = getattr(edge, 'valid_at', None)
-                edge_info.invalid_at = getattr(edge, 'invalid_at', None)
-                edge_info.expired_at = getattr(edge, 'expired_at', None)
-
-            result.append(edge_info)
-
-        logger.info(f"{len(result)} Edges abgerufen")
-        return result
+        mem_edges = self.provider.fetch_edges(graph_id)
+        
+        return [
+            EdgeInfo(
+                uuid=e.uuid,
+                name=e.name,
+                fact=e.fact,
+                source_node_uuid=e.source_node_uuid,
+                target_node_uuid=e.target_node_uuid,
+                created_at=e.created_at,
+                valid_at=e.valid_at,
+                invalid_at=e.invalid_at,
+                expired_at=e.expired_at
+            ) for e in mem_edges
+        ]
     
     def get_node_detail(self, node_uuid: str) -> Optional[NodeInfo]:
-        """
-        Detaillierte Informationen eines einzelnen Nodes abrufen
-        
-        Args:
-            node_uuid: Node-UUID
-            
-        Returns:
-            Node-Information oder None
-        """
-        logger.info(f"Node-Details abrufen: {node_uuid[:8]}...")
-        
-        try:
-            node = self._call_with_retry(
-                func=lambda: self.client.graph.node.get(uuid_=node_uuid),
-                operation_name=f"Node-Details abrufen(uuid={node_uuid[:8]}...)"
-            )
-            
-            if not node:
-                return None
-            
-            return NodeInfo(
-                uuid=getattr(node, 'uuid_', None) or getattr(node, 'uuid', ''),
-                name=node.name or "",
-                labels=node.labels or [],
-                summary=node.summary or "",
-                attributes=node.attributes or {}
-            )
-        except Exception as e:
-            logger.error(f"Node-Details abrufen fehlgeschlagen: {str(e)}")
-            return None
+        """Detaillierte Informationen eines einzelnen Nodes abrufen"""
+        # Wir versuchen es über den Provider. Da graph_id fehlt, nutzen wir
+        # Zep-global oder verlassen uns auf den Provider-Singleton-Status.
+        if Config.MEMORY_PROVIDER == 'zep' and hasattr(self.provider, 'client'):
+            try:
+                node = self.provider.client.graph.node.get(uuid_=node_uuid)
+                if node:
+                    return NodeInfo(
+                        uuid=getattr(node, 'uuid_', '') or getattr(node, 'uuid', ''),
+                        name=node.name or "",
+                        labels=node.labels or [],
+                        summary=node.summary or "",
+                        attributes=node.attributes or {}
+                    )
+            except Exception:
+                pass
+        return None
     
     def get_node_edges(self, graph_id: str, node_uuid: str) -> List[EdgeInfo]:
         """
@@ -804,142 +707,91 @@ class ZepToolsService:
         
         logger.info(f"{len(filtered)} Entitäten vom Typ {entity_type} gefunden")
         return filtered
-    
-    def get_entity_summary(
-        self, 
-        graph_id: str, 
-        entity_name: str
-    ) -> Dict[str, Any]:
-        """
-        Beziehungszusammenfassung der angegebenen Entität abrufen
-        
-        Sucht alle mit dieser Entität verbundenen Informationen und generiert Zusammenfassung
-        
-        Args:
-            graph_id: Graph-ID
-            entity_name: Entitätsname
-            
-        Returns:
-            Entitätszusammenfassungsinformationen
-        """
-        logger.info(f"Beziehungszusammenfassung der Entität {entity_name} abrufen...")
-        
-        # Zuerst nach entitätsbezogenen Informationen suchen
-        search_result = self.search_graph(
-            graph_id=graph_id,
-            query=entity_name,
-            limit=20
-        )
-        
-        # Versuchen, die Entität in allen Nodes zu finden
-        all_nodes = self.get_all_nodes(graph_id)
-        entity_node = None
-        for node in all_nodes:
-            if node.name.lower() == entity_name.lower():
-                entity_node = node
-                break
-        
-        related_edges = []
-        if entity_node:
-            # graph_id-Parameter übergeben
-            related_edges = self.get_node_edges(graph_id, entity_node.uuid)
-        
-        return {
-            "entity_name": entity_name,
-            "entity_info": entity_node.to_dict() if entity_node else None,
-            "related_facts": search_result.facts,
-            "related_edges": [e.to_dict() for e in related_edges],
-            "total_relations": len(related_edges)
-        }
-    
-    def get_graph_statistics(self, graph_id: str) -> Dict[str, Any]:
-        """
-        Statistiken des Graphs abrufen
-        
-        Args:
-            graph_id: Graph-ID
-            
-        Returns:
-            Statistiken
-        """
-        logger.info(f"Statistiken des Graphs {graph_id} abrufen...")
-        
-        nodes = self.get_all_nodes(graph_id)
-        edges = self.get_all_edges(graph_id)
-        
-        # Entitätstyp-Verteilung statistisch erfassen
-        entity_types = {}
-        for node in nodes:
-            for label in node.labels:
-                if label not in ["Entity", "Node"]:
-                    entity_types[label] = entity_types.get(label, 0) + 1
-        
-        # Beziehungstyp-Verteilung statistisch erfassen
-        relation_types = {}
-        for edge in edges:
-            relation_types[edge.name] = relation_types.get(edge.name, 0) + 1
-        
-        return {
-            "graph_id": graph_id,
-            "total_nodes": len(nodes),
-            "total_edges": len(edges),
-            "entity_types": entity_types,
-            "relation_types": relation_types
-        }
-    
-    def get_simulation_context(
-        self, 
-        graph_id: str,
-        simulation_requirement: str,
-        limit: int = 30
-    ) -> Dict[str, Any]:
-        """
-        Simulationsbezogene Kontextinformationen abrufen
-        
-        Integrierte Suche nach allen mit Simulationsanforderungen verbundenen Informationen
-        
-        Args:
-            graph_id: Graph-ID
-            simulation_requirement: Simulationsanforderungsbeschreibung
-            limit: Mengenlimit für jede Informationskategorie
-            
-        Returns:
-            Simulationskontextinformationen
-        """
-        logger.info(f"Simulationskontext abrufen: {simulation_requirement[:50]}...")
-        
-        # Nach simulationsanforderungsbezogenen Informationen suchen
-        search_result = self.search_graph(
-            graph_id=graph_id,
-            query=simulation_requirement,
-            limit=limit
-        )
-        
-        # Graph-Statistiken abrufen
-        stats = self.get_graph_statistics(graph_id)
-        
-        # Alle Entitäts-Nodes abrufen
-        all_nodes = self.get_all_nodes(graph_id)
-        
-        # Entitäten mit tatsächlichem Typ filtern (keine reinen Entity-Nodes)
-        entities = []
-        for node in all_nodes:
-            custom_labels = [l for l in node.labels if l not in ["Entity", "Node"]]
-            if custom_labels:
-                entities.append({
-                    "name": node.name,
-                    "type": custom_labels[0],
-                    "summary": node.summary
-                })
-        
-        return {
-            "simulation_requirement": simulation_requirement,
-            "related_facts": search_result.facts,
-            "graph_statistics": stats,
-            "entities": entities[:limit],  # Menge begrenzen
-            "total_entities": len(entities)
-        }
-    
+
+        def get_entity_summary(
+            self, 
+            graph_id: str, 
+            entity_name: str
+        ) -> Dict[str, Any]:
+            """Beziehungszusammenfassung der Entität abrufen via Provider"""
+            logger.info(f"Beziehungszusammenfassung der Entität {entity_name} abrufen...")
+
+            search_result = self.search_graph(graph_id=graph_id, query=entity_name, limit=20)
+            all_nodes = self.get_all_nodes(graph_id)
+
+            entity_node = None
+            for node in all_nodes:
+                if node.name.lower() == entity_name.lower():
+                    entity_node = node
+                    break
+
+            related_edges = []
+            if entity_node:
+                related_edges = self.get_node_edges(graph_id, entity_node.uuid)
+
+            return {
+                "entity_name": entity_name,
+                "entity_info": entity_node.to_dict() if entity_node else None,
+                "related_facts": search_result.facts,
+                "related_edges": [e.to_dict() for e in related_edges],
+                "total_relations": len(related_edges)
+            }
+
+        def get_graph_statistics(self, graph_id: str) -> Dict[str, Any]:
+            """Statistiken des Graphs via Provider abrufen"""
+            logger.info(f"Statistiken des Graphs {graph_id} abrufen...")
+
+            nodes = self.get_all_nodes(graph_id)
+            edges = self.get_all_edges(graph_id)
+
+            entity_types = {}
+            for node in nodes:
+                for label in node.labels:
+                    if label not in ["Entity", "Node"]:
+                        entity_types[label] = entity_types.get(label, 0) + 1
+
+            relation_types = {}
+            for edge in edges:
+                relation_types[edge.name] = relation_types.get(edge.name, 0) + 1
+
+            return {
+                "graph_id": graph_id,
+                "total_nodes": len(nodes),
+                "total_edges": len(edges),
+                "entity_types": entity_types,
+                "relation_types": relation_types
+            }
+
+        def get_simulation_context(
+            self, 
+            graph_id: str,
+            simulation_requirement: str,
+            limit: int = 30
+        ) -> Dict[str, Any]:
+            """Simulationsbezogene Kontextinformationen via Provider abrufen"""
+            logger.info(f"Simulationskontext abrufen für: {simulation_requirement[:50]}...")
+
+            search_result = self.search_graph(graph_id=graph_id, query=simulation_requirement, limit=limit)
+            stats = self.get_graph_statistics(graph_id)
+            all_nodes = self.get_all_nodes(graph_id)
+
+            entities = []
+            for node in all_nodes:
+                custom_labels = [l for l in node.labels if l not in ["Entity", "Node"]]
+                if custom_labels:
+                    entities.append({
+                        "name": node.name,
+                        "type": custom_labels[0],
+                        "summary": node.summary
+                    })
+
+            return {
+                "simulation_requirement": simulation_requirement,
+                "related_facts": search_result.facts,
+                "graph_statistics": stats,
+                "entities": entities[:limit],
+                "total_entities": len(entities)
+            }
     # ========== Kern-Retrieval-Tools (optimiert) ==========
     
     def insight_forge(

@@ -74,6 +74,10 @@
               <span class="detail-label">Local Mode:</span>
               <span class="detail-value">{{ systemStatus.is_local_llm ? 'Aktiv' : 'Deaktiviert' }}</span>
             </div>
+            <div class="detail-item">
+              <span class="detail-label">Memory:</span>
+              <span class="detail-value">{{ systemStatus.memory_provider }}</span>
+            </div>
           </div>
 
           <!-- LLM Settings Panel -->
@@ -90,6 +94,21 @@
                 <div class="warning-text">
                   <strong>Sicherheitshinweis:</strong> Einige API-Schlüssel sind maskiert. Bitte geben Sie Ihre Schlüssel erneut ein, um die Konfiguration zu aktualisieren.
                 </div>
+              </div>
+
+              <div class="form-group">
+                <label>Memory Provider (Knowledge Graph)</label>
+                <select v-model="configData.memory_provider" class="settings-select">
+                  <option value="zep">Zep Cloud (GraphRAG)</option>
+                  <option value="obsidian">Obsidian / Markdown (Lokal)</option>
+                  <option value="hybrid">Hybrid (Markdown + Zep)</option>
+                </select>
+                <p class="field-desc" v-if="configData.memory_provider === 'obsidian'">
+                  Speichert Wissen als Markdown in <code>uploads/simulations/.../vault</code>.
+                </p>
+                <p class="field-desc" v-if="configData.memory_provider === 'zep'">
+                  Erfordert einen gültigen Zep API Key.
+                </p>
               </div>
 
               <div class="form-group">
@@ -344,7 +363,8 @@ const configData = ref({
   local_llm_base_url: '',
   local_llm_model_name: '',
   local_llm_api_key: '',
-  zep_api_key: ''
+  zep_api_key: '',
+  memory_provider: 'zep'
 })
 
 // Check if any required key is masked
@@ -363,7 +383,8 @@ const fetchStatus = async () => {
         ready: true,
         llm_provider: data.llm_provider,
         llm_model: data.llm_model,
-        is_local_llm: data.is_local_llm
+        is_local_llm: data.is_local_llm,
+        memory_provider: data.memory_provider
       }
       // Populate config form
       if (data.config) {
@@ -837,6 +858,19 @@ const startSimulation = () => {
   border-radius: 6px;
   font-size: 14px;
   font-family: inherit;
+}
+
+.field-desc {
+  font-size: 11px;
+  color: #888;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.field-desc code {
+  background: #eee;
+  padding: 1px 4px;
+  border-radius: 3px;
 }
 
 .settings-select:focus, .settings-input:focus {
