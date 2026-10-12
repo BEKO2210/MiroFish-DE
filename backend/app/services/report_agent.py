@@ -1390,7 +1390,7 @@ class ReportAgent:
 
                 # Normal completion
                 final_answer = response.split("Final Answer:")[-1].strip()
-                logger.info(f"Kapitel {section.title} Generierung abgeschlossen（Tool-Aufrufe: {tool_calls_count}mal）")
+                logger.info(f"Kapitel {section.title} Generierung abgeschlossen (Tool-Aufrufe: {tool_calls_count}mal)")
 
                 if self.report_logger:
                     self.report_logger.log_section_content(
@@ -1487,7 +1487,7 @@ class ReportAgent:
 
             # Sufficient tool calls, LLM output content but without "Final Answer:" prefix
             # Directly accept this content as final answer, no more empty loops
-            logger.info(f"Kapitel {section.title} 'Final Answer:'-Präfix nicht erkannt, akzeptiere LLM-Ausgabe direkt als endgültigen Inhalt（Tool-Aufrufe: {tool_calls_count}mal）")
+            logger.info(f"Kapitel {section.title} 'Final Answer:'-Präfix nicht erkannt, akzeptiere LLM-Ausgabe direkt als endgültigen Inhalt (Tool-Aufrufe: {tool_calls_count}mal)")
             final_answer = response.strip()
 
             if self.report_logger:

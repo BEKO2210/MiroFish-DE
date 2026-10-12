@@ -13,7 +13,7 @@ from ..config import Config
 
 
 class LLMClient:
-    """LLM客户端 - Unterstützt Cloud- und lokale LLMs"""
+    """LLM-Client - Unterstützt Cloud- und lokale LLMs"""
     
     def __init__(
         self,

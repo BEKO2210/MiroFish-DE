@@ -618,7 +618,7 @@ def get_report_sections(report_id: str):
                     {
                         "filename": "section_01.md",
                         "section_index": 1,
-                        "content": "## 执行摘要\\n\\n..."
+                        "content": "## Zusammenfassung der Ausführung\\n\\n..."
                     },
                     ...
                 ],
@@ -663,7 +663,7 @@ def get_single_section(report_id: str, section_index: int):
             "success": true,
             "data": {
                 "filename": "section_01.md",
-                "content": "## 执行摘要\\n\\n..."
+                "content": "## Zusammenfassung der Ausführung\\n\\n..."
             }
         }
     """

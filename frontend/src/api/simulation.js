@@ -177,9 +177,9 @@ export const interviewAgents = (data) => {
 }
 
 /**
- * 获取历史模拟列表（带项目详情）
- * 用于首页历史项目展示
- * @param {number} limit - Rückgabeanzahl限制
+ * Abrufen der Historie der Simulationen (mit Projektdetails)
+ * Wird für die Anzeige der historischen Projekte auf der Startseite verwendet
+ * @param {number} limit - Rückgabeanzahl begrenzen
  */
 export const getSimulationHistory = (limit = 20) => {
   return service.get('/api/simulation/history', { params: { limit } })
