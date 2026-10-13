@@ -16,6 +16,8 @@ from app.services.ensemble import (
     apply_without_variant,
     build_post_batches,
     filter_checklist_material_numbers,
+    infer_kind,
+    load_simulation_posts,
     mark_checklist_material,
     newcombe_difference_interval,
     parse_checklist,
@@ -66,6 +68,20 @@ def test_checklist_polarity_is_explicit_or_inferred():
     ]})
     assert parsed[0]["polarity"] == "presence"
     assert parsed[1]["polarity"] == "absence"
+
+
+def test_checklist_kind_is_explicit_or_migrated_from_text():
+    assert infer_kind("Eine öffentliche Debatte zwischen Stadtpolitik und Eltern findet statt") == "interaction"
+    assert infer_kind("Die Stadt veröffentlicht eine Stellungnahme") == "event"
+    parsed = parse_checklist({"outcomes": [
+        {"text_de": "Eine Diskussion findet statt", "definition": "direkter Austausch"},
+        {"text_de": "Eine Meldung erscheint", "definition": "sichtbar", "kind": "event"},
+    ] + [
+        {"text_de": f"Weiteres Ergebnis {i}", "definition": "sichtbar"}
+        for i in range(3)
+    ]})
+    assert parsed[0]["kind"] == "interaction"
+    assert parsed[1]["kind"] == "event"
 
 
 def test_post_batches_respect_budget_and_order():
@@ -408,6 +424,131 @@ def test_absence_is_yes_only_when_positive_event_is_not_found(tmp_path):
     )
     assert result["o1"]["yes"] is True
     assert result["o1"]["evidence"][0]["text"] == "kein passender Beitrag in 1 geprüften Beiträgen"
+
+
+class PairLLM:
+    def chat_json(self, messages, **kwargs):
+        return {"results": [
+            {"outcome_id": "o2", "yes": True, "post_ids": ["twitter:1"]},
+            {"outcome_id": "o6", "yes": False, "post_ids": []},
+        ]}
+
+
+def test_absence_uses_verified_counter_outcome_across_checklist(tmp_path):
+    """Regression für o6/o2 aus ens_9c4647555d4b."""
+    service = EnsembleService(llm_factory=PairLLM, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [
+            {
+                "id": "o2",
+                "text_de": "Im simulierten Zeitraum veröffentlichen Medienberichte eine offizielle Stellungnahme zur Schließung",
+                "definition": "Geprüfter Medienbeleg",
+                "polarity": "presence",
+                "kind": "event",
+            },
+            {
+                "id": "o6",
+                "text_de": "Im simulierten Zeitraum reagieren die Medien nicht auf die Bekanntgabe der Schließung",
+                "definition": "Keine Medienreaktion",
+                "polarity": "absence",
+                "kind": "event",
+                "presence_event": "Medien reagieren auf die Bekanntgabe der Schließung",
+                "counter_outcome_id": "o2",
+            },
+        ]},
+        [{
+            "platform": "twitter", "post_id": "twitter:1", "agent_id": 1,
+            "agent": "Zeitung", "text": "Wir veröffentlichen die offizielle Stellungnahme zur Schließung.",
+        }],
+        seed=1,
+        run_number=1,
+    )
+    assert result["o2"]["yes"] is True
+    assert result["o6"] == {"yes": False, "evidence": []}
+
+
+class InteractionLLM:
+    def chat_json(self, messages, **kwargs):
+        prompt = messages[-1]["content"]
+        if "Agentenkatalog" in prompt:
+            return {
+                "side_a_label": "Stadtpolitik", "side_a_agent_ids": [1],
+                "side_b_label": "Elternvertretung", "side_b_agent_ids": [2],
+            }
+        evidence_id = "reddit:comment:1" if "reddit:comment:1" in prompt else "reddit:2"
+        return {"results": [{"outcome_id": "o5", "yes": True, "post_ids": [evidence_id]}]}
+
+
+def _interaction_run_db(run_dir, with_comment):
+    run_dir.mkdir(parents=True)
+    (run_dir / "simulation_config.json").write_text(json.dumps({"agent_configs": [
+        {"agent_id": 1, "entity_name": "Stadtrat", "entity_type": "Stadtpolitik"},
+        {"agent_id": 2, "entity_name": "Elternrat", "entity_type": "Elternvertretung"},
+    ]}), encoding="utf-8")
+    db = sqlite3.connect(run_dir / "reddit_simulation.db")
+    db.execute("CREATE TABLE user (user_id INTEGER, agent_id INTEGER, name TEXT, user_name TEXT)")
+    db.executemany("INSERT INTO user VALUES (?, ?, ?, ?)", [
+        (10, 1, "Stadtrat", "stadt"), (20, 2, "Elternrat", "eltern"),
+    ])
+    db.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
+    db.executemany("INSERT INTO post VALUES (?, ?, ?)", [
+        (1, 10, "Die Stadtpolitik erläutert ihre Position in der öffentlichen Debatte."),
+        (2, 20, "Die Elternvertretung äußert ihre Position in der öffentlichen Debatte."),
+    ])
+    if with_comment:
+        db.execute("CREATE TABLE comment (comment_id INTEGER, post_id INTEGER, user_id INTEGER, content TEXT)")
+        db.execute("INSERT INTO comment VALUES (1, 1, 20, 'Wir antworten auf diese Position.')")
+    db.commit()
+    db.close()
+
+
+@pytest.mark.parametrize("with_comment, expected", [(False, False), (True, True)])
+def test_interaction_requires_structural_cross_group_evidence(tmp_path, with_comment, expected):
+    run_dir = tmp_path / ("baseline" if with_comment else "isolated")
+    _interaction_run_db(run_dir, with_comment)
+    posts = load_simulation_posts(run_dir)
+    service = EnsembleService(llm_factory=InteractionLLM, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o5",
+            "text_de": "Im simulierten Zeitraum findet eine öffentliche Debatte zwischen Stadtpolitik und Elternvertretern statt",
+            "definition": "Beide Seiten diskutieren miteinander",
+            "polarity": "presence",
+            "kind": "interaction",
+        }]},
+        posts,
+        seed=3,
+        run_number=1,
+        run_dir=run_dir,
+    )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert result["o5"]["yes"] is expected
+    assert audit["interaction_groups"]["o5"]["side_a_agent_ids"] == [1]
+    assert audit["interaction_checks"]["o5"]["accepted"] is expected
+    if not expected:
+        assert audit["interaction_checks"]["o5"]["structural_evidence"] == []
+
+
+def test_aggregate_reports_presence_absence_consistency_warning(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    state = {
+        "variants": [{"key": "baseline"}],
+        "checklist": [
+            {"id": "o2", "polarity": "presence"},
+            {"id": "o6", "polarity": "absence", "counter_outcome_id": "o2"},
+        ],
+    }
+    service._aggregate(state, {"baseline": [{
+        "o2": {"yes": True, "evidence": []},
+        "o6": {"yes": True, "evidence": []},
+    }]})
+    assert state["consistency_warnings"] == [{
+        "variant": "baseline",
+        "run": 1,
+        "absence_outcome_id": "o6",
+        "presence_outcome_id": "o2",
+        "message": "Presence- und Absence-Ergebnis zum selben Akteur wurden im selben Lauf beide mit Ja klassifiziert.",
+    }]
 
 
 def test_unparseable_batch_is_unclassified_not_no(tmp_path):
