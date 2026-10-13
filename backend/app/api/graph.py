@@ -247,6 +247,7 @@ def generate_ontology():
         })
         
     except Exception as e:
+        logger.error(f"Anfrage fehlgeschlagen: {e}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -517,6 +518,7 @@ def build_graph():
         })
         
     except Exception as e:
+        logger.error(f"Anfrage fehlgeschlagen: {e}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -582,6 +584,7 @@ def get_graph_data(graph_id: str):
         })
         
     except Exception as e:
+        logger.error(f"Anfrage fehlgeschlagen: {e}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
             "error": str(e),
@@ -610,6 +613,7 @@ def delete_graph(graph_id: str):
         })
         
     except Exception as e:
+        logger.error(f"Anfrage fehlgeschlagen: {e}\n{traceback.format_exc()}")
         return jsonify({
             "success": False,
             "error": str(e),
