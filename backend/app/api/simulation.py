@@ -907,7 +907,7 @@ def export_simulation(simulation_id: str):
             write_manifest(
                 sim_dir,
                 build_manifest(
-                    simulation_id,
+                    sim_dir,
                     seed=int(seed),
                     temperature=float(temp),
                     started_at=run_state.get("started_at"),

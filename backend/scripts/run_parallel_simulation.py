@@ -1046,9 +1046,14 @@ def get_active_agents_for_round(
     env,
     config: Dict[str, Any],
     current_hour: int,
-    round_num: int
+    round_num: int,
+    rng: random.Random,
 ) -> List:
-    """Bestimmt basierend auf Zeit und Konfiguration, welche Agenten in dieser Runde aktiviert werden"""
+    """Bestimmt basierend auf Zeit und Konfiguration, welche Agenten in dieser Runde aktiviert werden.
+
+    rng: plattformeigener random.Random (nicht das globale Modul), damit Twitter/Reddit
+    unter asyncio.gather nicht dieselbe Ziehungsreihenfolge teilen.
+    """
     time_config = config.get("time_config", {})
     agent_configs = config.get("agent_configs", [])
     
@@ -1065,7 +1070,7 @@ def get_active_agents_for_round(
     else:
         multiplier = 1.0
     
-    target_count = int(random.uniform(base_min, base_max) * multiplier)
+    target_count = int(rng.uniform(base_min, base_max) * multiplier)
     
     candidates = []
     for cfg in agent_configs:
@@ -1076,10 +1081,10 @@ def get_active_agents_for_round(
         if current_hour not in active_hours:
             continue
         
-        if random.random() < activity_level:
+        if rng.random() < activity_level:
             candidates.append(agent_id)
     
-    selected_ids = random.sample(
+    selected_ids = rng.sample(
         candidates, 
         min(target_count, len(candidates))
     ) if candidates else []
@@ -1108,7 +1113,9 @@ async def run_twitter_simulation(
     simulation_dir: str,
     action_logger: Optional[PlatformActionLogger] = None,
     main_logger: Optional[SimulationLogManager] = None,
-    max_rounds: Optional[int] = None
+    max_rounds: Optional[int] = None,
+    rng: Optional[random.Random] = None,
+    np_rng=None,
 ) -> PlatformSimulation:
     """Ausführen der Twitter-Simulation
     
@@ -1123,6 +1130,14 @@ async def run_twitter_simulation(
         PlatformSimulation: Ergebnisobjekt, das env und agent_graph enthält
     """
     result = PlatformSimulation()
+    if rng is None:
+        from repro_seed import make_platform_numpy, make_platform_rng
+        _seed = getattr(create_model, "_repro_seed", 0) or 0
+        rng = make_platform_rng(_seed, "twitter")
+        if np_rng is None:
+            np_rng = make_platform_numpy(_seed, "twitter")
+    result._rng = rng
+    result._np_rng = np_rng
     
     def log_info(msg):
         if main_logger:
@@ -1254,7 +1269,7 @@ async def run_twitter_simulation(
         )
         
         active_agents = get_active_agents_for_round(
-            result.env, config, simulated_hour, round_num
+            result.env, config, simulated_hour, round_num, rng
         )
         
         # Protokolliere Rundenstart unabhängig von aktiven Agenten
@@ -1312,7 +1327,9 @@ async def run_reddit_simulation(
     simulation_dir: str,
     action_logger: Optional[PlatformActionLogger] = None,
     main_logger: Optional[SimulationLogManager] = None,
-    max_rounds: Optional[int] = None
+    max_rounds: Optional[int] = None,
+    rng: Optional[random.Random] = None,
+    np_rng=None,
 ) -> PlatformSimulation:
     """Führt Reddit-Simulation aus
     
@@ -1327,6 +1344,14 @@ async def run_reddit_simulation(
         PlatformSimulation: Ergebnisobjekt mit env und agent_graph
     """
     result = PlatformSimulation()
+    if rng is None:
+        from repro_seed import make_platform_numpy, make_platform_rng
+        _seed = getattr(create_model, "_repro_seed", 0) or 0
+        rng = make_platform_rng(_seed, "reddit")
+        if np_rng is None:
+            np_rng = make_platform_numpy(_seed, "reddit")
+    result._rng = rng
+    result._np_rng = np_rng
     
     def log_info(msg):
         if main_logger:
@@ -1461,7 +1486,7 @@ async def run_reddit_simulation(
         )
         
         active_agents = get_active_agents_for_round(
-            result.env, config, simulated_hour, round_num
+            result.env, config, simulated_hour, round_num, rng
         )
         
         # Protokolliere den Beginn der Runde, unabhängig davon, ob aktive Agenten vorhanden sind
@@ -1561,11 +1586,22 @@ async def main():
         print(f"Fehler: Konfigurationsdatei nicht gefunden: {args.config}")
         sys.exit(1)
 
-    from repro_seed import apply_python_seeds, resolve_seed_and_temperature
+    from repro_seed import (
+        apply_python_seeds,
+        make_platform_numpy,
+        make_platform_rng,
+        resolve_seed_and_temperature,
+    )
     seed, temperature = resolve_seed_and_temperature(args.seed)
     apply_python_seeds(seed)
     create_model._repro_seed = seed
     create_model._repro_temperature = temperature
+    # Plattformströme vor asyncio.gather anlegen — Reihenfolge der Ziehungen
+    # hängt sonst an der LLM-Latenz.
+    twitter_rng = make_platform_rng(seed, "twitter")
+    reddit_rng = make_platform_rng(seed, "reddit")
+    twitter_np = make_platform_numpy(seed, "twitter")
+    reddit_np = make_platform_numpy(seed, "reddit")
     print(f"Reproduzierbarkeit: seed={seed}, temperature={temperature}")
     
     config = load_config(args.config)
@@ -1615,14 +1651,26 @@ async def main():
     reddit_result: Optional[PlatformSimulation] = None
     
     if args.twitter_only:
-        twitter_result = await run_twitter_simulation(config, simulation_dir, twitter_logger, log_manager, args.max_rounds)
+        twitter_result = await run_twitter_simulation(
+            config, simulation_dir, twitter_logger, log_manager, args.max_rounds,
+            rng=twitter_rng, np_rng=twitter_np,
+        )
     elif args.reddit_only:
-        reddit_result = await run_reddit_simulation(config, simulation_dir, reddit_logger, log_manager, args.max_rounds)
+        reddit_result = await run_reddit_simulation(
+            config, simulation_dir, reddit_logger, log_manager, args.max_rounds,
+            rng=reddit_rng, np_rng=reddit_np,
+        )
     else:
-        # Parallele Ausführung (jede Plattform verwendet einen eigenen Logger)
+        # Parallele Ausführung (jede Plattform eigener RNG + Logger)
         results = await asyncio.gather(
-            run_twitter_simulation(config, simulation_dir, twitter_logger, log_manager, args.max_rounds),
-            run_reddit_simulation(config, simulation_dir, reddit_logger, log_manager, args.max_rounds),
+            run_twitter_simulation(
+                config, simulation_dir, twitter_logger, log_manager, args.max_rounds,
+                rng=twitter_rng, np_rng=twitter_np,
+            ),
+            run_reddit_simulation(
+                config, simulation_dir, reddit_logger, log_manager, args.max_rounds,
+                rng=reddit_rng, np_rng=reddit_np,
+            ),
         )
         twitter_result, reddit_result = results
     
