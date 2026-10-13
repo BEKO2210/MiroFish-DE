@@ -9,7 +9,7 @@
       <div class="header-center">
         <div class="view-switcher">
           <button 
-            v-for="mode in ['graph', 'split', 'workbench']" 
+            v-for="mode in ['graph', 'split', 'workbench']" :class="'mode-' + mode" 
             :key="mode"
             class="switch-btn"
             :class="{ active: viewMode === mode }"
@@ -130,7 +130,7 @@ const updateStatus = (status) => {
 // --- Layout Methods ---
 const toggleMaximize = (target) => {
   if (viewMode.value === target) {
-    viewMode.value = 'split'
+    viewMode.value = window.innerWidth <= 768 ? 'workbench' : 'split'
   } else {
     viewMode.value = target
   }
@@ -344,5 +344,18 @@ onMounted(() => {
 
 .panel-wrapper.left {
   border-right: 1px solid #EAEAEA;
+}
+@media (max-width: 768px) {
+  /* Am Handy nie zwei Spalten: die sichtbare Tafel bekommt die volle Breite, die ausgeblendete verschwindet ganz.
+     !important, weil die Breiten als Inline-Stile aus leftPanelStyle/rightPanelStyle kommen. */
+  .content-area { flex-direction: column; }
+  .panel-wrapper { width: 100% !important; transform: none !important; }
+  .panel-wrapper[style*="width: 0%"] { display: none !important; }
+  .app-header { flex-wrap: wrap; padding: 8px 12px; gap: 6px; height: auto; min-height: 0; }
+  .header-center { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; }
+  .header-right { gap: 6px; }
+  .step-divider { display: none; }
+  .step-name { white-space: nowrap; }
+  .mode-split { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
 </style>

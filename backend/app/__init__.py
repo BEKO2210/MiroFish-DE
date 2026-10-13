@@ -39,6 +39,20 @@ def create_app(config_class=Config):
         logger.info("MiroFish Backend wird gestartet...")
         logger.info("=" * 50)
     
+    # Optionaler API-Schlüssel: ist API_TOKEN gesetzt, brauchen alle /api/*-Aufrufe den Header
+    # Authorization: Bearer <token> oder ?token=<token>. Ohne API_TOKEN bleibt die API offen (z. B. nur im Tailscale-Netz).
+    api_token = os.environ.get('API_TOKEN', '').strip()
+
+    @app.before_request
+    def require_api_token():
+        if not api_token or not request.path.startswith('/api/'):
+            return None
+        auth = request.headers.get('Authorization', '')
+        given = auth[7:] if auth.startswith('Bearer ') else request.args.get('token', '')
+        if given != api_token:
+            return jsonify({"success": False, "error": "API-Schlüssel fehlt oder ist falsch"}), 401
+        return None
+
     # CORS aktivieren
     CORS(app, resources={r"/api/*": {"origins": "*"}})
     

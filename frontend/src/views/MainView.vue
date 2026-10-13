@@ -9,7 +9,7 @@
       <div class="header-center">
         <div class="view-switcher">
           <button 
-            v-for="mode in ['graph', 'split', 'workbench']" 
+            v-for="mode in ['graph', 'split', 'workbench']" :class="'mode-' + mode" 
             :key="mode"
             class="switch-btn"
             :class="{ active: viewMode === mode }"
@@ -150,7 +150,7 @@ const addLog = (msg) => {
 // --- Layout Methods ---
 const toggleMaximize = (target) => {
   if (viewMode.value === target) {
-    viewMode.value = 'split'
+    viewMode.value = window.innerWidth <= 768 ? 'workbench' : 'split'
   } else {
     viewMode.value = target
   }
@@ -548,5 +548,6 @@ onUnmounted(() => {
   .header-right { gap: 6px; }
   .step-divider { display: none; }
   .step-name { white-space: nowrap; }
+  .mode-split { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
 </style>

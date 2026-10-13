@@ -32,6 +32,8 @@
         <!-- Kartenkopf: simulation_id und Funktionsverfügbarkeitsstatus -->
         <div class="card-header">
           <span class="card-id">{{ formatSimulationId(project.simulation_id) }}</span>
+          <a class="card-delete card-export" :href="`/api/simulation/${project.simulation_id}/export`" title="Lauf exportieren (ZIP)"
+             aria-label="Lauf exportieren" @click.stop download>⬇</a>
           <button class="card-delete" type="button" title="Lauf löschen" aria-label="Lauf löschen"
                   @click.stop="confirmDelete(project)">🗑</button>
           <div class="card-status-icons">
@@ -700,6 +702,8 @@ onUnmounted(() => {
 }
 
 /* Kartenkopf */
+.card-export { margin-left: auto; margin-right: 0; text-decoration: none; }
+.card-export + .card-delete { margin-left: 0; }
 .card-delete {
   margin-left: auto;
   margin-right: 8px;

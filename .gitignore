@@ -61,3 +61,9 @@ data/graphify-out/cache/
 graphify-out/graph.html
 graphify-out/20*/
 graphify-out/cache/
+
+# Laufzeitdaten und Builds (bleiben auf dem Server)
+uploads/
+backend/uploads/
+*.log
+frontend/dist/

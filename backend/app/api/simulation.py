@@ -826,6 +826,60 @@ def delete_simulation(simulation_id: str):
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@simulation_bp.route('/<simulation_id>/export', methods=['GET'])
+def export_simulation(simulation_id: str):
+    """Kompletter Lauf als ZIP: Konfiguration, Agentenprofile, Zustand, Posts/Datenbanken, Wissensgraph (Vault),
+    zugehörige Berichte als Markdown. Für Archiv, Weitergabe oder eigene Auswertung."""
+    import io
+    import re
+    import zipfile
+    from flask import send_file
+    from ..services.report_agent import ReportManager
+    if not re.fullmatch(r"sim_[A-Za-z0-9]+", simulation_id or ""):
+        return jsonify({"success": False, "error": "Ungültige Simulations-ID"}), 400
+    base_dir = os.path.realpath(os.path.join(Config.UPLOAD_FOLDER, 'simulations'))
+    sim_dir = os.path.realpath(os.path.join(base_dir, simulation_id))
+    if os.path.dirname(sim_dir) != base_dir or not os.path.isdir(sim_dir):
+        return jsonify({"success": False, "error": f"Simulation nicht gefunden: {simulation_id}"}), 404
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        for root, _, files in os.walk(sim_dir):
+            for f in files:
+                full = os.path.join(root, f)
+                z.write(full, os.path.join(simulation_id, os.path.relpath(full, sim_dir)))
+        # Wissensgraph des Projekts (eigener Ordner unter simulations/<graph_id>/vault)
+        try:
+            with open(os.path.join(sim_dir, 'state.json'), 'r', encoding='utf-8') as f:
+                graph_id = json.load(f).get('graph_id')
+            vault = os.path.realpath(os.path.join(base_dir, str(graph_id), 'vault')) if graph_id else None
+            if vault and os.path.dirname(os.path.dirname(vault)) == base_dir and os.path.isdir(vault):
+                for root, _, files in os.walk(vault):
+                    for f in files:
+                        full = os.path.join(root, f)
+                        z.write(full, os.path.join(simulation_id, 'wissensgraph', os.path.relpath(full, vault)))
+        except (OSError, ValueError):
+            pass
+        reports_dir = ReportManager.REPORTS_DIR
+        if os.path.isdir(reports_dir):
+            for name in os.listdir(reports_dir):
+                if not re.fullmatch(r"report_[A-Za-z0-9]+", name):
+                    continue
+                meta = os.path.join(reports_dir, name, 'metadata.json')
+                try:
+                    with open(meta, 'r', encoding='utf-8') as f:
+                        if json.load(f).get('simulation_id') != simulation_id:
+                            continue
+                    for f in os.listdir(os.path.join(reports_dir, name)):
+                        full = os.path.join(reports_dir, name, f)
+                        if os.path.isfile(full):
+                            z.write(full, os.path.join(simulation_id, 'berichte', name, f))
+                except (OSError, ValueError):
+                    continue
+    buf.seek(0)
+    return send_file(buf, mimetype='application/zip', as_attachment=True,
+                     download_name=f"mirofish-{simulation_id}.zip")
+
+
 @simulation_bp.route('/list', methods=['GET'])
 def list_simulations():
     """
