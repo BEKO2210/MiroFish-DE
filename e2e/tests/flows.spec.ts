@@ -170,7 +170,7 @@ test.describe('Flows', () => {
 
     await expect(page.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
     await expect(page.getByText('7 von 10 Läufen dieser Simulation', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('explorativ – nicht als Beleg verwenden', { exact: false })).toBeVisible()
+    await expect(page.getByText('nicht als Beleg verwenden (explorativ)', { exact: false })).toBeVisible()
     await expect(page.getByText('konfirmatorisch', { exact: true })).toBeVisible()
     await expect(page.locator('.results:visible .mechanism-blocked__text').first()).toContainText('Dieser Arm kann diese Wechselwirkung technisch nicht erzeugen')
   })
