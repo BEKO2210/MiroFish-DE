@@ -57,4 +57,6 @@ backend/logs/
 backend/uploads/
 
 # Docker-Daten
-data/
+data/graphify-out/cache/
+graphify-out/graph.html
+graphify-out/20*/
