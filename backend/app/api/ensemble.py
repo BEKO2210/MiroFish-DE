@@ -24,6 +24,7 @@ def start_ensemble():
             hours=data.get("hours", 24),
             variants=data.get("variants", ["baseline"]),
             start_hour=data.get("start_hour", 7),
+            minutes_per_round=data.get("minutes_per_round", 60),
             custom_outcomes=data.get("custom_outcomes"),
             primary_outcome_id=data.get("primary_outcome_id"),
         )

@@ -52,6 +52,34 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
    - Der erste belegte Rechtsbehelf datiert auf 01.04.2022 [5], der belegte interfraktionelle Antrag auf erneute
      Beratung auf 15.06.2022 [7]. Beides liegt außerhalb des Dreimonatsfensters.
 
+9. Ministerium für Verkehr Baden-Württemberg, Pressemitteilung „Neue Parkgebühren-Verordnung wertet Straßenraum auf“,
+   06.07.2021 (T0-Quelle, vor T0 veröffentlicht; am 14.10.2026 abgerufen).
+   https://vm.baden-wuerttemberg.de/de/service/presse/pressemitteilung/pid/neue-parkgebuehren-verordnung-wertet-strassenraum-auf/
+   - Delegation: „Das Landeskabinett hat am Dienstag (06. Juli) der Parkgebühren-Verordnung zugestimmt.“
+   - Zweck: „Gebühren für das Parken können so zum Erreichen der kommunalen Klimaschutz- und Verkehrsziele beitragen.“
+
+## T0-Prüfung (T0 = 14.12.2021)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst
+samt der Debatte um die Höhe (Ereignis an T0; der Bericht [1] erschien am 17.12.2021 – dokumentierte Ausnahme). Zahlen in
+`ausgangslage.md` sind gerundet (Anonymisierung); die Originalwerte stehen hier.
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Namentliche Abstimmung, knappe Mehrheit (Original: 22:21, eine Stimme Vorsprung) | [1], [3] (Ereignis an T0) | 17.12.2021 (Ausnahme) |
+| Drei Stufen nach Fahrzeuglänge, bisher 30 €; Mittelklassewagen in mittlerer Stufe (Original 240/360/480 €; 4,21/4,70 m) | [1] (Ereignis an T0) | 17.12.2021 (Ausnahme) |
+| Sozialermäßigung auf ein Viertel (Sozialleistungen, Wohngeld, GdB ab 50 %) | [1] | 17.12.2021 (Ausnahme) |
+| Inkrafttreten 1. April; Übergangslösung bis zur automatisierten Verarbeitung weiterer Fahrzeugdaten | [1] | 17.12.2021 (Ausnahme) |
+| Land übertrug die Festsetzung der Gebühren im Sommer auf die Kommunen | [9] | 06.07.2021 |
+| Klimaziele und Verkehrswende als Ziel der Ratsmehrheit; Erhöhung dem Grunde nach unstrittig, Streit über das Maß | [1] | 17.12.2021 (Ausnahme) |
+| Beteiligte (Oberbürgermeister, Verwaltung, Gemeinderat, Fraktionen, Bewohner, Medien, Amtsblatt) | [1], [3] | 17.12.2021 (Ausnahme) |
+
+Entfernt (nicht ≤ T0 belegt): Anzahl der Ausweise (knapp 13.000), nicht bezifferbare Zahl der Bewohnerparkplätze, erwartete
+Mehreinnahmen (3,5 Mio. €), Sozialermäßigung bei etwa 10 % der Anträge und Mischgebiete (alles nur [4], 04.02.2022; die
+Quelle ist Grundlage der Ergebnisfragen 6 und 7); bundesweite Obergrenze von 30,70 € (keine Quelle in dieser Akte);
+Ausnahmegenehmigungen für Handwerks- und Pflegedienste; Haushalte mit und ohne privaten Stellplatz; Raumverteilungsziel
+„Fuß-, Rad- und öffentlicher Verkehr“ (nicht wörtlich belegt).
+
 ## Primärergebnis (einheitlich für alle 8 Fälle)
 
 Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder

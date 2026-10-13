@@ -88,7 +88,17 @@ _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
 sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
-from app.utils.simulation_time import simulation_clock
+from app.utils.simulation_time import (
+    hours_covered_by_round,
+    peak_multiplier_for_hours,
+    simulation_clock,
+)
+from app.services.blind_feed import (
+    deliver_opening_stimulus,
+    fetch_platform_posts,
+    install_blind_feed,
+    is_blind_feed,
+)
 
 # Laden der .env-Datei aus dem Projektwurzelverzeichnis (enthält Konfigurationen wie LLM_API_KEY)
 from dotenv import load_dotenv
@@ -1015,6 +1025,8 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
         llm_base_url = os.environ.get("LLM_BASE_URL", "")
         llm_model = os.environ.get("LLM_MODEL_NAME", "")
         config_label = "[Allgemeines LLM]"
+        if not llm_api_key and os.environ.get("LLM_PROVIDER", "").lower() in ("ollama", "lmstudio", "local"):
+            llm_api_key = "local-model"
     
     # Wenn der Modellname nicht in .env vorhanden ist, wird config als Fallback verwendet
     if not llm_model:
@@ -1062,13 +1074,19 @@ def get_active_agents_for_round(
     
     peak_hours = time_config.get("peak_hours", [9, 10, 11, 14, 15, 20, 21, 22])
     off_peak_hours = time_config.get("off_peak_hours", [0, 1, 2, 3, 4, 5])
-    
-    if current_hour in peak_hours:
-        multiplier = time_config.get("peak_activity_multiplier", 1.5)
-    elif current_hour in off_peak_hours:
-        multiplier = time_config.get("off_peak_activity_multiplier", 0.3)
-    else:
-        multiplier = 1.0
+    minutes_per_round = time_config.get("minutes_per_round", 60)
+    start_hour = time_config.get("start_hour", 7)
+    # Ganzes Rundenfenster prüfen (nicht nur Startstunde); wichtig bei 120/240 Min.
+    covered = hours_covered_by_round(round_num, minutes_per_round, start_hour)
+    if not covered:
+        covered = [current_hour]
+    multiplier = peak_multiplier_for_hours(
+        covered,
+        peak_hours,
+        off_peak_hours,
+        time_config.get("peak_activity_multiplier", 1.5),
+        time_config.get("off_peak_activity_multiplier", 0.3),
+    )
     
     target_count = int(rng.uniform(base_min, base_max) * multiplier)
     
@@ -1078,7 +1096,7 @@ def get_active_agents_for_round(
         active_hours = cfg.get("active_hours", list(range(8, 23)))
         activity_level = cfg.get("activity_level", 0.5)
         
-        if current_hour not in active_hours:
+        if not any(hour in active_hours for hour in covered):
             continue
         
         if rng.random() < activity_level:
@@ -1155,10 +1173,7 @@ async def run_twitter_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
-    # Gegenprobe "isolated": Ohne Feed-, Such- und Interaktionswerkzeuge
-    # kann ein Agent keine Beiträge anderer Agenten beobachten. Eigene
-    # Veröffentlichungen bleiben möglich, damit individuelle Reaktionen auf
-    # Persona und Ausgangsmaterial messbar bleiben.
+    # isolated: nur Posten. blind_feed: voller Katalog, Beobachtung später geleert.
     available_actions = (
         [ActionType.CREATE_POST, ActionType.DO_NOTHING]
         if config.get("ensemble_variant") == "isolated"
@@ -1190,6 +1205,9 @@ async def run_twitter_simulation(
     
     await result.env.reset()
     log_info("Umgebung gestartet")
+    if is_blind_feed(config.get("ensemble_variant")):
+        install_blind_feed(result.env.platform)
+        log_info("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
     
     if action_logger:
         action_logger.log_simulation_start(config)
@@ -1236,6 +1254,15 @@ async def run_twitter_simulation(
         if initial_actions:
             await result.env.step(initial_actions)
             log_info(f"Bereitgestellt: {len(initial_actions)} Initialposts")
+
+    stimulus_posts = fetch_platform_posts(result.env.platform)
+    deliver_opening_stimulus(
+        result.env.agent_graph,
+        stimulus_posts,
+        os.path.join(simulation_dir, "twitter", "stimulus_log.json"),
+        "twitter",
+    )
+    log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     
     # Protokolliere Ende von Runde 0
     if action_logger:
@@ -1368,6 +1395,7 @@ async def run_reddit_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
+    # isolated: nur Posten. blind_feed: voller Katalog, Beobachtung später geleert.
     available_actions = (
         [ActionType.CREATE_POST, ActionType.DO_NOTHING]
         if config.get("ensemble_variant") == "isolated"
@@ -1399,6 +1427,9 @@ async def run_reddit_simulation(
     
     await result.env.reset()
     log_info("Umgebung gestartet")
+    if is_blind_feed(config.get("ensemble_variant")):
+        install_blind_feed(result.env.platform)
+        log_info("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
     
     if action_logger:
         action_logger.log_simulation_start(config)
@@ -1453,6 +1484,15 @@ async def run_reddit_simulation(
         if initial_actions:
             await result.env.step(initial_actions)
             log_info(f"Veröffentlichte {len(initial_actions)} initiale Posts")
+
+    stimulus_posts = fetch_platform_posts(result.env.platform)
+    deliver_opening_stimulus(
+        result.env.agent_graph,
+        stimulus_posts,
+        os.path.join(simulation_dir, "reddit", "stimulus_log.json"),
+        "reddit",
+    )
+    log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     
     # Protokolliere Ende von Runde 0
     if action_logger:

@@ -1,34 +1,23 @@
-# Ausgangslage: Tramtrasse in Grenzstadt
+# Ausgangslage: Baumfällungen für eine Straßenbahntrasse
 
 Stand: Morgen des Beginns der Baumarbeiten.
 
 ## Projekt
 
-Eine baden-württembergische Grenzstadt verlängert gemeinsam mit ihrer französischen Nachbarstadt eine
-Straßenbahnlinie über den Rhein. Der zweite deutsche Bauabschnitt führt auf ungefähr einem Kilometer vom Bahnhof
-bis zum Rathaus und umfasst zwei neue Haltestellen sowie eine Busverknüpfung. Für diesen Abschnitt sind zu
-Baubeginn 21,2 Millionen Euro veranschlagt.
+Eine baden-württembergische Stadt verlängert eine Straßenbahnlinie. Für die Trasse müssen in einem
+innerstädtischen Abschnitt insgesamt 86 Bäume (rund 35 Jahre alt, Spitzahorn) ihren bisherigen Standort verlassen.
 
 ## Baumarbeiten
 
-Für die Trasse entlang der Bundesstraße und einer innerstädtischen Straße müssen insgesamt 86 etwa 35 Jahre alte
-Bäume ihren bisherigen Standort verlassen:
-
 - 73 Bäume sollen innerhalb von drei Tagen gefällt werden.
-- 13 Spitzahorne auf einem Parkplatz sollen mit Großgerät ausgegraben und an drei öffentlichen Orten wieder
-  eingesetzt werden.
-- Nach Angaben des Baubürgermeisters reicht der Straßenquerschnitt nicht aus, um Trasse und gesamten Baumbestand
-  gleichzeitig zu erhalten.
-- Baumgruppen an zwei Kreuzungen bleiben bestehen.
-- Vorgesehen sind 50 Neupflanzungen auf dem Parkplatzareal, 24 entlang des Abschnitts zur Rheinbrücke und sechs am
-  Stadteingang; weitere Standorte sollen geprüft werden.
-- Ein Teil des Stammholzes soll für Bänke oder Spielgeräte genutzt, übriges Holz gehäckselt und auf städtischen
-  Grünflächen ausgebracht werden.
+- 13 Bäume sollen nicht gefällt, sondern verpflanzt und an drei öffentlichen Orten der Stadt wieder eingesetzt werden.
+- Nach Angaben der Stadt reicht der Straßenquerschnitt nicht aus, um Trasse und gesamten Baumbestand gleichzeitig zu
+  erhalten.
+- Vorgesehen sind Neupflanzungen in zweistelliger Zahl an mehreren Standorten (zusammen rund 80).
+- Ein Teil des Stammholzes soll für Bänke oder Spielgeräte genutzt werden.
 
 ## Beteiligte
 
-- Oberbürgermeister, Baubürgermeister, Gemeinderat und städtischer Betriebshof.
-- Technische Dienste und beauftragte Bau- und Spezialunternehmen.
-- Straßburger Verkehrsbetriebe sowie die Verwaltungen beider Städte.
-- Anliegerinnen und Anlieger entlang der Bundesstraße und der innerstädtischen Trasse.
-- Nutzerinnen und Nutzer von Auto, Bus, Rad- und Fußverkehr im Baustellenbereich.
+- Stadtverwaltung und Gemeinderat.
+- Beauftragte Bau- und Spezialunternehmen.
+- Anliegerinnen und Anlieger sowie Nutzerinnen und Nutzer des Baustellenbereichs.

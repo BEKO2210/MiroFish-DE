@@ -88,6 +88,14 @@ damit in `GET /api/ensemble/<id>` ausgegeben sowie in jede Laufkonfiguration ges
 Uhrzeit; weitere Runden addieren `minutes_per_round`, einschließlich des Tageswechsels nach Mitternacht. Dadurch nutzen
 Aktivitätsfenster und Aktionslogs dieselbe simulierte Uhrzeit.
 
+Optional steuert `minutes_per_round` (erlaubt 60, 120, 240; Standard 60) den Rundentakt für alle Arme gleich. Der Wert
+überschreibt den vom LLM erzeugten Eintrag in `time_config`, steht im Ensemble-Zustand, in jeder Laufkonfiguration und
+in `manifest.json`, und die Rundenzahl ist `hours * 60 / minutes_per_round`. Ein längerer Takt spart GPU-Zeit, weil
+weniger Runden und damit weniger Agentenentscheidungen pro simulierter Tag anfallen; das Hin-und-Her zwischen Akteuren
+wird grobkörniger. Aktivitätsfenster und Peak-/Off-Peak-Stunden greifen über das gesamte Rundenfenster (nicht nur die
+Startstunde). `response_delay_*` in den Agentenprofilen ist Metadaten für die Konfiguration und wird von den
+Laufskripten nicht ausgewertet.
+
 Nach jedem Lauf werden die Beiträge unmittelbar aus `twitter_simulation.db` und `reddit_simulation.db` gelesen. Der
 Klassifikator erhält keine Berichte. Ein Ja zählt nur, wenn das Modell eine vorhandene, plattformqualifizierte
 Beitrags-ID wie `twitter:17` nennt und eine wörtliche Textspanne liefert, die nach Leerraum-Normalisierung und ohne
@@ -135,27 +143,35 @@ Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dab
 
 - `baseline`: unveränderte vorbereitete Simulation.
 - `isolated`: Agenten behalten Persona, Frage und Ausgangsmaterial, erhalten aber nur `CREATE_POST` und `DO_NOTHING`.
-  Feed-, Empfehlungs-, Such-, Trend-, Follow- und Interaktionsaktionen sind entfernt. In OASIS werden fremde Inhalte
-  über diese Plattformaktionen und die Empfehlungstabelle in die Beobachtung gebracht; ein bloßer Wechsel auf den
-  Zufalls-Recommender würde weiterhin fremde Beiträge zeigen. Die reduzierte Aktionsoberfläche garantiert dagegen,
-  dass ein isolierter Agent keine Beiträge anderer Agenten sieht. Die Gegenprobe misst daher fehlende Vernetzung,
-  zugleich aber auch fehlende Reaktionsaktionen – diese Kopplung ist bei der Interpretation zu nennen.
+  Like, Repost, Follow, Quote (Twitter) sowie Kommentar, Suche, Trend, Refresh, Votes, Follow, Mute (Reddit) entfallen.
+  Die Gegenprobe misst fehlende Vernetzung und zugleich fehlende Reaktionsaktionen – diese Kopplung ist bei der
+  Interpretation zu nennen. `isolated` bleibt der „nur Posten“-Arm.
+- `blind_feed`: Voller Aktionskatalog wie in der Basis. Die Beobachtung fremder Beiträge wird geleert: In OASIS füllt
+  `Platform.update_rec_table` die Tabelle `rec`; die passive Beobachtung läuft über `SocialEnvironment.get_posts_env`
+  → `refresh` (Twitter zusätzlich Followee-Posts). OASIS hat keinen Recommender „nur eigene Beiträge“. Für
+  `blind_feed` setzt MiroFish deshalb `update_rec_table` auf `DELETE FROM rec` und ersetzt `refresh` so, dass nur
+  eigene Posts zurückkommen (ohne Follow-Zweig). Search/Trend bleiben als Aktionen wählbar; die Standardbeobachtung
+  nicht. Damit trennt der Arm Beobachtung von Aktionsraum.
 - `without:<AgentTyp>`: Alle Agenten des Typs werden aus beiden Profildateien und der Aktivitätskonfiguration entfernt.
   Ihre Startbeiträge entfallen ebenfalls; verbleibende IDs werden lückenlos neu nummeriert, weil OASIS an mehreren
   Stellen fortlaufende IDs voraussetzt.
 - `null_document`: Keine OASIS-Simulation. Das Hauptmodell erhält Eingabedokument, Frage und Zeitraum und schreibt pro
   Seed eine Verlaufserzählung. Die Checkliste wird gegen diese Erzählung mit derselben Spannenregel klassifiziert.
-  Der Arm zeigt, welche Ergebnisse bereits ein einzelner Erzähler ohne Agenten produziert.
+  Der Arm zeigt, welche Ergebnisse bereits ein einzelner Erzähler ohne Agenten produziert. Pro Lauf liegt
+  `manifest.json` mit Prompt-Hash, Modell, Temperatur, Seed und Tokenobergrenze im Laufordner.
 - `null_model`: Alias von `null_document`. Der gespeicherte Schlüssel bleibt, damit ältere Starts weiter funktionieren.
 - `null_personas`: Ebenfalls eine Erzählung ohne Schwarm, zusätzlich mit denselben Personas und Startbeiträgen. Die
   Ausgabelänge zielt auf den Median der Zeichen der Basis-Transkripte (Startbeiträge nicht mitgezählt; bei gerader
   Anzahl der gerundete Mittelwert der beiden mittleren Längen). Jede Akteursgruppe muss im Verlauf vorkommen. Steht
-  `null_personas` vor `baseline`, läuft sie unmittelbar danach, weil sie die Basis-Transkripte liest.
+  `null_personas` vor `baseline`, läuft sie unmittelbar danach, weil sie die Basis-Transkripte liest. Ebenfalls mit
+  `manifest.json` wie bei `null_document`.
 
-Die Isolationsentscheidung folgt der OASIS-Implementierung: `Platform.update_rec_table` befüllt die Empfehlungstabellen;
-`REFRESH`, `TREND` und Such-/Interaktionsaktionen machen diese Inhalte für Agenten nutzbar. OASIS bietet Random-, Reddit-,
-Twitter- und TWHIN-Recommender, aber keinen eingebauten Recommender „nur eigene Beiträge“. Deshalb wird keine vorhandene
-Empfehlungsoption zweckentfremdet, sondern die Sichtbarkeit an der Aktionsgrenze geschlossen.
+Startbeiträge: Nach Runde 0 werden die in der Plattform-DB liegenden Öffnungsposts jedem Agenten einmal als gelesener
+Stimulus in die Agenten-Erinnerung geschrieben und unter `twitter/stimulus_log.json` bzw. `reddit/stimulus_log.json`
+(Einzelplattform: `stimulus_log.json`) protokolliert. Ohne diesen Nachweis gilt der Arm nicht als „gleiche Information“.
+
+Je Lauf speichert das Ensemble unter `run_stats` Beitragszahl, Zeichenzahl und Stapelzahl; der Markdown-Abschnitt
+„Mehrfachlauf“ zeigt sie als Zusatztabelle „Textmengen je Lauf“, damit Textmengen-Effekte sichtbar bleiben.
 
 ## Statistik
 
@@ -214,7 +230,8 @@ Es wird kein automatischer echter Testlauf gestartet.
 - Die automatische Checkliste und Klassifikation können relevante Ereignisse auslassen oder falsch einordnen. Die
   geprüften Beitrags-IDs machen positive Urteile auditierbar, ersetzen aber keine fachliche Blindbewertung.
 - `isolated` entfernt zugleich Vernetzung und soziale Reaktionsmöglichkeiten. Der Unterschied ist keine reine Schätzung
-  eines einzelnen Empfehlungsalgorithmus-Effekts.
+  eines einzelnen Empfehlungsalgorithmus-Effekts. Für die reine Beobachtungsablation ist `blind_feed` zuständig;
+  Search/Trend können dort weiterhin fremde Inhalte liefern, wenn Agenten sie aktiv wählen.
 - `without:<AgentTyp>` verändert bei entfernten Startbeiträgen sowohl Akteursbestand als auch Ausgangsimpuls. Genau das
   ist für die angeforderte Gegenprobe beabsichtigt, muss aber bei kausalen Aussagen beachtet werden.
 

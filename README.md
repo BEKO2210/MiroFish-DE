@@ -104,11 +104,18 @@ Andere Modelle gehen genauso; MiroFish zeigt unter **Einstellungen** alle instal
 
 ```bash
 git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
+cp .env.example .env
+# Bei Bedarf Modelle und LOCAL_LLM_BASE_URL in .env anpassen.
+# localhost wird beim ersten Docker-Start automatisch zu host.docker.internal.
+mkdir -p data
 docker compose up -d --build
 ```
 
-Dann **http://localhost:5001** öffnen. Beim ersten Start legt MiroFish `data/.env` an; Einstellungen, Uploads,
-Simulationen und Berichte liegen im Ordner `data/`. Der Container erreicht Ollama auf dem Gastgeber über
+Dann **http://localhost:5001** öffnen. Beim ersten Start kopiert MiroFish die Einstellungen aus `.env` nach
+`data/.env`; dort liegen auch die dauerhaft gespeicherten Einstellungen. Uploads, Simulationen und Berichte
+liegen ebenfalls im Ordner `data/`. Einen anderen lokalen Port setzt du vor dem Start in `.env` mit
+`MIROFISH_PORT`. Falls `id -u` oder `id -g` unter Linux nicht `1000` ausgibt, trage die Werte außerdem als
+`MIROFISH_UID` und `MIROFISH_GID` ein. Der Container erreicht Ollama auf dem Gastgeber über
 `host.docker.internal` – unter Linux muss Ollama dafür auf allen Schnittstellen lauschen
 (`Environment="OLLAMA_HOST=0.0.0.0"` in `systemctl edit ollama`).
 

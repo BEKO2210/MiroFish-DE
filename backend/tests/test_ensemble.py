@@ -11,15 +11,25 @@ import pytest
 import app.utils.llm_client as llm_module
 
 from app.config import Config
+from app.services.blind_feed import (
+    deliver_opening_stimulus,
+    install_blind_feed,
+    is_blind_feed,
+    own_post_rows,
+)
 from app.services.ensemble import (
+    ALLOWED_MINUTES_PER_ROUND,
     EnsembleService,
     apply_without_variant,
     build_null_arm_prompt,
+    build_null_run_manifest,
     build_post_batches,
     canonical_outcome_rows,
     SEED_ATTEMPTS,
     cohens_kappa,
     combine_rater_results,
+    compute_run_stats,
+    ensemble_markdown,
     exact_mcnemar_p,
     execution_variant_keys,
     filter_checklist_material_numbers,
@@ -32,15 +42,22 @@ from app.services.ensemble import (
     paired_difference_interval,
     paired_outcome_table,
     parse_checklist,
+    prepare_run_directory,
     reliability_label,
     resolve_primary_outcome_id,
     validate_custom_outcomes,
+    validate_variants,
     verified_material_quote,
     verify_classification_evidence,
     wilson_interval,
 )
+from app.services.report_validation import build_manifest
 from app.utils.llm_client import LLMClient, estimate_tokens
-from app.utils.simulation_time import simulation_clock
+from app.utils.simulation_time import (
+    hours_covered_by_round,
+    peak_multiplier_for_hours,
+    simulation_clock,
+)
 
 
 def test_wilson_known_value():
@@ -239,6 +256,17 @@ def test_simulation_clock_starts_at_configured_hour_and_crosses_midnight():
     assert simulation_clock(34, 30, 7) == (2, 0)
 
 
+def test_hours_covered_by_round_spans_multi_hour_takt():
+    assert hours_covered_by_round(0, 60, 7) == [7]
+    assert hours_covered_by_round(0, 240, 7) == [7, 8, 9, 10]
+    assert hours_covered_by_round(0, 240, 22) == [22, 23, 0, 1]
+    # 14 Tage à 4-h-Runden → 84 Runden
+    assert 14 * 24 * 60 // 240 == 84
+    assert peak_multiplier_for_hours(
+        [7, 8, 9, 10], [9, 10], [0, 1, 2], 1.5, 0.3
+    ) == 1.5
+
+
 def test_evidence_requires_id_and_literal_span_in_that_post():
     checklist = [{"id": "o1"}, {"id": "o2"}, {"id": "o3"}]
     posts = [
@@ -413,6 +441,72 @@ def test_start_hour_validation_happens_before_start(tmp_path):
             service.start("sim_test", 1, 2, ["baseline"], start_hour=value)
 
 
+def test_minutes_per_round_validation_happens_before_start(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    for value in (30, 90, 0, True, "60", 180):
+        with pytest.raises(ValueError, match="minutes_per_round"):
+            service.start("sim_test", 1, 2, ["baseline"], minutes_per_round=value)
+    assert ALLOWED_MINUTES_PER_ROUND == frozenset({60, 120, 240})
+
+
+def test_prepare_run_directory_overrides_minutes_per_round(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "simulation_config.json").write_text(
+        json.dumps({
+            "time_config": {
+                "total_simulation_hours": 48,
+                "minutes_per_round": 60,
+                "start_hour": 7,
+            },
+            "agent_configs": [],
+        }),
+        encoding="utf-8",
+    )
+    (source / "reddit_profiles.json").write_text("[]", encoding="utf-8")
+    with (source / "twitter_profiles.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["user_id", "name"])
+        writer.writeheader()
+    run_dir = tmp_path / "run_1"
+    config = prepare_run_directory(
+        source, run_dir, "baseline", hours=336, start_hour=9, minutes_per_round=240
+    )
+    assert config["time_config"]["minutes_per_round"] == 240
+    assert config["time_config"]["total_simulation_hours"] == 336
+    assert config["time_config"]["start_hour"] == 9
+    assert 336 * 60 // 240 == 84
+    written = json.loads((run_dir / "simulation_config.json").read_text(encoding="utf-8"))
+    assert written["time_config"]["minutes_per_round"] == 240
+
+
+def test_manifest_records_minutes_per_round(tmp_path, monkeypatch):
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    sim = tmp_path / "ensembles" / "ens_x" / "baseline" / "run_1"
+    sim.mkdir(parents=True)
+    (sim / "simulation_config.json").write_text(
+        json.dumps({
+            "simulation_id": "run_1",
+            "simulation_requirement": "Frage?",
+            "time_config": {"minutes_per_round": 120, "total_simulation_hours": 24},
+            "event_config": {"initial_posts": []},
+        }),
+        encoding="utf-8",
+    )
+    (sim / "state.json").write_text(
+        json.dumps({"project_id": "proj_x", "simulation_requirement": "Frage?"}),
+        encoding="utf-8",
+    )
+    (sim / "reddit_profiles.json").write_text("[]", encoding="utf-8")
+    with (sim / "twitter_profiles.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["user_id", "name"])
+        writer.writeheader()
+    project = tmp_path / "projects" / "proj_x"
+    project.mkdir(parents=True)
+    (project / "extracted_text.txt").write_text("x", encoding="utf-8")
+    manifest = build_manifest(str(sim), seed=1, temperature=0.7)
+    assert manifest["minutes_per_round"] == 120
+
+
 def test_ensemble_accepts_two_weeks_and_rejects_longer_horizon(tmp_path):
     service = EnsembleService(root=tmp_path / "ensembles")
     # 336 besteht die Zeitvalidierung und scheitert erst an der fehlenden Vorbereitung.
@@ -477,7 +571,7 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
         poll_interval=0.001,
     )
     started = service.start(
-        "sim_test", 2, 12, ["baseline"], start_hour=13,
+        "sim_test", 2, 12, ["baseline"], start_hour=13, minutes_per_round=120,
         custom_outcomes=[{"text_de": "Eine eigene Ergebnisfrage wird erfüllt"}],
     )
     deadline = time.time() + 3
@@ -494,11 +588,16 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
     assert state["checklist"][-1]["id"] == "c1"
     assert state["checklist"][-1]["source"] == "user"
     assert state["start_hour"] == 13
+    assert state["minutes_per_round"] == 120
+    assert 12 * 60 // state["minutes_per_round"] == 6
     first_config = json.loads(
         (tmp_path / "ensembles" / started["ensemble_id"] / "baseline" / "run_1" /
          "simulation_config.json").read_text(encoding="utf-8")
     )
     assert first_config["time_config"]["start_hour"] == 13
+    assert first_config["time_config"]["minutes_per_round"] == 120
+    md = ensemble_markdown(state)
+    assert "Rundentakt 120 Minuten" in md
 
 
 class FlakyRunner:
@@ -604,6 +703,92 @@ def test_resume_continues_incomplete_ensemble(tmp_path, monkeypatch):
     assert finished["results"]["baseline"]["o1"]["n"] == 2
     assert finished["results"]["baseline"]["o1"]["yes"] == 2
     assert SEED_ATTEMPTS == 3
+
+
+def test_resume_records_run_stats_and_minutes_per_round(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    ensemble_id = "ens_cccccccccccc"
+    root = tmp_path / "ensembles" / ensemble_id
+    run_dir = root / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    stored_text = "Gespeicherter Beitrag des ersten Seeds."
+    db = sqlite3.connect(run_dir / "twitter_simulation.db")
+    db.execute(
+        "CREATE TABLE user (user_id INTEGER, agent_id INTEGER, name TEXT, user_name TEXT)"
+    )
+    db.execute("INSERT INTO user VALUES (0, 0, 'Ada', 'ada')")
+    db.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
+    db.execute("INSERT INTO post VALUES (1, 0, ?)", (stored_text,))
+    db.commit()
+    db.close()
+    checklist = [{
+        "id": f"o{i}", "text_de": f"Ergebnis {i}", "definition": "sichtbar",
+        "polarity": "presence", "source": "auto",
+    } for i in range(1, 6)]
+    result = {
+        f"o{i}": {
+            "yes": i == 1, "evidence": [], "unclassified": False, "disputed": False,
+            "raters": {"a": {"yes": i == 1}, "b": {"yes": i == 1}},
+        }
+        for i in range(1, 6)
+    }
+    (run_dir / "classification.json").write_text(json.dumps({
+        "result": result,
+        "raters": {"a": {"batches": [{}]}},
+    }), encoding="utf-8")
+    state = {
+        "ensemble_id": ensemble_id, "simulation_id": "sim_test", "question": "Was geschieht?",
+        "status": "failed", "error": "Seed abgestürzt", "created_at": "2026-01-01T00:00:00",
+        "finished_at": "2026-01-01T01:00:00", "runs": 2, "hours": 12, "start_hour": 7,
+        "minutes_per_round": 240,
+        "variants": [{"key": "baseline", "label_de": "Basislauf", "label_en": "Baseline",
+                      "status": "failed", "done": 1, "total": 2}],
+        "checklist": checklist, "custom_outcomes": [], "primary_outcome_id": "o1",
+        "results": {}, "comparisons": [], "reliability": {}, "consistency_warnings": [],
+        "current": None, "eta_seconds": None, "base_seed": 11, "cancel_requested": False,
+        "current_runner_id": None, "seed_attempts": {"baseline:1": 1},
+    }
+    (root / "ensemble.json").write_text(json.dumps(state), encoding="utf-8")
+    calls = []
+
+    class RecordingRunner(FakeRunner):
+        @classmethod
+        def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+            calls.append(simulation_id)
+            return super().start_simulation(simulation_id, simulation_dir, **kwargs)
+
+    service = EnsembleService(
+        runner_cls=RecordingRunner, llm_factory=FakeLLM, root=tmp_path / "ensembles",
+        poll_interval=0.001,
+    )
+    service.resume(ensemble_id)
+    finished = _wait_ensemble(service, ensemble_id)
+    assert finished["status"] == "completed", finished.get("error")
+    assert calls == [f"{ensemble_id}_baseline_2"]
+    assert finished["minutes_per_round"] == 240
+    assert not (run_dir / "simulation_config.json").is_file()
+    resumed_posts = load_simulation_posts(run_dir)
+    assert resumed_posts[0]["text"] == stored_text
+    fresh_config = json.loads(
+        (root / "baseline" / "run_2" / "simulation_config.json").read_text(encoding="utf-8")
+    )
+    assert fresh_config["time_config"]["minutes_per_round"] == 240
+    rows = finished["run_stats"]["baseline"]
+    assert [row["run"] for row in rows] == [1, 2]
+    assert rows[0] == {
+        "run": 1,
+        "post_count": 1,
+        "character_count": len(stored_text),
+        "batch_count": 1,
+    }
+    assert rows[1]["post_count"] == 1
+    assert rows[1]["character_count"] == len("Ein neuer Aufruf wird veröffentlicht.")
+    assert rows[1]["batch_count"] >= 1
+    md = ensemble_markdown(finished)
+    assert "Rundentakt 240 Minuten" in md
+    assert f"| Basislauf | 1 | 1 | {len(stored_text)} | 1 |" in md
 
 
 class BatchLLM:
@@ -1316,3 +1501,188 @@ def test_batch_succeeds_on_third_attempt(tmp_path):
     assert "error" not in audit["raters"]["a"]["batches"][0]
     assert result["o1"]["yes"] is True
     assert llm.calls == 4
+
+
+def test_blind_feed_variant_accepted_and_own_rows():
+    assert is_blind_feed("blind_feed")
+    assert not is_blind_feed("isolated")
+    assert "blind_feed" in validate_variants(["baseline", "blind_feed", "isolated"])
+    posts = [
+        {"user_id": 0, "post_id": 1, "content": "mein"},
+        {"user_id": 1, "post_id": 2, "content": "fremd"},
+    ]
+    assert own_post_rows(posts, 0) == [posts[0]]
+
+
+def test_blind_feed_clears_rec_and_refresh_returns_own_only():
+    import asyncio
+
+    class FakeUtils:
+        def __init__(self, posts):
+            self.posts = posts
+            self.deleted = False
+            self._rows = []
+
+        def _execute_db_command(self, query, params=None, commit=False):
+            if "DELETE FROM rec" in query:
+                self.deleted = True
+                self._rows = []
+            elif "FROM post WHERE user_id" in query:
+                uid = params[0]
+                self._rows = [
+                    (p["post_id"], p["user_id"], None, p["content"], None, 0, 0, 0, 0)
+                    for p in self.posts if p["user_id"] == uid
+                ]
+            else:
+                self._rows = []
+
+        def _add_comments_to_posts(self, results):
+            return [
+                {"post_id": row[0], "user_id": row[1], "content": row[3]}
+                for row in results
+            ]
+
+    class FakeCursor:
+        def __init__(self, utils):
+            self._utils = utils
+
+        def fetchall(self):
+            return list(self._utils._rows)
+
+    class FakePlatform:
+        def __init__(self):
+            posts = [
+                {"post_id": 1, "user_id": 0, "content": "eigen"},
+                {"post_id": 2, "user_id": 1, "content": "fremd"},
+            ]
+            self.pl_utils = FakeUtils(posts)
+            self.db_cursor = FakeCursor(self.pl_utils)
+
+        async def update_rec_table(self):
+            return None
+
+        async def refresh(self, agent_id):
+            return {"success": True, "posts": [{"post_id": 2, "user_id": 1}]}
+
+    async def exercise():
+        platform = FakePlatform()
+        install_blind_feed(platform)
+        await platform.update_rec_table()
+        assert platform.pl_utils.deleted is True
+        seen = await platform.refresh(0)
+        assert seen["success"] is True
+        assert [p["user_id"] for p in seen["posts"]] == [0]
+        assert all(p["content"] == "eigen" for p in seen["posts"])
+
+    asyncio.run(exercise())
+
+
+def test_opening_stimulus_logged_once_per_agent(tmp_path):
+    class FakeAgent:
+        def __init__(self):
+            self.memory = []
+
+        def update_memory(self, message, role):
+            self.memory.append((role, message.content))
+
+    class FakeGraph:
+        def get_agents(self):
+            return [(0, FakeAgent()), (1, FakeAgent())]
+
+    log_path = tmp_path / "stimulus_log.json"
+    posts = [{"post_id": 9, "user_id": 0, "content": "Startimpuls"}]
+    document = deliver_opening_stimulus(FakeGraph(), posts, log_path, "twitter")
+    assert log_path.is_file()
+    assert document["agents"][0]["seen"] is True
+    assert document["agents"][1]["seen_post_ids"] == [9]
+    assert len(document["agents"]) == 2
+
+
+def test_run_stats_and_markdown_table():
+    stats = compute_run_stats(
+        [{"text": "abcd"}, {"text": "ef"}],
+        audit={"raters": {"a": {"batches": [{}, {}]}}},
+    )
+    assert stats == {"post_count": 2, "character_count": 6, "batch_count": 2}
+    null_stats = compute_run_stats(
+        narrative="hello",
+        audit={"batches": [{}]},
+    )
+    assert null_stats["post_count"] == 0
+    assert null_stats["character_count"] == 5
+    assert null_stats["batch_count"] == 1
+    state = {
+        "status": "completed",
+        "runs": 1,
+        "hours": 24,
+        "primary_outcome_id": "o1",
+        "variants": [
+            {"key": "baseline", "label_de": "Basislauf"},
+            {"key": "blind_feed", "label_de": "Blinder Feed"},
+        ],
+        "checklist": [{
+            "id": "o1", "text_de": "Ereignis", "definition": "x",
+            "polarity": "presence", "kind": "event",
+        }],
+        "results": {
+            "baseline": {"o1": {
+                "yes": 1, "n": 1, "disputed": 0, "unclassified": 0,
+                "rate": 1.0, "ci_low": 0.2, "ci_high": 1.0,
+            }},
+            "blind_feed": {"o1": {
+                "yes": 0, "n": 1, "disputed": 0, "unclassified": 0,
+                "rate": 0.0, "ci_low": 0.0, "ci_high": 0.8,
+            }},
+        },
+        "run_stats": {
+            "baseline": [{"run": 1, "post_count": 3, "character_count": 40, "batch_count": 1}],
+            "blind_feed": [{"run": 1, "post_count": 2, "character_count": 10, "batch_count": 1}],
+        },
+        "comparisons": [],
+        "reliability": {},
+    }
+    md = ensemble_markdown(state)
+    assert "### Textmengen je Lauf" in md
+    assert "| Basislauf | 1 | 3 | 40 | 1 |" in md
+    assert "blind_feed" in md.lower() or "Blinder Feed" in md
+
+
+def test_null_run_manifest_fields(tmp_path):
+    manifest = build_null_run_manifest(
+        "Prompt-Text",
+        model="local-model",
+        temperature=0.7,
+        seed=11,
+        max_tokens=4000,
+    )
+    assert set(manifest) == {
+        "prompt_sha256", "model", "temperature", "seed", "max_tokens",
+    }
+    assert manifest["model"] == "local-model"
+    assert manifest["temperature"] == 0.7
+    assert manifest["seed"] == 11
+    assert manifest["max_tokens"] == 4000
+    assert len(manifest["prompt_sha256"]) == 64
+
+    class CaptureLLM:
+        model = "capture-model"
+
+        def chat(self, messages, **kwargs):
+            return "Erzählung."
+
+    service = EnsembleService(llm_factory=lambda: CaptureLLM(), root=tmp_path / "ensembles")
+    run_dir = tmp_path / "null_document" / "run_1"
+    run_dir.mkdir(parents=True)
+    service._null_narrative(
+        {"question": "Was?", "hours": 24},
+        {"extracted_text": "Dokument.", "config": {}},
+        seed=5,
+        arm="null_document",
+        run_dir=run_dir,
+    )
+    written = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert written["seed"] == 5
+    assert written["max_tokens"] == 4000
+    assert written["temperature"] == 0.7
+    assert written["model"] == "capture-model"
+    assert written["prompt_sha256"]

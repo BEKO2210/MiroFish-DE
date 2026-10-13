@@ -49,7 +49,17 @@ else:
 
 import re
 
-from app.utils.simulation_time import simulation_clock
+from app.utils.simulation_time import (
+    hours_covered_by_round,
+    peak_multiplier_for_hours,
+    simulation_clock,
+)
+from app.services.blind_feed import (
+    deliver_opening_stimulus,
+    fetch_platform_posts,
+    install_blind_feed,
+    is_blind_feed,
+)
 
 
 class UnicodeFormatter(logging.Formatter):
@@ -452,6 +462,8 @@ class TwitterSimulationRunner:
         llm_api_key = os.environ.get("LLM_API_KEY", "")
         llm_base_url = os.environ.get("LLM_BASE_URL", "")
         llm_model = os.environ.get("LLM_MODEL_NAME", "")
+        if not llm_api_key and os.environ.get("LLM_PROVIDER", "").lower() in ("ollama", "lmstudio", "local"):
+            llm_api_key = "local-model"
         
         # Wenn nicht in .env vorhanden, config als Backup verwenden
         if not llm_model:
@@ -506,13 +518,19 @@ class TwitterSimulationRunner:
         # Anpassung basierend auf dem Zeitraum
         peak_hours = time_config.get("peak_hours", [9, 10, 11, 14, 15, 20, 21, 22])
         off_peak_hours = time_config.get("off_peak_hours", [0, 1, 2, 3, 4, 5])
-        
-        if current_hour in peak_hours:
-            multiplier = time_config.get("peak_activity_multiplier", 1.5)
-        elif current_hour in off_peak_hours:
-            multiplier = time_config.get("off_peak_activity_multiplier", 0.3)
-        else:
-            multiplier = 1.0
+        minutes_per_round = time_config.get("minutes_per_round", 60)
+        start_hour = time_config.get("start_hour", 7)
+        # Ganzes Rundenfenster prüfen (nicht nur Startstunde); wichtig bei 120/240 Min.
+        covered = hours_covered_by_round(round_num, minutes_per_round, start_hour)
+        if not covered:
+            covered = [current_hour]
+        multiplier = peak_multiplier_for_hours(
+            covered,
+            peak_hours,
+            off_peak_hours,
+            time_config.get("peak_activity_multiplier", 1.5),
+            time_config.get("off_peak_activity_multiplier", 0.3),
+        )
         
         rng = self._platform_rng()
         target_count = int(rng.uniform(base_min, base_max) * multiplier)
@@ -524,8 +542,8 @@ class TwitterSimulationRunner:
             active_hours = cfg.get("active_hours", list(range(8, 23)))
             activity_level = cfg.get("activity_level", 0.5)
             
-            # Prüfen, ob in der aktiven Zeit
-            if current_hour not in active_hours:
+            # Prüfen, ob irgendeine Stunde der Runde im Aktivitätsfenster liegt
+            if not any(hour in active_hours for hour in covered):
                 continue
             
             # Berechnung der Wahrscheinlichkeit basierend auf der Aktivität
@@ -597,10 +615,16 @@ class TwitterSimulationRunner:
             print(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
             return
         
+        variant = self.config.get("ensemble_variant")
+        available_actions = (
+            [ActionType.CREATE_POST, ActionType.DO_NOTHING]
+            if variant == "isolated"
+            else self.AVAILABLE_ACTIONS
+        )
         self.agent_graph = await generate_twitter_agent_graph(
             profile_path=profile_path,
             model=model,
-            available_actions=self.AVAILABLE_ACTIONS,
+            available_actions=available_actions,
         )
         
         # Datenbankpfad
@@ -620,6 +644,9 @@ class TwitterSimulationRunner:
         
         await self.env.reset()
         print("Umgebung initialisiert\n")
+        if is_blind_feed(variant):
+            install_blind_feed(self.env.platform)
+            print("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
         
         # Initialisiere IPC-Handler
         self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
@@ -647,6 +674,13 @@ class TwitterSimulationRunner:
             if initial_actions:
                 await self.env.step(initial_actions)
                 print(f"  {len(initial_actions)} initiale Posts veröffentlicht")
+
+        deliver_opening_stimulus(
+            self.env.agent_graph,
+            fetch_platform_posts(self.env.platform),
+            os.path.join(self.simulation_dir, "stimulus_log.json"),
+            "twitter",
+        )
         
         # Hauptsimulationsschleife
         print("\nSimulationsschleife gestartet...")

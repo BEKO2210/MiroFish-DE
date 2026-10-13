@@ -243,6 +243,9 @@ class OasisProfileGenerator:
         self.api_key = api_key or llm_cfg['api_key']
         self.base_url = base_url or llm_cfg['base_url']
         self.model_name = model_name or llm_cfg['model']
+
+        if Config.is_local_llm() and not self.api_key:
+            self.api_key = 'local-model'
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY nicht konfiguriert")

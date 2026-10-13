@@ -1,38 +1,51 @@
 [
   {
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "polarity": "presence",
     "eingetreten": false,
     "primaer": true,
     "quelle": "7 (dokumentierte Negativsuche für 22.02.–08.03.2017)"
   },
   {
     "text_de": "Die angekündigten Baumfällungen beginnen innerhalb von 2 Tagen nach T0.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "1 und 2 (Arbeitsbeginn 22.02.2017)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten werden 13 der 86 betroffenen Bäume statt einer Fällung an andere öffentliche Standorte verpflanzt.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "8 (Umsetzung ab 15.03.2017)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten setzt der Gemeinderat die Fällungen aus oder beschließt eine Trassenänderung zum Erhalt weiterer Bäume.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "3, 5, 6 und 7 (unveränderte Fortführung des zweiten Bauabschnitts)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten vergibt der Gemeinderat weitere Bauarbeiten für den zweiten Trassenabschnitt.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "3 (Vergabebeschluss vom 26.04.2017)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten wird der erste grenzüberschreitende Tramabschnitt bis zum Kehler Bahnhof eröffnet.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "4 (Eröffnung am 28.04.2017)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten wird eine Petition, Demonstration oder ein gerichtlicher Eilantrag gegen die Baumfällungen öffentlich dokumentiert.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "7 (dokumentierte Negativsuche bis 22.05.2017)"
   }
 ]
