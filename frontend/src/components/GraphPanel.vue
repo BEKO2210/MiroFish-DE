@@ -7,9 +7,9 @@
           v-if="graphData && entityTypes.length"
           type="button"
           class="legend-toggle-btn"
-          :class="{ 'is-active': showLegendMobile }"
-          :aria-expanded="showLegendMobile"
-          @click="showLegendMobile = !showLegendMobile"
+          :class="{ 'is-active': showLegend }"
+          :aria-expanded="showLegend"
+          @click="showLegend = !showLegend"
         >
           <span class="legend-toggle-btn__dot" aria-hidden="true"></span>
           <span>{{ $t('graph.legende') }}</span>
@@ -25,13 +25,13 @@
             <span class="icon-maximize" aria-hidden="true">⛶</span>
             <span class="btn-text desktop-only">{{ $t('graph.fullscreen') }}</span>
           </button>
-        </div>
-        <div v-if="graphData" class="edge-labels-control">
-          <label class="toggle-switch-compact" for="edge-label-toggle">
-            <input id="edge-label-toggle" type="checkbox" v-model="showEdgeLabels" />
-            <span class="slider" aria-hidden="true"></span>
-            <span class="toggle-label">{{ $t('graph.kanten') }}</span>
-          </label>
+          <div v-if="graphData" class="edge-labels-control">
+            <label class="toggle-switch-compact" for="edge-label-toggle">
+              <input id="edge-label-toggle" type="checkbox" v-model="showEdgeLabels" />
+              <span class="slider" aria-hidden="true"></span>
+              <span class="toggle-label">{{ $t('graph.kanten') }}</span>
+            </label>
+          </div>
         </div>
       </div>
     </div>
@@ -236,10 +236,10 @@
     </div>
 
     <!-- Legende unten (Bottom Left) -->
-    <div v-if="graphData && entityTypes.length" class="graph-legend" :class="{ 'is-open-mobile': showLegendMobile }" role="region" :aria-label="$t('graph.artenVonAkteuren')">
+    <div v-if="graphData && entityTypes.length" class="graph-legend" :class="{ 'is-open': showLegend }" role="region" :aria-label="$t('graph.artenVonAkteuren')">
       <div class="legend-header">
         <span class="legend-title">{{ $t('graph.artenVonAkteuren') }}</span>
-        <button type="button" class="legend-close-btn mobile-only" @click="showLegendMobile = false" :aria-label="$t('common.close')">×</button>
+        <button type="button" class="legend-close-btn" @click="showLegend = false" :aria-label="$t('common.close')">×</button>
       </div>
       <div class="legend-items">
         <div class="legend-item" v-for="type in entityTypes" :key="type.name">
@@ -275,7 +275,17 @@ const showEdgeLabels = ref(true) // Kantenbezeichnungen standardmäßig anzeigen
 const expandedSelfLoops = ref(new Set()) // Aufgeklappte Selbstschleifen-Einträge
 const showSimulationFinishedHint = ref(false) // Hinweis nach Simulationsende
 const wasSimulating = ref(false) // Verfolgt, ob vorher simuliert wurde
-const showLegendMobile = ref(false)
+const showLegend = ref(typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
+
+const updateNodeLabelVisibility = () => {
+  if (!nodeLabelsRef) return
+  const selectedUuid = selectedItem.value?.type === 'node' ? selectedItem.value.data?.uuid : null
+  nodeLabelsRef.style('opacity', d => {
+    if (currentZoomK >= 0.6) return 1
+    if (selectedUuid && d.rawData?.uuid === selectedUuid) return 1
+    return 0
+  })
+}
 
 // Hinweis nach Simulationsende schließen
 const dismissFinishedHint = () => {
@@ -343,11 +353,14 @@ const formatDateTime = (dateStr) => {
 const closeDetailPanel = () => {
   selectedItem.value = null
   expandedSelfLoops.value = new Set() // Aufklappstatus zurücksetzen
+  updateNodeLabelVisibility()
 }
 
 let currentSimulation = null
 let linkLabelsRef = null
 let linkLabelBgRef = null
+let nodeLabelsRef = null
+let currentZoomK = 1
 let resizeObserver = null
 let zoomBehavior = null
 let fitTimer = null
@@ -388,6 +401,8 @@ const renderGraph = () => {
     .attr('viewBox', `0 0 ${width} ${height}`)
     
   svg.selectAll('*').remove()
+  nodeLabelsRef = null
+  currentZoomK = 1
   
   const nodesData = props.graphData.nodes || []
   const edgesData = props.graphData.edges || []
@@ -525,7 +540,11 @@ const renderGraph = () => {
     }))
     .force('charge', d3.forceManyBody().strength(-400))
     .force('center', d3.forceCenter(width / 2, height / 2))
-    .force('collide', d3.forceCollide(50))
+    .force('collide', d3.forceCollide().radius(d => {
+      // Radius aus Beschriftungsbreite, damit Text nicht über Text liegt
+      const labelLen = (d.name || '').length
+      return Math.max(28, 12 + labelLen * 3.2)
+    }).iterations(2))
     // Anziehungskraft zur Mitte hinzufügen, damit isolierte Knotengruppen zum Zentrum gravitieren
     .force('x', d3.forceX(width / 2).strength(0.04))
     .force('y', d3.forceY(height / 2).strength(0.04))
@@ -537,8 +556,11 @@ const renderGraph = () => {
   // Zoom: Mausrad, Ein-Finger-Verschieben und Pinch-Zoom.
   zoomBehavior = d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.15, 3.5]).on('zoom', (event) => {
     g.attr('transform', event.transform)
+    currentZoomK = event.transform.k
+    updateNodeLabelVisibility()
   })
   svg.call(zoomBehavior).style('touch-action', 'none')
+  currentZoomK = 1
 
   // Kanten - path-Element für Kurvenunterstützung verwenden
   const linkGroup = g.append('g').attr('class', 'links')
@@ -760,6 +782,7 @@ const renderGraph = () => {
         entityType: d.type,
         color: getColor(d.type)
       }
+      updateNodeLabelVisibility()
     })
     .on('mouseenter', (event, d) => {
       if (!selectedItem.value || selectedItem.value.data?.uuid !== d.rawData.uuid) {
@@ -772,7 +795,7 @@ const renderGraph = () => {
       }
     })
 
-  // Node Labels
+  // Node Labels – Halo gegen Überlappung mit Kanten/Knoten
   const nodeLabels = nodeGroup.selectAll('text')
     .data(nodes)
     .enter().append('text')
@@ -785,8 +808,13 @@ const renderGraph = () => {
     .attr('font-weight', '500')
     .attr('dx', 14)
     .attr('dy', 4)
+    .attr('stroke', 'var(--color-bg-canvas)')
+    .attr('stroke-width', 3)
+    .attr('paint-order', 'stroke')
     .style('pointer-events', 'none')
     .style('font-family', 'var(--font-body)')
+  nodeLabelsRef = nodeLabels
+  updateNodeLabelVisibility()
 
   let tickCount = 0
   simulation.on('tick', () => {
@@ -837,8 +865,11 @@ const renderGraph = () => {
     linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
     linkLabelBg.attr('fill', 'var(--color-bg-surface-raised)')
     linkLabels.attr('fill', 'var(--color-text-secondary)')
+    updateNodeLabelVisibility()
   })
 }
+
+watch(selectedItem, () => updateNodeLabelVisibility())
 
 watch(() => props.graphData, () => {
   nextTick(renderGraph)
@@ -986,7 +1017,7 @@ onUnmounted(() => {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--color-error-text);
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
   text-transform: none;
   letter-spacing: normal;
@@ -1497,13 +1528,33 @@ input:checked + .slider:before {
   gap: 8px;
   pointer-events: auto;
 }
-.panel-header__row-top,
-.panel-header__row-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-header__row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.panel-header__row-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .panel-title { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.header-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
 .tool-btn { min-width: 44px; min-height: 44px; height: 44px; border-radius: var(--radius-md); font-family: var(--font-body); font-weight: 600; }
 .legend-toggle-btn {
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border-default);
   background: var(--color-bg-surface-raised);
@@ -1514,16 +1565,18 @@ input:checked + .slider:before {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
+.legend-toggle-btn.is-active { border-color: var(--color-border-strong); color: var(--color-text-primary); }
 .legend-toggle-btn__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-primary); }
-.edge-labels-control { display: flex; align-items: center; }
+.edge-labels-control { display: flex; align-items: center; flex-shrink: 0; }
 .toggle-switch-compact { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; user-select: none; }
 .toggle-switch-compact input { position: absolute; opacity: 0; width: 0; height: 0; }
-.toggle-switch-compact .slider { width: 38px; height: 22px; border-radius: var(--radius-full); background: var(--color-border-strong); position: relative; transition: background-color var(--transition-fast); }
+.toggle-switch-compact .slider { width: 38px; height: 22px; border-radius: var(--radius-full); background: var(--color-border-strong); position: relative; transition: background-color var(--transition-fast); flex-shrink: 0; }
 .toggle-switch-compact .slider::before { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--color-bg-surface-raised); transition: transform var(--transition-fast); box-shadow: var(--shadow-sm); }
 .toggle-switch-compact input:checked + .slider { background: var(--color-brand-primary); }
 .toggle-switch-compact input:checked + .slider::before { transform: translateX(16px); }
-.toggle-switch-compact .toggle-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.toggle-switch-compact .toggle-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
 .graph-building-hint,
 .graph-building-hint.finished-hint {
   top: 116px;
@@ -1540,11 +1593,28 @@ input:checked + .slider:before {
 }
 .finished-hint .hint-icon { color: var(--color-text-primary); }
 .hint-close-btn { color: var(--color-text-primary); background: var(--color-bg-surface-subtle); min-width: 44px; min-height: 44px; }
-.graph-legend { background: var(--color-bg-surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.graph-legend {
+  display: none;
+  background: var(--color-bg-surface-raised);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-subtle);
+}
+.graph-legend.is-open { display: block; }
 .legend-title { color: var(--color-text-secondary); font-size: 12px; font-weight: 700; margin: 0; }
-.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.legend-close-btn { border: 0; background: transparent; color: var(--color-text-muted); font-size: 20px; }
-.mobile-only { display: none; }
+.legend-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.legend-close-btn {
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 20px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 .detail-close { min-width: 44px; min-height: 44px; }
 
 /* Mobile-first polish */
@@ -1553,24 +1623,30 @@ h1, h2, h3, h4, h5, h6, .panel-title { font-family: var(--font-heading); }
 .detail-value, .property-value, .relation-text { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 768px) {
   .panel-header { padding: 10px 12px; }
-  .panel-header__row-toolbar { flex-wrap: nowrap; }
-  .header-tools { gap: 6px; }
+  .panel-header__row-toolbar { width: 100%; justify-content: flex-end; }
+  .header-tools { gap: 6px; flex-wrap: wrap; }
   .tool-btn { min-width: 44px; height: 44px; padding-inline: 10px; }
   .desktop-only { display: none; }
-  .mobile-only { display: inline-flex; }
   .toggle-switch-compact { gap: 6px; }
-  .toggle-switch-compact .toggle-label { max-width: 72px; line-height: 1.15; }
+  .toggle-switch-compact .toggle-label { max-width: 72px; line-height: 1.15; white-space: normal; }
   .graph-building-hint { top: 112px; width: max-content; }
-  .graph-legend { display: none; left: 8px; right: 8px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-width: none; }
-  .graph-legend.is-open-mobile { display: block; }
+  .graph-legend { left: 8px; right: 8px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-width: none; }
   .detail-panel { top: auto; inset-inline: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none; max-height: 62%; border-radius: var(--radius-xl) var(--radius-xl) var(--radius-md) var(--radius-md); }
   .detail-panel-header { min-height: 52px; }
   .graph-svg { touch-action: none; }
 }
 @media (min-width: 1024px) {
-  .panel-header { flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 20px; }
-  .panel-header__row-toolbar { gap: 16px; }
-  .legend-toggle-btn { display: none; }
+  .panel-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: nowrap;
+    padding: 10px 20px;
+    gap: 12px;
+  }
+  .panel-header__row-top { flex: 1 1 auto; min-width: 0; }
+  .panel-header__row-toolbar { flex: 0 0 auto; flex-wrap: nowrap; }
+  .header-tools { flex-wrap: nowrap; }
   .graph-building-hint { top: 72px; }
 }
 @media (prefers-reduced-motion: reduce) {
