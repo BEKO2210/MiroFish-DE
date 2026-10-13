@@ -15,15 +15,16 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: 'Graph', split: 'Zweispaltig', workbench: 'Arbeitsbereich' }[mode] }}
+            {{ { graph: $t('simulationRunView.graph'), split: $t('common.splitView'), workbench: $t('common.workspace') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
+        <LanguageSwitcher />
         <div class="workflow-step">
-          <span class="step-num">Schritt 3/5</span>
-          <span class="step-name">Simulation starten</span>
+          <span class="step-num">{{ $t('simulationRunView.schritt35') }}</span>
+          <span class="step-name">{{ $t('simulationRunView.simulationStarten') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -68,11 +69,15 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -115,9 +120,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Fehler'
-  if (currentStatus.value === 'completed') return 'Abgeschlossen'
-  return 'Läuft'
+  if (currentStatus.value === 'error') return t('common.error')
+  if (currentStatus.value === 'completed') return t('common.completed')
+  return t('common.running')
 })
 
 const isSimulating = computed(() => currentStatus.value === 'processing')
@@ -146,7 +151,7 @@ const toggleMaximize = (target) => {
 
 const handleGoBack = async () => {
   // Vor der Rückkehr zu Schritt 2 die laufende Simulation schließen
-  addLog('Vorbereitung zur Rückkehr zu Schritt 2, Simulation wird geschlossen...')
+  addLog(t('simulationRunView.vorbereitungZurRuckkehrZuSchritt2Simulation'))
 
   // Abfrage stoppen
   stopGraphRefresh()
@@ -156,36 +161,36 @@ const handleGoBack = async () => {
     const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
     
     if (envStatusRes.success && envStatusRes.data?.env_alive) {
-      addLog('Simulationsumgebung wird geschlossen...')
+      addLog(t('simulationRunView.simulationsumgebungWirdGeschlossen'))
       try {
         await closeSimulationEnv({ 
           simulation_id: currentSimulationId.value,
           timeout: 10
         })
-        addLog('Simulationsumgebung geschlossen')
+        addLog(t('simulationRunView.environmentClosed'))
       } catch (closeErr) {
-        addLog(`Schließen der Simulationsumgebung fehlgeschlagen, erzwungener Stopp wird versucht...`)
+        addLog(t('simulationRunView.schliessenDerSimulationsumgebungFehlgeschlagenErzwungenerStoppWird'))
         try {
           await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog('Simulation erzwungen gestoppt')
+          addLog(t('simulationRunView.simulationErzwungenGestoppt'))
         } catch (stopErr) {
-          addLog(`Erzwungener Stopp fehlgeschlagen: ${stopErr.message}`)
+          addLog(t('simulationRunView.erzwungenerStoppFehlgeschlagen', { p0: stopErr.message }))
         }
       }
     } else {
       // Umgebung nicht aktiv, prüfen ob Prozess gestoppt werden muss
       if (isSimulating.value) {
-        addLog('Simulationsprozess wird gestoppt...')
+        addLog(t('simulationRunView.simulationsprozessWirdGestoppt'))
         try {
           await stopSimulation({ simulation_id: currentSimulationId.value })
-          addLog('Simulation gestoppt')
+          addLog(t('simulationRunView.simulationGestoppt'))
         } catch (err) {
-          addLog(`Simulation stoppen fehlgeschlagen: ${err.message}`)
+          addLog(t('simulationRunView.simulationStoppenFehlgeschlagen', { p0: err.message }))
         }
       }
     }
   } catch (err) {
-    addLog(`Prüfung des Simulationsstatus fehlgeschlagen: ${err.message}`)
+    addLog(t('simulationRunView.prufungDesSimulationsstatusFehlgeschlagen', { p0: err.message }))
   }
   
   // Zurück zu Schritt 2 (Umgebungsaufbau)
@@ -195,13 +200,13 @@ const handleGoBack = async () => {
 const handleNextStep = () => {
   // Die Step3Simulation-Komponente behandelt Berichterstellung und Routenwechsel direkt
   // Diese Methode dient nur als Fallback
-  addLog('Schritt 4 betreten: Berichterstellung')
+  addLog(t('simulationRunView.schritt4BetretenBerichterstellung'))
 }
 
 // --- Data Logic ---
 const loadSimulationData = async () => {
   try {
-    addLog(`Simulationsdaten werden geladen: ${currentSimulationId.value}`)
+    addLog(t('simulationRunView.simulationsdatenWerdenGeladen', { p0: currentSimulationId.value }))
 
     // Simulationsinformationen abrufen
     const simRes = await getSimulation(currentSimulationId.value)
@@ -213,10 +218,10 @@ const loadSimulationData = async () => {
         const configRes = await getSimulationConfig(currentSimulationId.value)
         if (configRes.success && configRes.data?.time_config?.minutes_per_round) {
           minutesPerRound.value = configRes.data.time_config.minutes_per_round
-          addLog(`Zeitkonfiguration: ${minutesPerRound.value} Minuten pro Runde`)
+          addLog(t('simulationRunView.zeitkonfigurationMinutenProRunde', { p0: minutesPerRound.value }))
         }
       } catch (configErr) {
-        addLog(`Zeitkonfiguration konnte nicht abgerufen werden, Standardwert wird verwendet: ${minutesPerRound.value} Min./Runde`)
+        addLog(t('simulationRunView.zeitkonfigurationKonnteNichtAbgerufenWerdenStandardwertWird', { p0: minutesPerRound.value }))
       }
       
       // Projektinformationen abrufen
@@ -224,7 +229,7 @@ const loadSimulationData = async () => {
         const projRes = await getProject(simData.project_id)
         if (projRes.success && projRes.data) {
           projectData.value = projRes.data
-          addLog(`Projekt erfolgreich geladen: ${projRes.data.project_id}`)
+          addLog(t('simulationRunView.projektErfolgreichGeladen', { p0: projRes.data.project_id }))
 
           // Graphdaten abrufen
           if (projRes.data.graph_id) {
@@ -233,10 +238,10 @@ const loadSimulationData = async () => {
         }
       }
     } else {
-      addLog(`Laden der Simulationsdaten fehlgeschlagen: ${simRes.error || 'Unbekannter Fehler'}`)
+      addLog(t('simulationRunView.ladenDerSimulationsdatenFehlgeschlagen', { p0: simRes.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`Ladeausnahme: ${err.message}`)
+    addLog(t('simulationRunView.loadException', { error: err.message }))
   }
 }
 
@@ -252,11 +257,11 @@ const loadGraph = async (graphId) => {
     if (res.success) {
       graphData.value = res.data
       if (!isSimulating.value) {
-        addLog('Graphdaten erfolgreich geladen')
+        addLog(t('simulationRunView.graphdatenErfolgreichGeladen'))
       }
     }
   } catch (err) {
-    addLog(`Graph laden fehlgeschlagen: ${err.message}`)
+    addLog(t('simulationRunView.graphLadenFehlgeschlagen', { p0: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -273,7 +278,7 @@ let graphRefreshTimer = null
 
 const startGraphRefresh = () => {
   if (graphRefreshTimer) return
-  addLog('Echtzeit-Graph-Aktualisierung aktiviert (30s)')
+  addLog(t('simulationRunView.echtzeitGraphAktualisierungAktiviert30s'))
   // Sofort einmal aktualisieren, dann alle 30 Sekunden
   graphRefreshTimer = setInterval(refreshGraph, 30000)
 }
@@ -282,7 +287,7 @@ const stopGraphRefresh = () => {
   if (graphRefreshTimer) {
     clearInterval(graphRefreshTimer)
     graphRefreshTimer = null
-    addLog('Echtzeit-Graph-Aktualisierung gestoppt')
+    addLog(t('simulationRunView.echtzeitGraphAktualisierungGestoppt'))
   }
 }
 
@@ -295,11 +300,11 @@ watch(isSimulating, (newValue) => {
 }, { immediate: true })
 
 onMounted(() => {
-  addLog('SimulationRunView initialisiert')
+  addLog(t('simulationRunView.initialized'))
 
   // maxRounds-Konfiguration protokollieren (Wert wurde bei Initialisierung aus Query-Parametern abgerufen)
   if (maxRounds.value) {
-    addLog(`Benutzerdefinierte Simulationsrunden: ${maxRounds.value}`)
+    addLog(t('simulationRunView.customSimulationRounds', { count: maxRounds.value }))
 }
   
   loadSimulationData()
@@ -457,4 +462,3 @@ onUnmounted(() => {
   [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
 </style>
-

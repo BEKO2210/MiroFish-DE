@@ -9,7 +9,7 @@
             <svg class="platform-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
             </svg>
-            <span class="platform-name">Info Plaza</span>
+            <span class="platform-name">{{ $t('step3.infoPlaza') }}</span>
             <span v-if="runStatus.twitter_completed" class="status-badge">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -18,28 +18,28 @@
           </div>
           <div class="platform-stats">
             <span class="stat">
-              <span class="stat-label">ROUND</span>
+              <span class="stat-label">{{ $t('step3.round') }}</span>
               <span class="stat-value mono">{{ runStatus.twitter_current_round || 0 }}<span class="stat-total">/{{ runStatus.total_rounds || maxRounds || '-' }}</span></span>
             </span>
             <span class="stat">
-              <span class="stat-label">Vergangene Zeit</span>
+              <span class="stat-label">{{ $t('step3.vergangeneZeit') }}</span>
               <span class="stat-value mono">{{ twitterElapsedTime }}</span>
             </span>
             <span class="stat">
-              <span class="stat-label">ACTS</span>
+              <span class="stat-label">{{ $t('step3.acts') }}</span>
               <span class="stat-value mono">{{ runStatus.twitter_actions_count || 0 }}</span>
             </span>
           </div>
           <!-- Verfügbare Aktionen Tooltip -->
           <div class="actions-tooltip">
-            <div class="tooltip-title">Verfügbare Aktionen</div>
+            <div class="tooltip-title">{{ $t('step3.verfugbareAktionen') }}</div>
             <div class="tooltip-actions">
-              <span class="tooltip-action">POST</span>
-              <span class="tooltip-action">LIKE</span>
-              <span class="tooltip-action">REPOST</span>
-              <span class="tooltip-action">QUOTE</span>
-              <span class="tooltip-action">FOLLOW</span>
-              <span class="tooltip-action">IDLE</span>
+              <span class="tooltip-action">{{ $t('step3.post') }}</span>
+              <span class="tooltip-action">{{ $t('step3.like') }}</span>
+              <span class="tooltip-action">{{ $t('step3.repost') }}</span>
+              <span class="tooltip-action">{{ $t('step3.quote') }}</span>
+              <span class="tooltip-action">{{ $t('step3.follow') }}</span>
+              <span class="tooltip-action">{{ $t('step3.idle') }}</span>
             </div>
           </div>
         </div>
@@ -50,7 +50,7 @@
             <svg class="platform-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
             </svg>
-            <span class="platform-name">Topic Community</span>
+            <span class="platform-name">{{ $t('step3.topicCommunity') }}</span>
             <span v-if="runStatus.reddit_completed" class="status-badge">
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3">
                 <polyline points="20 6 9 17 4 12"></polyline>
@@ -59,32 +59,32 @@
           </div>
           <div class="platform-stats">
             <span class="stat">
-              <span class="stat-label">ROUND</span>
+              <span class="stat-label">{{ $t('step3.round') }}</span>
               <span class="stat-value mono">{{ runStatus.reddit_current_round || 0 }}<span class="stat-total">/{{ runStatus.total_rounds || maxRounds || '-' }}</span></span>
             </span>
             <span class="stat">
-              <span class="stat-label">Vergangene Zeit</span>
+              <span class="stat-label">{{ $t('step3.vergangeneZeit') }}</span>
               <span class="stat-value mono">{{ redditElapsedTime }}</span>
             </span>
             <span class="stat">
-              <span class="stat-label">ACTS</span>
+              <span class="stat-label">{{ $t('step3.acts') }}</span>
               <span class="stat-value mono">{{ runStatus.reddit_actions_count || 0 }}</span>
             </span>
           </div>
           <!-- Verfügbare Aktionen Tooltip -->
           <div class="actions-tooltip">
-            <div class="tooltip-title">Verfügbare Aktionen</div>
+            <div class="tooltip-title">{{ $t('step3.verfugbareAktionen') }}</div>
             <div class="tooltip-actions">
-              <span class="tooltip-action">POST</span>
-              <span class="tooltip-action">COMMENT</span>
-              <span class="tooltip-action">LIKE</span>
-              <span class="tooltip-action">DISLIKE</span>
-              <span class="tooltip-action">SEARCH</span>
-              <span class="tooltip-action">TREND</span>
-              <span class="tooltip-action">FOLLOW</span>
-              <span class="tooltip-action">MUTE</span>
-              <span class="tooltip-action">REFRESH</span>
-              <span class="tooltip-action">IDLE</span>
+              <span class="tooltip-action">{{ $t('step3.post') }}</span>
+              <span class="tooltip-action">{{ $t('step3.comment') }}</span>
+              <span class="tooltip-action">{{ $t('step3.like') }}</span>
+              <span class="tooltip-action">{{ $t('step3.dislike') }}</span>
+              <span class="tooltip-action">{{ $t('step3.search') }}</span>
+              <span class="tooltip-action">{{ $t('step3.trend') }}</span>
+              <span class="tooltip-action">{{ $t('step3.follow') }}</span>
+              <span class="tooltip-action">{{ $t('step3.mute') }}</span>
+              <span class="tooltip-action">{{ $t('step3.refresh') }}</span>
+              <span class="tooltip-action">{{ $t('step3.idle') }}</span>
             </div>
           </div>
         </div>
@@ -97,7 +97,7 @@
           @click="handleNextStep"
         >
           <span v-if="isGeneratingReport" class="loading-spinner-small"></span>
-          {{ isGeneratingReport ? 'Wird gestartet...' : 'Ergebnisbericht generieren' }}
+          {{ isGeneratingReport ? $t('step3.wirdGestartet') : $t('step3.generateResultsReport') }}
           <span v-if="!isGeneratingReport" class="arrow-icon">→</span>
         </button>
       </div>
@@ -108,7 +108,7 @@
       <!-- Zeitleisten-Kopfzeile -->
       <div class="timeline-header" v-if="allActions.length > 0">
         <div class="timeline-stats">
-          <span class="total-count">EREIGNISSE GESAMT: <span class="mono">{{ allActions.length }}</span></span>
+          <span class="total-count">{{ $t('step3.ereignisseGesamt') }} <span class="mono">{{ allActions.length }}</span></span>
           <span class="platform-breakdown">
             <span class="breakdown-item twitter">
               <svg class="mini-icon" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -207,7 +207,7 @@
                   </div>
                   <div v-if="action.action_args?.post_id" class="comment-context">
                     <svg class="icon-small" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
-                    <span>Antwort auf Beitrag #{{ action.action_args.post_id }}</span>
+                    <span>{{ $t('step3.replyToPost', { id: action.action_args.post_id }) }}</span>
                   </div>
                 </template>
 
@@ -215,7 +215,7 @@
                 <template v-if="action.action_type === 'SEARCH_POSTS'">
                   <div class="search-info">
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <span class="search-label">Suchanfrage:</span>
+                    <span class="search-label">{{ $t('step3.searchQuery') }}</span>
                     <span class="search-query">"{{ action.action_args?.query || '' }}"</span>
                   </div>
                 </template>
@@ -224,7 +224,7 @@
                 <template v-if="action.action_type === 'FOLLOW'">
                   <div class="follow-info">
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                    <span class="follow-label">Folgt jetzt @{{ action.action_args?.target_user || action.action_args?.user_id || 'User' }}</span>
+                    <span class="follow-label">{{ $t('step3.nowFollowing', { user: action.action_args?.target_user || action.action_args?.user_id || 'User' }) }}</span>
                   </div>
                 </template>
 
@@ -233,7 +233,7 @@
                   <div class="vote-info">
                     <svg v-if="action.action_type === 'UPVOTE_POST'" class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"></polyline></svg>
                     <svg v-else class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    <span class="vote-label">{{ action.action_type === 'UPVOTE_POST' ? 'Hochgestimmt' : 'Runtergestimmt' }}</span>
+                    <span class="vote-label">{{ action.action_type === 'UPVOTE_POST' ? $t('step3.upvoted') : $t('step3.downvoted') }}</span>
                   </div>
                   <div v-if="action.action_args?.post_content" class="voted-content">
                     "{{ truncateContent(action.action_args.post_content, 120) }}"
@@ -244,7 +244,7 @@
                 <template v-if="action.action_type === 'DO_NOTHING'">
                   <div class="idle-info">
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                    <span class="idle-label">Aktion übersprungen</span>
+                    <span class="idle-label">{{ $t('step3.actionSkipped') }}</span>
                   </div>
                 </template>
 
@@ -264,7 +264,7 @@
 
         <div v-if="allActions.length === 0" class="waiting-state">
           <div class="pulse-ring"></div>
-          <span>Warten auf Agenten-Aktionen...</span>
+          <span>{{ $t('step3.waitingForAgentActions') }}</span>
         </div>
       </div>
     </div>
@@ -272,7 +272,7 @@
     <!-- Untere Info / Protokolle -->
     <div class="system-logs">
       <div class="log-header">
-        <span class="log-title">SIMULATIONSMONITOR</span>
+        <span class="log-title">{{ $t('step3.simulationMonitor') }}</span>
         <span class="log-id">{{ simulationId || 'NO_SIMULATION' }}</span>
       </div>
       <div class="log-content" ref="logContent">
@@ -287,6 +287,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { 
   startSimulation, 
@@ -295,6 +296,8 @@ import {
   getRunStatusDetail
 } from '../api/simulation'
 import { generateReport } from '../api/report'
+
+const { t } = useI18n()
 
 const props = defineProps({
   simulationId: String,
@@ -379,7 +382,7 @@ const resetAllState = () => {
 // Simulation starten
 const doStartSimulation = async () => {
   if (!props.simulationId) {
-    addLog('Fehler: simulationId fehlt')
+    addLog(t('step3.fehlerSimulationidFehlt'))
     return
   }
 
@@ -388,7 +391,7 @@ const doStartSimulation = async () => {
 
   isStarting.value = true
   startError.value = null
-  addLog('Parallele Dual-Plattform-Simulation wird gestartet...')
+  addLog(t('step3.paralleleDualPlattformSimulationWirdGestartet'))
   emit('update-status', 'processing')
   
   try {
@@ -401,18 +404,18 @@ const doStartSimulation = async () => {
     
     if (props.maxRounds) {
       params.max_rounds = props.maxRounds
-      addLog(`Maximale Simulationsrunden gesetzt: ${props.maxRounds}`)
+    addLog(t('step3.maxRoundsSet', { count: props.maxRounds }))
     }
     
-    addLog('Dynamischer Graph-Aktualisierungsmodus aktiviert')
+    addLog(t('step3.dynamischerGraphAktualisierungsmodusAktiviert'))
     
     const res = await startSimulation(params)
     
     if (res.success && res.data) {
       if (res.data.force_restarted) {
-        addLog('✓ Alte Simulationsprotokolle bereinigt, Simulation wird neu gestartet')
+        addLog(t('step3.alteSimulationsprotokolleBereinigtSimulationWirdNeuGestartet'))
       }
-      addLog('✓ Simulationsengine erfolgreich gestartet')
+      addLog(t('step3.simulationsengineErfolgreichGestartet'))
       addLog(`  ├─ PID: ${res.data.process_pid || '-'}`)
       
       phase.value = 1
@@ -421,13 +424,13 @@ const doStartSimulation = async () => {
       startStatusPolling()
       startDetailPolling()
     } else {
-      startError.value = res.error || 'Start fehlgeschlagen'
-      addLog(`✗ Start fehlgeschlagen: ${res.error || 'Unbekannter Fehler'}`)
+      startError.value = res.error || t('step3.startFehlgeschlagen')
+      addLog(t('step3.startFehlgeschlagen2', { p0: res.error || t('common.unknownError') }))
       emit('update-status', 'error')
     }
   } catch (err) {
     startError.value = err.message
-    addLog(`✗ Startausnahme: ${err.message}`)
+    addLog(t('step3.startException', { error: err.message }))
     emit('update-status', 'error')
   } finally {
     isStarting.value = false
@@ -439,21 +442,21 @@ const handleStopSimulation = async () => {
   if (!props.simulationId) return
   
   isStopping.value = true
-  addLog('Simulation wird gestoppt...')
+  addLog(t('step3.simulationWirdGestoppt'))
   
   try {
     const res = await stopSimulation({ simulation_id: props.simulationId })
     
     if (res.success) {
-      addLog('✓ Simulation gestoppt')
+      addLog(t('step3.simulationGestoppt'))
       phase.value = 2
       stopPolling()
       emit('update-status', 'completed')
     } else {
-      addLog(`Stoppen fehlgeschlagen: ${res.error || 'Unbekannter Fehler'}`)
+      addLog(t('step3.stoppenFehlgeschlagen', { p0: res.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`Stoppausnahme: ${err.message}`)
+    addLog(t('step3.stopException', { error: err.message }))
   } finally {
     isStopping.value = false
   }
@@ -517,16 +520,16 @@ const fetchRunStatus = async () => {
       
       if (isCompleted || platformsCompleted) {
         if (platformsCompleted && !isCompleted) {
-          addLog('✓ Alle Plattform-Simulationen beendet erkannt')
+          addLog(t('step3.allPlatformSimulationsFinished'))
         }
-        addLog('✓ Simulation abgeschlossen')
+        addLog(t('step3.simulationAbgeschlossen'))
         phase.value = 2
         stopPolling()
         emit('update-status', 'completed')
       }
     }
   } catch (err) {
-    console.warn('Laufzeitstatus konnte nicht abgerufen werden:', err)
+    console.warn(t('step3.laufzeitstatusKonnteNichtAbgerufenWerden'), err)
   }
 }
 
@@ -584,7 +587,7 @@ const fetchRunStatusDetail = async () => {
       // Neue Aktionen werden unten angehängt
     }
   } catch (err) {
-    console.warn('Detailstatus konnte nicht abgerufen werden:', err)
+    console.warn(t('step3.detailstatusKonnteNichtAbgerufenWerden'), err)
   }
 }
 
@@ -640,17 +643,17 @@ const formatActionTime = (timestamp) => {
 
 const handleNextStep = async () => {
   if (!props.simulationId) {
-    addLog('Fehler: simulationId fehlt')
+    addLog(t('step3.fehlerSimulationidFehlt'))
     return
   }
 
   if (isGeneratingReport.value) {
-    addLog('Berichtgenerierungsanfrage gesendet, bitte warten...')
+    addLog(t('step3.berichtgenerierungsanfrageGesendetBitteWarten'))
     return
   }
 
   isGeneratingReport.value = true
-  addLog('Berichterstellung wird gestartet...')
+  addLog(t('step3.berichterstellungWirdGestartet'))
   
   try {
     const res = await generateReport({
@@ -660,16 +663,16 @@ const handleNextStep = async () => {
     
     if (res.success && res.data) {
       const reportId = res.data.report_id
-      addLog(`✓ Berichterstellungsaufgabe gestartet: ${reportId}`)
+      addLog(t('step3.berichterstellungsaufgabeGestartet', { p0: reportId }))
 
       // Zur Berichtsseite navigieren
       router.push({ name: 'Report', params: { reportId } })
     } else {
-      addLog(`✗ Start der Berichterstellung fehlgeschlagen: ${res.error || 'Unbekannter Fehler'}`)
+      addLog(t('step3.startDerBerichterstellungFehlgeschlagen', { p0: res.error || t('common.unknownError') }))
       isGeneratingReport.value = false
     }
   } catch (err) {
-    addLog(`✗ Ausnahme beim Starten der Berichterstellung: ${err.message}`)
+    addLog(t('step3.ausnahmeBeimStartenDerBerichterstellung', { p0: err.message }))
     isGeneratingReport.value = false
   }
 }
@@ -685,7 +688,7 @@ watch(() => props.systemLogs?.length, () => {
 })
 
 onMounted(() => {
-  addLog('Step3 Simulationslauf initialisiert')
+  addLog(t('step3.initialized'))
   if (props.simulationId) {
     doStartSimulation()
   }

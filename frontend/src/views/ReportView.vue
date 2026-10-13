@@ -15,15 +15,16 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: 'Graph', split: 'Zweispaltig', workbench: 'Arbeitsbereich' }[mode] }}
+            {{ { graph: $t('reportView.graph'), split: $t('common.splitView'), workbench: $t('common.workspace') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
+        <LanguageSwitcher />
         <div class="workflow-step">
-          <span class="step-num">Schritt 4/5</span>
-          <span class="step-name">Berichterstellung</span>
+          <span class="step-num">{{ $t('reportView.schritt45') }}</span>
+          <span class="step-name">{{ $t('reportView.berichterstellung') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -63,12 +64,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step4Report from '../components/Step4Report.vue'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
 import { getReport } from '../api/report'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -109,9 +114,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Fehler'
-  if (currentStatus.value === 'completed') return 'Abgeschlossen'
-  return 'Wird generiert'
+  if (currentStatus.value === 'error') return t('common.error')
+  if (currentStatus.value === 'completed') return t('common.completed')
+  return t('common.generating')
 })
 
 // --- Helpers ---
@@ -139,7 +144,7 @@ const toggleMaximize = (target) => {
 // --- Data Logic ---
 const loadReportData = async () => {
   try {
-    addLog(`Berichtsdaten werden geladen: ${currentReportId.value}`)
+    addLog(t('reportView.berichtsdatenWerdenGeladen', { p0: currentReportId.value }))
 
     // Berichtsinformationen abrufen, um simulation_id zu erhalten
     const reportRes = await getReport(currentReportId.value)
@@ -158,7 +163,7 @@ const loadReportData = async () => {
             const projRes = await getProject(simData.project_id)
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
-              addLog(`Projekt erfolgreich geladen: ${projRes.data.project_id}`)
+              addLog(t('reportView.projektErfolgreichGeladen', { p0: projRes.data.project_id }))
 
               // Graphdaten abrufen
               if (projRes.data.graph_id) {
@@ -169,10 +174,10 @@ const loadReportData = async () => {
         }
       }
     } else {
-      addLog(`Abrufen der Berichtsinformationen fehlgeschlagen: ${reportRes.error || 'Unbekannter Fehler'}`)
+      addLog(t('reportView.abrufenDerBerichtsinformationenFehlgeschlagen', { p0: reportRes.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`Ladeausnahme: ${err.message}`)
+    addLog(t('reportView.loadException', { error: err.message }))
   }
 }
 
@@ -183,10 +188,10 @@ const loadGraph = async (graphId) => {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('Graphdaten erfolgreich geladen')
+      addLog(t('reportView.graphdatenErfolgreichGeladen'))
     }
   } catch (err) {
-    addLog(`Graph laden fehlgeschlagen: ${err.message}`)
+    addLog(t('reportView.graphLadenFehlgeschlagen', { p0: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -207,7 +212,7 @@ watch(() => route.params.reportId, (newId) => {
 }, { immediate: true })
 
 onMounted(() => {
-  addLog('ReportView initialisiert')
+  addLog(t('reportView.initialized'))
   loadReportData()
 })
 </script>

@@ -8,8 +8,8 @@
           <!-- Report Header -->
           <div class="report-header-block">
             <div class="report-meta">
-              <span class="report-tag">Vorhersagebericht</span>
-              <span class="report-id">ID: {{ reportId || 'REF-2024-X92' }}</span>
+              <span class="report-tag">{{ $t('step4.vorhersagebericht') }}</span>
+              <span class="report-id">{{ $t('step4.id') }} {{ reportId || 'REF-2024-X92' }}</span>
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
             <p class="sub-title">{{ reportOutline.summary }}</p>
@@ -58,7 +58,7 @@
                       <path d="M12 2a10 10 0 0 1 10 10" stroke-width="4" stroke="#4B5563" stroke-linecap="round"></path>
                     </svg>
                   </div>
-                  <span class="loading-text">{{ section.title }} wird generiert...</span>
+                  <span class="loading-text">{{ section.title }} {{ $t('step4.wirdGeneriert') }}</span>
                 </div>
               </div>
             </div>
@@ -72,7 +72,7 @@
             <div class="waiting-ring"></div>
             <div class="waiting-ring"></div>
           </div>
-          <span class="waiting-text">Warten auf Berichts-Agent...</span>
+          <span class="waiting-text">{{ $t('step4.wartenAufBerichtsAgent') }}</span>
         </div>
       </div>
 
@@ -89,15 +89,15 @@
         <div class="workflow-overview" v-if="agentLogs.length > 0 || reportOutline">
           <div class="workflow-metrics">
             <div class="metric">
-              <span class="metric-label">Abschnitte</span>
+              <span class="metric-label">{{ $t('step4.abschnitte') }}</span>
               <span class="metric-value mono">{{ completedSections }}/{{ totalSections }}</span>
             </div>
             <div class="metric">
-              <span class="metric-label">Vergangen</span>
+              <span class="metric-label">{{ $t('step4.vergangen') }}</span>
               <span class="metric-value mono">{{ formatElapsedTime }}</span>
             </div>
             <div class="metric">
-              <span class="metric-label">Werkzeuge</span>
+              <span class="metric-label">{{ $t('step4.werkzeuge') }}</span>
               <span class="metric-value mono">{{ totalToolCalls }}</span>
             </div>
             <div class="metric metric-right">
@@ -129,7 +129,7 @@
 
           <!-- Nächster Schritt Button - nach Abschluss anzeigen -->
           <button v-if="isComplete" class="next-step-btn" @click="goToInteraction">
-            <span>Zur Tiefeninteraktion</span>
+            <span>{{ $t('step4.zurTiefeninteraktion') }}</span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
@@ -166,11 +166,11 @@
                   <!-- Report Start -->
                   <template v-if="log.action === 'report_start'">
                     <div class="info-row">
-                      <span class="info-key">Simulation</span>
+                      <span class="info-key">{{ $t('step4.simulation') }}</span>
                       <span class="info-val mono">{{ log.details?.simulation_id }}</span>
                     </div>
                     <div class="info-row" v-if="log.details?.simulation_requirement">
-                      <span class="info-key">Anforderung</span>
+                      <span class="info-key">{{ $t('step4.anforderung') }}</span>
                       <span class="info-val">{{ log.details.simulation_requirement }}</span>
                     </div>
                   </template>
@@ -307,12 +307,12 @@
                   <!-- LLM Response -->
                   <template v-if="log.action === 'llm_response'">
                     <div class="llm-meta">
-                      <span class="meta-tag">Iteration {{ log.details?.iteration }}</span>
+                      <span class="meta-tag">{{ $t('step4.iteration', { count: log.details?.iteration }) }}</span>
                       <span class="meta-tag" :class="{ active: log.details?.has_tool_calls }">
-                        Werkzeuge: {{ log.details?.has_tool_calls ? 'Ja' : 'Nein' }}
+                        {{ $t('step4.toolsValue', { value: log.details?.has_tool_calls ? $t('step4.yes') : $t('step4.no') }) }}
                       </span>
                       <span class="meta-tag" :class="{ active: log.details?.has_final_answer, 'final-answer': log.details?.has_final_answer }">
-                        Endantwort: {{ log.details?.has_final_answer ? 'Ja' : 'Nein' }}
+                        {{ $t('step4.finalAnswerValue', { value: log.details?.has_final_answer ? $t('step4.yes') : $t('step4.no') }) }}
                       </span>
                     </div>
                     <!-- Bei Endantwort spezielle Benachrichtigung anzeigen -->
@@ -320,7 +320,7 @@
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="20 6 9 17 4 12"></polyline>
                       </svg>
-                      <span>Abschnitt "{{ log.section_title }}" Inhalt generiert</span>
+                      <span>{{ $t('step4.sectionContentGenerated', { title: log.section_title }) }}</span>
                     </div>
                     <div v-if="expandedLogs.has(log.timestamp) && log.details?.response" class="llm-content">
                       <pre>{{ log.details.response }}</pre>
@@ -334,7 +334,7 @@
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                         <polyline points="22 4 12 14.01 9 11.01"></polyline>
                       </svg>
-                      <span>Berichtserstellung abgeschlossen</span>
+                      <span>{{ $t('step4.reportGenerationCompleted') }}</span>
                     </div>
                   </template>
                 </div>
@@ -347,17 +347,17 @@
                   <div class="footer-actions">
                     <!-- Tool Call: Show/Hide Params -->
                     <button v-if="log.action === 'tool_call' && log.details?.parameters" class="action-btn" @click.stop="toggleLogExpand(log)">
-                      {{ expandedLogs.has(log.timestamp) ? 'Parameter ausblenden' : 'Parameter anzeigen' }}
+                      {{ expandedLogs.has(log.timestamp) ? $t('step4.hideParameters') : $t('step4.showParameters') }}
                     </button>
                     
                     <!-- Tool Result: Raw/Structured View -->
                     <button v-if="log.action === 'tool_result'" class="action-btn" @click.stop="toggleRawResult(log.timestamp, $event)">
-                      {{ showRawResult[log.timestamp] ? 'Strukturierte Ansicht' : 'Rohdaten' }}
+                      {{ showRawResult[log.timestamp] ? $t('step4.structuredView') : $t('step4.rawData') }}
                     </button>
                     
                     <!-- LLM Response: Show/Hide Response -->
                     <button v-if="log.action === 'llm_response' && log.details?.response" class="action-btn" @click.stop="toggleLogExpand(log)">
-                      {{ expandedLogs.has(log.timestamp) ? 'Antwort ausblenden' : 'Antwort anzeigen' }}
+                      {{ expandedLogs.has(log.timestamp) ? $t('step4.hideResponse') : $t('step4.showResponse') }}
                     </button>
                   </div>
                 </div>
@@ -368,7 +368,7 @@
           <!-- Empty State -->
           <div v-if="agentLogs.length === 0 && !isComplete" class="workflow-empty">
             <div class="empty-pulse"></div>
-            <span>Warten auf Agentenaktivität...</span>
+            <span>{{ $t('step4.waitingForAgentActivity') }}</span>
           </div>
         </div>
       </div>
@@ -377,7 +377,7 @@
     <!-- Bottom Console Logs -->
     <div class="console-logs">
       <div class="log-header">
-        <span class="log-title">KONSOLENAUSGABE</span>
+        <span class="log-title">{{ $t('step4.consoleOutput') }}</span>
         <span class="log-id">{{ reportId || 'KEIN_BERICHT' }}</span>
       </div>
       <div class="log-content" ref="logContent">
@@ -391,8 +391,11 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { getAgentLog, getConsoleLog } from '../api/report'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -495,32 +498,32 @@ const isLogCollapsed = (log) => {
 // Tool configurations with display names and colors
 const toolConfig = {
   'insight_forge': {
-    name: 'Deep Insight',
+    name: t('step4.deepInsight'),
     color: 'purple',
     icon: 'lightbulb' // Glühbirnen-Symbol - steht für Einsicht
   },
   'panorama_search': {
-    name: 'Panorama Search',
+    name: t('step4.panoramaSearchTool'),
     color: 'blue',
     icon: 'globe' // Globus-Symbol - steht für Panoramasuche
   },
   'interview_agents': {
-    name: 'Agent Interview',
+    name: t('step4.agentInterview'),
     color: 'green',
     icon: 'users' // Benutzer-Symbol - steht für Gespräch
   },
   'quick_search': {
-    name: 'Quick Search',
+    name: t('step4.quickSearchTool'),
     color: 'orange',
     icon: 'zap' // Blitz-Symbol - steht für Schnelligkeit
   },
   'get_graph_statistics': {
-    name: 'Graph Stats',
+    name: t('step4.graphStats'),
     color: 'cyan',
     icon: 'chart' // Diagramm-Symbol - steht für Statistik
   },
   'get_entities_by_type': {
-    name: 'Entity Query',
+    name: t('step4.entityQuery'),
     color: 'pink',
     icon: 'database' // Datenbank-Symbol - steht für Entitäten
   }
@@ -871,13 +874,13 @@ const parseInterview = (text) => {
         const quotesText = quotesMatch[1]
         // Bevorzugt > "text" Format abgleichen
         let quoteMatches = quotesText.match(/> "([^"]+)"/g)
-        // Fallback: > "text" oder > \u201Ctext\u201D (chinesische Anführungszeichen) abgleichen
+        // Fallback: > “text” (chinesische Anführungszeichen) abgleichen
         if (!quoteMatches) {
-          quoteMatches = quotesText.match(/> [\u201C""]([^\u201D""]+)[\u201D""]/g)
+          quoteMatches = quotesText.match(/> [\u201C"]([^\u201D"]+)[\u201D"]/g)
         }
         if (quoteMatches) {
           interview.quotes = quoteMatches
-            .map(q => q.replace(/^> [\u201C""]|[\u201D""]$/g, '').trim())
+            .map(q => q.replace(/^> [\u201C"]|[\u201D"]$/g, '').trim())
             .filter(q => q)
         }
       }
@@ -972,30 +975,30 @@ const InsightDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return `${(length / 1000).toFixed(1)}k chars`
+        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
       }
-      return `${length} chars`
+      return t('step4.characterCount', { count: length })
     }
     
     return () => h('div', { class: 'insight-display' }, [
       // Header Section - like interview header
       h('div', { class: 'insight-header' }, [
         h('div', { class: 'header-main' }, [
-          h('div', { class: 'header-title' }, 'Tiefenanalyse'),
+          h('div', { class: 'header-title' }, t('step4.deepAnalysis')),
           h('div', { class: 'header-stats' }, [
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.stats.facts || props.result.facts.length),
-              h('span', { class: 'stat-label' }, 'Fakten')
+              h('span', { class: 'stat-label' }, t('step4.facts'))
             ]),
             h('span', { class: 'stat-divider' }, '/'),
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.stats.entities || props.result.entities.length),
-              h('span', { class: 'stat-label' }, 'Entitäten')
+              h('span', { class: 'stat-label' }, t('step4.entities'))
             ]),
             h('span', { class: 'stat-divider' }, '/'),
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.stats.relationships || props.result.relations.length),
-              h('span', { class: 'stat-label' }, 'Beziehungen')
+              h('span', { class: 'stat-label' }, t('step4.relationships'))
             ]),
             props.resultLength && h('span', { class: 'stat-divider' }, '·'),
             props.resultLength && h('span', { class: 'stat-size' }, formatSize(props.resultLength))
@@ -1003,7 +1006,7 @@ const InsightDisplay = {
         ]),
         props.result.query && h('div', { class: 'header-topic' }, props.result.query),
         props.result.simulationRequirement && h('div', { class: 'header-scenario' }, [
-          h('span', { class: 'scenario-label' }, 'Vorhersageszenario: '),
+          h('span', { class: 'scenario-label' }, t('step4.predictionScenario')),
           h('span', { class: 'scenario-text' }, props.result.simulationRequirement)
         ])
       ]),
@@ -1014,25 +1017,25 @@ const InsightDisplay = {
           class: ['insight-tab', { active: activeTab.value === 'facts' }],
           onClick: () => { activeTab.value = 'facts' }
         }, [
-          h('span', { class: 'tab-label' }, `Aktuelle Schlüsselerinnerungen (${props.result.facts.length})`)
+          h('span', { class: 'tab-label' }, t('step4.currentKeyMemoriesCount', { count: props.result.facts.length }))
         ]),
         h('button', {
           class: ['insight-tab', { active: activeTab.value === 'entities' }],
           onClick: () => { activeTab.value = 'entities' }
         }, [
-          h('span', { class: 'tab-label' }, `Kernentitäten (${props.result.entities.length})`)
+          h('span', { class: 'tab-label' }, t('step4.coreEntitiesCount', { count: props.result.entities.length }))
         ]),
         h('button', {
           class: ['insight-tab', { active: activeTab.value === 'relations' }],
           onClick: () => { activeTab.value = 'relations' }
         }, [
-          h('span', { class: 'tab-label' }, `Beziehungsketten (${props.result.relations.length})`)
+          h('span', { class: 'tab-label' }, t('step4.relationshipChainsCount', { count: props.result.relations.length }))
         ]),
         props.result.subQueries.length > 0 && h('button', {
           class: ['insight-tab', { active: activeTab.value === 'subqueries' }],
           onClick: () => { activeTab.value = 'subqueries' }
         }, [
-          h('span', { class: 'tab-label' }, `Unterfragen (${props.result.subQueries.length})`)
+          h('span', { class: 'tab-label' }, t('step4.subQuestionsCount', { count: props.result.subQueries.length }))
         ])
       ]),
       
@@ -1041,8 +1044,8 @@ const InsightDisplay = {
         // Facts Tab
         activeTab.value === 'facts' && props.result.facts.length > 0 && h('div', { class: 'facts-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Neueste Schlüsselfakten aus dem zeitlichen Gedächtnis'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.facts.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.latestKeyFacts')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.facts.length }))
           ]),
           h('div', { class: 'facts-list' },
             (expandedFacts.value ? props.result.facts : props.result.facts.slice(0, INITIAL_SHOW_COUNT)).map((fact, i) => 
@@ -1055,35 +1058,35 @@ const InsightDisplay = {
           props.result.facts.length > INITIAL_SHOW_COUNT && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedFacts.value = !expandedFacts.value }
-          }, expandedFacts.value ? `Einklappen ▲` : `Alle ${props.result.facts.length} Einträge anzeigen ▼`)
+          }, expandedFacts.value ? t('step4.collapse') : t('step4.showAllEntries', { count: props.result.facts.length }))
         ]),
         
         // Entities Tab
         activeTab.value === 'entities' && props.result.entities.length > 0 && h('div', { class: 'entities-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Kernentitäten'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.entities.length} Stück`)
+            h('span', { class: 'panel-title' }, t('step4.coreEntities')),
+            h('span', { class: 'panel-count' }, t('step4.totalItems', { count: props.result.entities.length }))
           ]),
           h('div', { class: 'entities-grid' },
             (expandedEntities.value ? props.result.entities : props.result.entities.slice(0, 12)).map((entity, i) => 
               h('div', { class: 'entity-tag', key: i, title: entity.summary || '' }, [
                 h('span', { class: 'entity-name' }, entity.name),
                 h('span', { class: 'entity-type' }, entity.type),
-                entity.relatedFactsCount > 0 && h('span', { class: 'entity-fact-count' }, `${entity.relatedFactsCount} Einträge`)
+                entity.relatedFactsCount > 0 && h('span', { class: 'entity-fact-count' }, t('step4.entries', { count: entity.relatedFactsCount }))
               ])
             )
           ),
           props.result.entities.length > 12 && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedEntities.value = !expandedEntities.value }
-          }, expandedEntities.value ? `Einklappen ▲` : `Alle ${props.result.entities.length} Stück anzeigen ▼`)
+          }, expandedEntities.value ? t('step4.collapse') : t('step4.showAllItems', { count: props.result.entities.length }))
         ]),
         
         // Relations Tab
         activeTab.value === 'relations' && props.result.relations.length > 0 && h('div', { class: 'relations-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Beziehungsketten'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.relations.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.relationshipChains')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.relations.length }))
           ]),
           h('div', { class: 'relations-list' },
             (expandedRelations.value ? props.result.relations : props.result.relations.slice(0, INITIAL_SHOW_COUNT)).map((rel, i) => 
@@ -1101,14 +1104,14 @@ const InsightDisplay = {
           props.result.relations.length > INITIAL_SHOW_COUNT && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedRelations.value = !expandedRelations.value }
-          }, expandedRelations.value ? `Einklappen ▲` : `Alle ${props.result.relations.length} Einträge anzeigen ▼`)
+          }, expandedRelations.value ? t('step4.collapse') : t('step4.showAllEntries', { count: props.result.relations.length }))
         ]),
         
         // Sub-queries Tab
         activeTab.value === 'subqueries' && props.result.subQueries.length > 0 && h('div', { class: 'subqueries-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Durch Drift-Abfrage generierte Analyse-Unterfragen'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.subQueries.length} Stück`)
+            h('span', { class: 'panel-title' }, t('step4.generatedSubQuestions')),
+            h('span', { class: 'panel-count' }, t('step4.totalItems', { count: props.result.subQueries.length }))
           ]),
           h('div', { class: 'subqueries-list' },
             props.result.subQueries.map((sq, i) => 
@@ -1121,9 +1124,9 @@ const InsightDisplay = {
         ]),
         
         // Empty state
-        activeTab.value === 'facts' && props.result.facts.length === 0 && h('div', { class: 'empty-state' }, 'Keine aktuellen Schlüsselerinnerungen vorhanden'),
-        activeTab.value === 'entities' && props.result.entities.length === 0 && h('div', { class: 'empty-state' }, 'Keine Kernentitäten vorhanden'),
-        activeTab.value === 'relations' && props.result.relations.length === 0 && h('div', { class: 'empty-state' }, 'Keine Beziehungsketten vorhanden')
+        activeTab.value === 'facts' && props.result.facts.length === 0 && h('div', { class: 'empty-state' }, t('step4.noCurrentKeyMemories')),
+        activeTab.value === 'entities' && props.result.entities.length === 0 && h('div', { class: 'empty-state' }, t('step4.noCoreEntities')),
+        activeTab.value === 'relations' && props.result.relations.length === 0 && h('div', { class: 'empty-state' }, t('step4.noRelationshipChains'))
       ])
     ])
   }
@@ -1143,25 +1146,25 @@ const PanoramaDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return `${(length / 1000).toFixed(1)}k chars`
+        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
       }
-      return `${length} chars`
+      return t('step4.characterCount', { count: length })
     }
     
     return () => h('div', { class: 'panorama-display' }, [
       // Header Section
       h('div', { class: 'panorama-header' }, [
         h('div', { class: 'header-main' }, [
-          h('div', { class: 'header-title' }, 'Panoramasuche'),
+          h('div', { class: 'header-title' }, t('step4.panoramaSearch')),
           h('div', { class: 'header-stats' }, [
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.stats.nodes),
-              h('span', { class: 'stat-label' }, 'Knoten')
+              h('span', { class: 'stat-label' }, t('step4.nodes'))
             ]),
             h('span', { class: 'stat-divider' }, '/'),
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.stats.edges),
-              h('span', { class: 'stat-label' }, 'Kanten')
+              h('span', { class: 'stat-label' }, t('step4.edges'))
             ]),
             props.resultLength && h('span', { class: 'stat-divider' }, '·'),
             props.resultLength && h('span', { class: 'stat-size' }, formatSize(props.resultLength))
@@ -1176,19 +1179,19 @@ const PanoramaDisplay = {
           class: ['panorama-tab', { active: activeTab.value === 'active' }],
           onClick: () => { activeTab.value = 'active' }
         }, [
-          h('span', { class: 'tab-label' }, `Aktuelle gültige Erinnerungen (${props.result.activeFacts.length})`)
+          h('span', { class: 'tab-label' }, t('step4.currentValidMemoriesCount', { count: props.result.activeFacts.length }))
         ]),
         h('button', {
           class: ['panorama-tab', { active: activeTab.value === 'historical' }],
           onClick: () => { activeTab.value = 'historical' }
         }, [
-          h('span', { class: 'tab-label' }, `Historische Erinnerungen (${props.result.historicalFacts.length})`)
+          h('span', { class: 'tab-label' }, t('step4.historicalMemoriesCount', { count: props.result.historicalFacts.length }))
         ]),
         h('button', {
           class: ['panorama-tab', { active: activeTab.value === 'entities' }],
           onClick: () => { activeTab.value = 'entities' }
         }, [
-          h('span', { class: 'tab-label' }, `Beteiligte Entitäten (${props.result.entities.length})`)
+          h('span', { class: 'tab-label' }, t('step4.involvedEntitiesCount', { count: props.result.entities.length }))
         ])
       ]),
       
@@ -1197,8 +1200,8 @@ const PanoramaDisplay = {
         // Active Facts Tab
         activeTab.value === 'active' && h('div', { class: 'facts-panel active-facts' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Aktuelle gültige Erinnerungen'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.activeFacts.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.currentValidMemories')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.activeFacts.length }))
           ]),
           props.result.activeFacts.length > 0 ? h('div', { class: 'facts-list' },
             (expandedActive.value ? props.result.activeFacts : props.result.activeFacts.slice(0, INITIAL_SHOW_COUNT)).map((fact, i) => 
@@ -1207,18 +1210,18 @@ const PanoramaDisplay = {
                 h('div', { class: 'fact-content' }, fact)
               ])
             )
-          ) : h('div', { class: 'empty-state' }, 'Keine aktuellen gültigen Erinnerungen vorhanden'),
+          ) : h('div', { class: 'empty-state' }, t('step4.noCurrentValidMemories')),
           props.result.activeFacts.length > INITIAL_SHOW_COUNT && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedActive.value = !expandedActive.value }
-          }, expandedActive.value ? `Einklappen ▲` : `Alle ${props.result.activeFacts.length} Einträge anzeigen ▼`)
+          }, expandedActive.value ? t('step4.collapse') : t('step4.showAllEntries', { count: props.result.activeFacts.length }))
         ]),
         
         // Historical Facts Tab
         activeTab.value === 'historical' && h('div', { class: 'facts-panel historical-facts' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Historische Erinnerungen'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.historicalFacts.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.historicalMemories')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.historicalFacts.length }))
           ]),
           props.result.historicalFacts.length > 0 ? h('div', { class: 'facts-list' },
             (expandedHistorical.value ? props.result.historicalFacts : props.result.historicalFacts.slice(0, INITIAL_SHOW_COUNT)).map((fact, i) => 
@@ -1239,18 +1242,18 @@ const PanoramaDisplay = {
                 ])
               ])
             )
-          ) : h('div', { class: 'empty-state' }, 'Keine historischen Erinnerungen vorhanden'),
+          ) : h('div', { class: 'empty-state' }, t('step4.noHistoricalMemories')),
           props.result.historicalFacts.length > INITIAL_SHOW_COUNT && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedHistorical.value = !expandedHistorical.value }
-          }, expandedHistorical.value ? `Einklappen ▲` : `Alle ${props.result.historicalFacts.length} Einträge anzeigen ▼`)
+          }, expandedHistorical.value ? t('step4.collapse') : t('step4.showAllEntries', { count: props.result.historicalFacts.length }))
         ]),
         
         // Entities Tab
         activeTab.value === 'entities' && h('div', { class: 'entities-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Beteiligte Entitäten'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.entities.length} Stück`)
+            h('span', { class: 'panel-title' }, t('step4.involvedEntities')),
+            h('span', { class: 'panel-count' }, t('step4.totalItems', { count: props.result.entities.length }))
           ]),
           props.result.entities.length > 0 ? h('div', { class: 'entities-grid' },
             (expandedEntities.value ? props.result.entities : props.result.entities.slice(0, 8)).map((entity, i) => 
@@ -1259,11 +1262,11 @@ const PanoramaDisplay = {
                 entity.type && h('span', { class: 'entity-type' }, entity.type)
               ])
             )
-          ) : h('div', { class: 'empty-state' }, 'Keine beteiligten Entitäten vorhanden'),
+          ) : h('div', { class: 'empty-state' }, t('step4.noInvolvedEntities')),
           props.result.entities.length > 8 && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedEntities.value = !expandedEntities.value }
-          }, expandedEntities.value ? `Einklappen ▲` : `Alle ${props.result.entities.length} Stück anzeigen ▼`)
+          }, expandedEntities.value ? t('step4.collapse') : t('step4.showAllItems', { count: props.result.entities.length }))
         ])
       ])
     ])
@@ -1278,15 +1281,15 @@ const InterviewDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return `${(length / 1000).toFixed(1)}k chars`
+        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
       }
-      return `${length} chars`
+      return t('step4.characterCount', { count: length })
     }
     
     // Clean quote text - remove leading list numbers to avoid double numbering
     const cleanQuoteText = (text) => {
       if (!text) return ''
-      // Remove leading patterns like "1. ", "2. ", "1、", "（1）", "(1)" etc.
+      // Remove leading patterns like `1. ", "2. ", "1、", "（1）", "(1)` etc.
       return text.replace(/^\s*\d+[\.\、\)）]\s*/, '').trim()
     }
     
@@ -1337,11 +1340,11 @@ const InterviewDisplay = {
 
       // Zwei Nummerierungsformate werden unterstützt:
       // 1. "Frage X:" bzw. "「Frage X：」" (neues Backend-Format; chinesisches "问题X：" weiter akzeptiert)
-      // 2. "1. " oder "\n1. " (Zahl+Punkt, altes Format kompatibel)
+      // 2. "1. " oder "1. " (Zahl+Punkt, altes Format kompatibel)
       let matches = []
       let match
 
-      // Bevorzugt das "Frage X:"-Format versuchen
+      // Bevorzugt das `Frage X:`-Format versuchen
       const cnPattern = /(?:^|[\r\n]+)「?(?:问题|Frage)\s*(\d+)[：:]」?\s*/g
       while ((match = cnPattern.exec(answerText)) !== null) {
         matches.push({
@@ -1351,7 +1354,7 @@ const InterviewDisplay = {
         })
       }
 
-      // Falls nicht gefunden, auf "Zahl." Format zurückfallen
+      // Falls nicht gefunden, auf `Zahl.` Format zurückfallen
       if (matches.length === 0) {
         const numPattern = /(?:^|[\r\n]+)(\d+)\.\s+/g
         while ((match = numPattern.exec(answerText)) !== null) {
@@ -1423,16 +1426,16 @@ const InterviewDisplay = {
       // Header Section
       h('div', { class: 'interview-header' }, [
         h('div', { class: 'header-main' }, [
-          h('div', { class: 'header-title' }, 'Agenten-Interview'),
+          h('div', { class: 'header-title' }, t('step4.agentInterview')),
           h('div', { class: 'header-stats' }, [
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.successCount || props.result.interviews.length),
-              h('span', { class: 'stat-label' }, 'Interviewt')
+              h('span', { class: 'stat-label' }, t('step4.interviewed'))
             ]),
             props.result.totalCount > 0 && h('span', { class: 'stat-divider' }, '/'),
             props.result.totalCount > 0 && h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.totalCount),
-              h('span', { class: 'stat-label' }, 'Gesamt')
+              h('span', { class: 'stat-label' }, t('step4.total'))
             ]),
             props.resultLength && h('span', { class: 'stat-divider' }, '·'),
             props.resultLength && h('span', { class: 'stat-size' }, formatSize(props.resultLength))
@@ -1467,7 +1470,7 @@ const InterviewDisplay = {
         
         // Auswahlbegründung
         props.result.interviews[activeIndex.value]?.selectionReason && h('div', { class: 'selection-reason' }, [
-          h('div', { class: 'reason-label' }, 'Auswahlbegründung'),
+          h('div', { class: 'reason-label' }, t('step4.selectionReason')),
           h('div', { class: 'reason-content' }, props.result.interviews[activeIndex.value].selectionReason)
         ]),
         
@@ -1475,7 +1478,7 @@ const InterviewDisplay = {
         h('div', { class: 'qa-thread' }, 
           (props.result.interviews[activeIndex.value]?.questions?.length > 0 
             ? props.result.interviews[activeIndex.value].questions 
-            : [props.result.interviews[activeIndex.value]?.question || 'Keine Frage verfügbar']
+            : [props.result.interviews[activeIndex.value]?.question || t('step4.noQuestionAvailable')]
           ).map((question, qIdx) => {
             const interview = props.result.interviews[activeIndex.value]
             const currentPlatform = getPlatformTab(activeIndex.value, qIdx)
@@ -1490,7 +1493,7 @@ const InterviewDisplay = {
               h('div', { class: 'qa-question' }, [
                 h('div', { class: 'qa-badge q-badge' }, `Q${qIdx + 1}`),
                 h('div', { class: 'qa-content' }, [
-                  h('div', { class: 'qa-sender' }, 'Interviewer/in'),
+                  h('div', { class: 'qa-sender' }, t('step4.interviewer')),
                   h('div', { class: 'qa-text' }, question)
                 ])
               ]),
@@ -1512,7 +1515,7 @@ const InterviewDisplay = {
                           h('line', { x1: '2', y1: '12', x2: '22', y2: '12' }),
                           h('path', { d: 'M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z' })
                         ]),
-                        h('span', {}, 'Welt 1')
+                        h('span', {}, t('step4.world1'))
                       ]),
                       h('button', {
                         class: ['platform-btn', { active: currentPlatform === 'reddit' }],
@@ -1521,7 +1524,7 @@ const InterviewDisplay = {
                         h('svg', { class: 'platform-icon', viewBox: '0 0 24 24', width: 12, height: 12, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
                           h('path', { d: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z' })
                         ]),
-                        h('span', {}, 'Welt 2')
+                        h('span', {}, t('step4.world2'))
                       ])
                     ])
                   ]),
@@ -1537,7 +1540,7 @@ const InterviewDisplay = {
                   !isPlaceholder && answerText.length > 400 && h('button', {
                     class: 'expand-answer-btn',
                     onClick: () => toggleAnswer(expandKey)
-                  }, isExpanded ? 'Weniger anzeigen' : 'Mehr anzeigen')
+                  }, isExpanded ? t('step4.showLess') : t('step4.showMore'))
                 ])
               ])
             ])
@@ -1546,7 +1549,7 @@ const InterviewDisplay = {
         
         // Key Quotes Section
         props.result.interviews[activeIndex.value]?.quotes?.length > 0 && h('div', { class: 'quotes-section' }, [
-          h('div', { class: 'quotes-header' }, 'Schlüsselzitate'),
+          h('div', { class: 'quotes-header' }, t('step4.keyQuotes')),
           h('div', { class: 'quotes-list' },
             props.result.interviews[activeIndex.value].quotes.slice(0, 3).map((quote, qi) => {
               const cleanedQuote = cleanQuoteText(quote)
@@ -1563,7 +1566,7 @@ const InterviewDisplay = {
 
       // Summary Section (Collapsible)
       props.result.summary && h('div', { class: 'summary-section' }, [
-        h('div', { class: 'summary-header' }, 'Interviewzusammenfassung'),
+        h('div', { class: 'summary-header' }, t('step4.interviewSummary')),
         h('div', { 
           class: 'summary-content',
           innerHTML: renderMarkdown(props.result.summary.length > 500 ? props.result.summary.substring(0, 500) + '...' : props.result.summary)
@@ -1590,27 +1593,27 @@ const QuickSearchDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return `${(length / 1000).toFixed(1)}k chars`
+        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
       }
-      return `${length} chars`
+      return t('step4.characterCount', { count: length })
     }
     
     return () => h('div', { class: 'quick-search-display' }, [
       // Header Section
       h('div', { class: 'quicksearch-header' }, [
         h('div', { class: 'header-main' }, [
-          h('div', { class: 'header-title' }, 'Schnellsuche'),
+          h('div', { class: 'header-title' }, t('step4.quickSearch')),
           h('div', { class: 'header-stats' }, [
             h('span', { class: 'stat-item' }, [
               h('span', { class: 'stat-value' }, props.result.count || props.result.facts.length),
-              h('span', { class: 'stat-label' }, 'Ergebnisse')
+              h('span', { class: 'stat-label' }, t('step4.results'))
             ]),
             props.resultLength && h('span', { class: 'stat-divider' }, '·'),
             props.resultLength && h('span', { class: 'stat-size' }, formatSize(props.resultLength))
           ])
         ]),
         props.result.query && h('div', { class: 'header-query' }, [
-          h('span', { class: 'query-label' }, 'Suche: '),
+          h('span', { class: 'query-label' }, t('step4.searchLabel')),
           h('span', { class: 'query-text' }, props.result.query)
         ])
       ]),
@@ -1621,19 +1624,19 @@ const QuickSearchDisplay = {
           class: ['quicksearch-tab', { active: activeTab.value === 'facts' }],
           onClick: () => { activeTab.value = 'facts' }
         }, [
-          h('span', { class: 'tab-label' }, `Fakten (${props.result.facts.length})`)
+          h('span', { class: 'tab-label' }, t('step4.factsCount', { count: props.result.facts.length }))
         ]),
         hasEdges.value && h('button', {
           class: ['quicksearch-tab', { active: activeTab.value === 'edges' }],
           onClick: () => { activeTab.value = 'edges' }
         }, [
-          h('span', { class: 'tab-label' }, `Beziehungen (${props.result.edges.length})`)
+          h('span', { class: 'tab-label' }, t('step4.relationshipsCount', { count: props.result.edges.length }))
         ]),
         hasNodes.value && h('button', {
           class: ['quicksearch-tab', { active: activeTab.value === 'nodes' }],
           onClick: () => { activeTab.value = 'nodes' }
         }, [
-          h('span', { class: 'tab-label' }, `Knoten (${props.result.nodes.length})`)
+          h('span', { class: 'tab-label' }, t('step4.nodesCount', { count: props.result.nodes.length }))
         ])
       ]),
       
@@ -1642,8 +1645,8 @@ const QuickSearchDisplay = {
         // Facts (always show if no tabs, or when facts tab is active)
         ((!showTabs.value) || activeTab.value === 'facts') && h('div', { class: 'facts-panel' }, [
           !showTabs.value && h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Suchergebnisse'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.facts.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.searchResults')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.facts.length }))
           ]),
           props.result.facts.length > 0 ? h('div', { class: 'facts-list' },
             (expandedFacts.value ? props.result.facts : props.result.facts.slice(0, INITIAL_SHOW_COUNT)).map((fact, i) => 
@@ -1652,18 +1655,18 @@ const QuickSearchDisplay = {
                 h('div', { class: 'fact-content' }, fact)
               ])
             )
-          ) : h('div', { class: 'empty-state' }, 'Keine relevanten Ergebnisse gefunden'),
+          ) : h('div', { class: 'empty-state' }, t('step4.noRelevantResults')),
           props.result.facts.length > INITIAL_SHOW_COUNT && h('button', {
             class: 'expand-btn',
             onClick: () => { expandedFacts.value = !expandedFacts.value }
-          }, expandedFacts.value ? `Einklappen ▲` : `Alle ${props.result.facts.length} Einträge anzeigen ▼`)
+          }, expandedFacts.value ? t('step4.collapse') : t('step4.showAllEntries', { count: props.result.facts.length }))
         ]),
         
         // Edges Tab
         activeTab.value === 'edges' && hasEdges.value && h('div', { class: 'edges-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Zugehörige Beziehungen'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.edges.length} Einträge`)
+            h('span', { class: 'panel-title' }, t('step4.relatedRelationships')),
+            h('span', { class: 'panel-count' }, t('step4.totalEntries', { count: props.result.edges.length }))
           ]),
           h('div', { class: 'edges-list' },
             props.result.edges.map((edge, i) => 
@@ -1683,8 +1686,8 @@ const QuickSearchDisplay = {
         // Nodes Tab
         activeTab.value === 'nodes' && hasNodes.value && h('div', { class: 'nodes-panel' }, [
           h('div', { class: 'panel-header' }, [
-            h('span', { class: 'panel-title' }, 'Zugehörige Knoten'),
-            h('span', { class: 'panel-count' }, `Gesamt: ${props.result.nodes.length} Stück`)
+            h('span', { class: 'panel-title' }, t('step4.relatedNodes')),
+            h('span', { class: 'panel-count' }, t('step4.totalItems', { count: props.result.nodes.length }))
           ]),
           h('div', { class: 'nodes-grid' },
             props.result.nodes.map((node, i) => 
@@ -1708,9 +1711,9 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (isComplete.value) return 'Abgeschlossen'
+  if (isComplete.value) return t('common.completed')
   if (agentLogs.value.length > 0) return 'Wird generiert...'
-  return 'Warten'
+  return t('step4.waiting')
 })
 
 const totalSections = computed(() => {
@@ -1776,7 +1779,7 @@ const activeStep = computed(() => {
   if (doneSteps.length > 0) return doneSteps[doneSteps.length - 1]
   
   // Andernfalls ersten Schritt zurückgeben
-  return steps[0] || { noLabel: '--', title: 'Warten auf Start', status: 'todo', meta: '' }
+  return steps[0] || { noLabel: '--', title: t('step4.waitingToStart'), status: 'todo', meta: '' }
 })
 
 const workflowSteps = computed(() => {
@@ -1787,9 +1790,9 @@ const workflowSteps = computed(() => {
   steps.push({
     key: 'planning',
     noLabel: 'PL',
-    title: 'Planung / Gliederung',
+    title: t('step4.planningOutline'),
     status: planningStatus,
-    meta: planningStatus === 'active' ? 'IN BEARBEITUNG' : ''
+    meta: planningStatus === 'active' ? t('step4.inProgressUpper') : ''
   })
 
   // Sections (if outline exists)
@@ -1805,7 +1808,7 @@ const workflowSteps = computed(() => {
       noLabel: String(idx).padStart(2, '0'),
       title: section.title,
       status,
-      meta: status === 'active' ? 'IN BEARBEITUNG' : ''
+      meta: status === 'active' ? t('step4.inProgressUpper') : ''
     })
   })
 
@@ -1814,9 +1817,9 @@ const workflowSteps = computed(() => {
   steps.push({
     key: 'complete',
     noLabel: 'OK',
-    title: 'Abgeschlossen',
+    title: t('common.completed'),
     status: completeStatus,
-    meta: completeStatus === 'active' ? 'WIRD ABGESCHLOSSEN' : ''
+    meta: completeStatus === 'active' ? t('step4.completingUpper') : ''
   })
 
   return steps
@@ -1856,8 +1859,8 @@ const formatParams = (params) => {
 
 const formatResultSize = (length) => {
   if (!length) return ''
-  if (length < 1000) return `${length} chars`
-  return `${(length / 1000).toFixed(1)}k chars`
+  if (length < 1000) return t('step4.characterCount', { count: length })
+  return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
 }
 
 const truncateText = (text, maxLen) => {
@@ -1868,26 +1871,15 @@ const truncateText = (text, maxLen) => {
 
 const renderMarkdown = (content) => {
   if (!content) return ''
-  
-  // Anfangs-H2-Überschrift entfernen (## xxx), da Abschnittstitel bereits außen angezeigt wird
+
   let processedContent = content.replace(/^##\s+.+\n+/, '')
-  
-  // Codeblöcke verarbeiten
   let html = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
-  
-  // Inline-Code verarbeiten
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
-  
-  // Überschriften verarbeiten
   html = html.replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  
-  // Zitatblöcke verarbeiten
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
-  
-  // Listen verarbeiten - Unterlisten unterstützt
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
     const level = Math.floor(indent.length / 2)
     return `<li class="md-li" data-level="${level}">${text}</li>`
@@ -1896,53 +1888,31 @@ const renderMarkdown = (content) => {
     const level = Math.floor(indent.length / 2)
     return `<li class="md-oli" data-level="${level}">${text}</li>`
   })
-
-  // Ungeordnete Listen umhüllen
   html = html.replace(/(<li class="md-li"[^>]*>.*?<\/li>\s*)+/g, '<ul class="md-ul">$&</ul>')
-  // Geordnete Listen umhüllen
   html = html.replace(/(<li class="md-oli"[^>]*>.*?<\/li>\s*)+/g, '<ol class="md-ol">$&</ol>')
-
-  // Alle Leerzeichen zwischen Listenelementen bereinigen
   html = html.replace(/<\/li>\s+<li/g, '</li><li')
-  // Leerzeichen nach Listen-Öffnungstags bereinigen
   html = html.replace(/<ul class="md-ul">\s+/g, '<ul class="md-ul">')
   html = html.replace(/<ol class="md-ol">\s+/g, '<ol class="md-ol">')
-  // Leerzeichen vor Listen-Schlusstags bereinigen
   html = html.replace(/\s+<\/ul>/g, '</ul>')
   html = html.replace(/\s+<\/ol>/g, '</ol>')
-  
-  // Fett- und Kursivschrift verarbeiten
   html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
   html = html.replace(/_(.+?)_/g, '<em>$1</em>')
-  
-  // Trennlinien verarbeiten
   html = html.replace(/^---$/gm, '<hr class="md-hr">')
-  
-  // Zeilenumbrüche verarbeiten - Leerzeilen werden Absatztrenner, einzelne Umbrüche werden <br>
   html = html.replace(/\n\n/g, '</p><p class="md-p">')
   html = html.replace(/\n/g, '<br>')
-  
-  // In Absätze einbetten
   html = '<p class="md-p">' + html + '</p>'
-  
-  // Leere Absätze bereinigen
   html = html.replace(/<p class="md-p"><\/p>/g, '')
   html = html.replace(/<p class="md-p">(<h[2-5])/g, '$1')
   html = html.replace(/(<\/h[2-5]>)<\/p>/g, '$1')
   html = html.replace(/<p class="md-p">(<ul|<ol|<blockquote|<pre|<hr)/g, '$1')
   html = html.replace(/(<\/ul>|<\/ol>|<\/blockquote>|<\/pre>)<\/p>/g, '$1')
-  // <br>-Tags vor und nach Block-Elementen bereinigen
   html = html.replace(/<br>\s*(<ul|<ol|<blockquote)/g, '$1')
   html = html.replace(/(<\/ul>|<\/ol>|<\/blockquote>)\s*<br>/g, '$1')
-  // <p><br> direkt vor Block-Elementen bereinigen (durch überzählige Leerzeilen verursacht)
   html = html.replace(/<p class="md-p">(<br>\s*)+(<ul|<ol|<blockquote|<pre|<hr)/g, '$2')
-  // Aufeinanderfolgende <br>-Tags bereinigen
   html = html.replace(/(<br>\s*){2,}/g, '<br>')
-  // <br> vor Absatz-Öffnungstags nach Block-Elementen bereinigen
   html = html.replace(/(<\/ol>|<\/ul>|<\/blockquote>)<br>(<p|<div)/g, '$1$2')
 
-  // Nummerierung nicht-aufeinanderfolgender geordneter Listen korrigieren: Bei durch Absätze getrennten Einzel-<ol> Nummerierung beibehalten
   const tokens = html.split(/(<ol class="md-ol">(?:<li class="md-oli"[^>]*>[\s\S]*?<\/li>)+<\/ol>)/g)
   let olCounter = 0
   let inSequence = false
@@ -1951,24 +1921,18 @@ const renderMarkdown = (content) => {
       const liCount = (tokens[i].match(/<li class="md-oli"/g) || []).length
       if (liCount === 1) {
         olCounter++
-        if (olCounter > 1) {
-          tokens[i] = tokens[i].replace('<ol class="md-ol">', `<ol class="md-ol" start="${olCounter}">`)
-        }
+        if (olCounter > 1) tokens[i] = tokens[i].replace('<ol class="md-ol">', `<ol class="md-ol" start="${olCounter}">`)
         inSequence = true
       } else {
         olCounter = 0
         inSequence = false
       }
-    } else if (inSequence) {
-      if (/<h[2-5]/.test(tokens[i])) {
-        olCounter = 0
-        inSequence = false
-      }
+    } else if (inSequence && /<h[2-5]/.test(tokens[i])) {
+      olCounter = 0
+      inSequence = false
     }
   }
-  html = tokens.join('')
-
-  return html
+  return tokens.join('')
 }
 
 const getTimelineItemClass = (log, idx, total) => {
@@ -1991,16 +1955,16 @@ const getConnectorClass = (log, idx, total) => {
 
 const getActionLabel = (action) => {
   const labels = {
-    'report_start': 'Bericht gestartet',
-    'planning_start': 'Planung',
-    'planning_complete': 'Plan abgeschlossen',
-    'section_start': 'Abschnitt gestartet',
-    'section_content': 'Inhalt bereit',
-    'section_complete': 'Abschnitt fertig',
-    'tool_call': 'Werkzeugaufruf',
-    'tool_result': 'Werkzeugergebnis',
-    'llm_response': 'LLM-Antwort',
-    'report_complete': 'Abgeschlossen'
+    'report_start': t('step4.reportStarted'),
+    'planning_start': t('step4.planning'),
+    'planning_complete': t('step4.planComplete'),
+    'section_start': t('step4.sectionStarted'),
+    'section_content': t('step4.contentReady'),
+    'section_complete': t('step4.sectionComplete'),
+    'tool_call': t('step4.toolCall'),
+    'tool_result': t('step4.toolResult'),
+    'llm_response': t('step4.llmResponse'),
+    'report_complete': t('common.completed')
   }
   return labels[action] || action
 }
@@ -2173,7 +2137,7 @@ const stopPolling = () => {
 // Lifecycle
 onMounted(() => {
   if (props.reportId) {
-    addLog(`Berichts-Agent initialisiert: ${props.reportId}`)
+    addLog(t('step4.reportAgentInitialized', { id: props.reportId }))
     startPolling()
   }
 })
