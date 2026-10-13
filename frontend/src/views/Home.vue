@@ -107,7 +107,7 @@
                   Speichert Wissen als Markdown in <code>uploads/simulations/.../vault</code>.
                 </p>
                 <p class="field-desc" v-if="configData.memory_provider === 'zep'">
-                  Erfordert einen gültigen Zep API Key.
+                  Mit „Obsidian / Markdown (Lokal)“ ist kein Zep-Konto nötig – alles bleibt auf diesem Rechner.
                 </p>
               </div>
 
@@ -154,8 +154,8 @@
               </div>
 
               <div class="form-group">
-                <label>Zep API Key (Erforderlich)</label>
-                <input type="password" v-model="configData.zep_api_key" placeholder="Zep Cloud/Local API Key" class="settings-input">
+                <label v-if="configData.memory_provider === 'zep' || configData.memory_provider === 'hybrid'">Zep API Key (nur für Zep Cloud)</label>
+                <input v-if="configData.memory_provider === 'zep' || configData.memory_provider === 'hybrid'" type="password" v-model="configData.zep_api_key" placeholder="Zep Cloud API Key" class="settings-input">
               </div>
 
               <div class="settings-actions">
@@ -180,8 +180,8 @@
           <!-- Metrics Cards -->
           <div class="metrics-row">
             <div class="metric-card">
-              <div class="metric-value">Kostengünstig</div>
-              <div class="metric-label">Durchschnittlich 5$/Simulation</div>
+              <div class="metric-value">Läuft lokal</div>
+              <div class="metric-label">0 € pro Simulation, Daten bleiben bei dir</div>
             </div>
             <div class="metric-card">
               <div class="metric-value">Hochverfügbar</div>
