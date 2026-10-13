@@ -709,91 +709,91 @@ class ZepToolsService:
         logger.info(f"{len(filtered)} Entitäten vom Typ {entity_type} gefunden")
         return filtered
 
-        def get_entity_summary(
-            self, 
-            graph_id: str, 
-            entity_name: str
-        ) -> Dict[str, Any]:
-            """Beziehungszusammenfassung der Entität abrufen via Provider"""
-            logger.info(f"Beziehungszusammenfassung der Entität {entity_name} abrufen...")
+    def get_entity_summary(
+        self, 
+        graph_id: str, 
+        entity_name: str
+    ) -> Dict[str, Any]:
+        """Beziehungszusammenfassung der Entität abrufen via Provider"""
+        logger.info(f"Beziehungszusammenfassung der Entität {entity_name} abrufen...")
 
-            search_result = self.search_graph(graph_id=graph_id, query=entity_name, limit=20)
-            all_nodes = self.get_all_nodes(graph_id)
+        search_result = self.search_graph(graph_id=graph_id, query=entity_name, limit=20)
+        all_nodes = self.get_all_nodes(graph_id)
 
-            entity_node = None
-            for node in all_nodes:
-                if node.name.lower() == entity_name.lower():
-                    entity_node = node
-                    break
+        entity_node = None
+        for node in all_nodes:
+            if node.name.lower() == entity_name.lower():
+                entity_node = node
+                break
 
-            related_edges = []
-            if entity_node:
-                related_edges = self.get_node_edges(graph_id, entity_node.uuid)
+        related_edges = []
+        if entity_node:
+            related_edges = self.get_node_edges(graph_id, entity_node.uuid)
 
-            return {
-                "entity_name": entity_name,
-                "entity_info": entity_node.to_dict() if entity_node else None,
-                "related_facts": search_result.facts,
-                "related_edges": [e.to_dict() for e in related_edges],
-                "total_relations": len(related_edges)
-            }
+        return {
+            "entity_name": entity_name,
+            "entity_info": entity_node.to_dict() if entity_node else None,
+            "related_facts": search_result.facts,
+            "related_edges": [e.to_dict() for e in related_edges],
+            "total_relations": len(related_edges)
+        }
 
-        def get_graph_statistics(self, graph_id: str) -> Dict[str, Any]:
-            """Statistiken des Graphs via Provider abrufen"""
-            logger.info(f"Statistiken des Graphs {graph_id} abrufen...")
+    def get_graph_statistics(self, graph_id: str) -> Dict[str, Any]:
+        """Statistiken des Graphs via Provider abrufen"""
+        logger.info(f"Statistiken des Graphs {graph_id} abrufen...")
 
-            nodes = self.get_all_nodes(graph_id)
-            edges = self.get_all_edges(graph_id)
+        nodes = self.get_all_nodes(graph_id)
+        edges = self.get_all_edges(graph_id)
 
-            entity_types = {}
-            for node in nodes:
-                for label in node.labels:
-                    if label not in ["Entity", "Node"]:
-                        entity_types[label] = entity_types.get(label, 0) + 1
+        entity_types = {}
+        for node in nodes:
+            for label in node.labels:
+                if label not in ["Entity", "Node"]:
+                    entity_types[label] = entity_types.get(label, 0) + 1
 
-            relation_types = {}
-            for edge in edges:
-                relation_types[edge.name] = relation_types.get(edge.name, 0) + 1
+        relation_types = {}
+        for edge in edges:
+            relation_types[edge.name] = relation_types.get(edge.name, 0) + 1
 
-            return {
-                "graph_id": graph_id,
-                "total_nodes": len(nodes),
-                "total_edges": len(edges),
-                "entity_types": entity_types,
-                "relation_types": relation_types
-            }
+        return {
+            "graph_id": graph_id,
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+            "entity_types": entity_types,
+            "relation_types": relation_types
+        }
 
-        def get_simulation_context(
-            self, 
-            graph_id: str,
-            simulation_requirement: str,
-            limit: int = 30
-        ) -> Dict[str, Any]:
-            """Simulationsbezogene Kontextinformationen via Provider abrufen"""
-            logger.info(f"Simulationskontext abrufen für: {simulation_requirement[:50]}...")
+    def get_simulation_context(
+        self, 
+        graph_id: str,
+        simulation_requirement: str,
+        limit: int = 30
+    ) -> Dict[str, Any]:
+        """Simulationsbezogene Kontextinformationen via Provider abrufen"""
+        logger.info(f"Simulationskontext abrufen für: {simulation_requirement[:50]}...")
 
-            search_result = self.search_graph(graph_id=graph_id, query=simulation_requirement, limit=limit)
-            stats = self.get_graph_statistics(graph_id)
-            all_nodes = self.get_all_nodes(graph_id)
+        search_result = self.search_graph(graph_id=graph_id, query=simulation_requirement, limit=limit)
+        stats = self.get_graph_statistics(graph_id)
+        all_nodes = self.get_all_nodes(graph_id)
 
-            entities = []
-            for node in all_nodes:
-                custom_labels = [l for l in node.labels if l not in ["Entity", "Node"]]
-                if custom_labels:
-                    entities.append({
-                        "name": node.name,
-                        "type": custom_labels[0],
-                        "summary": node.summary
-                    })
+        entities = []
+        for node in all_nodes:
+            custom_labels = [l for l in node.labels if l not in ["Entity", "Node"]]
+            if custom_labels:
+                entities.append({
+                    "name": node.name,
+                    "type": custom_labels[0],
+                    "summary": node.summary
+                })
 
-            return {
-                "simulation_requirement": simulation_requirement,
-                "related_facts": search_result.facts,
-                "graph_statistics": stats,
-                "entities": entities[:limit],
-                "total_entities": len(entities)
-            }
-    # ========== Kern-Retrieval-Tools (optimiert) ==========
+        return {
+            "simulation_requirement": simulation_requirement,
+            "related_facts": search_result.facts,
+            "graph_statistics": stats,
+            "entities": entities[:limit],
+            "total_entities": len(entities)
+        }
+# ========== Kern-Retrieval-Tools (optimiert) ==========
     
     def insight_forge(
         self,
