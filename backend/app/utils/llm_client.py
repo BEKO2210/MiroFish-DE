@@ -8,14 +8,32 @@ import json
 import logging
 import os
 import re
+import math
 from typing import Optional, Dict, Any, List
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:  # Tests und reine Hilfsfunktionen benötigen das optionale SDK nicht.
+    OpenAI = None  # type: ignore[assignment]
 
 from ..config import Config
 from .openai_chat_compat import create_chat_completion, extract_chat_completion_text
 
 
 logger = logging.getLogger(__name__)
+
+
+def estimate_tokens(value: Any) -> int:
+    """Konservative lokale Schätzung: ein Token je drei Zeichen."""
+    if isinstance(value, str):
+        text = value
+    elif isinstance(value, list):
+        text = "\n".join(
+            str(item.get("content") or "") if isinstance(item, dict) else str(item)
+            for item in value
+        )
+    else:
+        text = str(value or "")
+    return math.ceil(len(text) / 3)
 
 
 class LLMResponseError(ValueError):
@@ -107,6 +125,7 @@ class LLMClient:
         self.base_url = base_url or llm_config['base_url']
         self.model = model or llm_config['model']
         self.provider = Config.LLM_PROVIDER
+        self.last_raw_response: Optional[str] = None
         
         # Für lokale LLMs: Dummy-API-Key verwenden falls nicht gesetzt
         if Config.is_local_llm() and (not self.api_key or self.api_key == 'not-needed-for-local-llm'):
@@ -114,6 +133,8 @@ class LLMClient:
         
         if not self.api_key:
             raise ValueError(f"LLM_API_KEY nicht konfiguriert (Provider: {self.provider})")
+        if OpenAI is None:
+            raise RuntimeError("Python-Paket 'openai' ist nicht installiert")
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -132,6 +153,15 @@ class LLMClient:
         """Eine rohe Chat-Completions-Anfrage über die Kompatibilitätsschicht senden."""
         extra_kwargs: Dict[str, Any] = {}
         if self.provider in ('ollama', 'lmstudio', 'local'):
+            context = int(os.environ.get('LOCAL_LLM_CONTEXT', str(Config.LOCAL_LLM_CONTEXT)))
+            estimated = estimate_tokens(messages) + int(max_tokens or 0)
+            if estimated > context:
+                logger.warning(
+                    "Lokale LLM-Anfrage überschreitet das geschätzte Kontextbudget: "
+                    "%s Token (Eingabe + maximale Ausgabe) > LOCAL_LLM_CONTEXT=%s",
+                    estimated,
+                    context,
+                )
             # Lokale Denk-Modelle (gemma4, qwen3.5) verbrauchen sonst das Token-Budget für Reasoning und liefern
             # leeren Inhalt; Ollama honoriert reasoning_effort auf /v1. Abschaltbar über LOCAL_LLM_REASONING=on.
             if os.environ.get('LOCAL_LLM_REASONING', 'none').lower() != 'on':
@@ -188,6 +218,7 @@ class LLMClient:
                     raise ValueError(f"Modell hat die Antwort verweigert: {message.refusal}")
                 
             content = extract_chat_completion_text(response)
+            self.last_raw_response = content
             return _clean_chat_text(content)
         except Exception as e:
             # Detaillierte Fehlermeldung für Debugging
@@ -248,6 +279,10 @@ class LLMClient:
                 break
 
             try:
+                try:
+                    self.last_raw_response = extract_chat_completion_text(response)
+                except Exception:
+                    self.last_raw_response = None
                 return self._parse_json_response(response)
             except LLMResponseError as error:
                 last_error = error

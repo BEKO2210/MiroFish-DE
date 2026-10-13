@@ -125,3 +125,34 @@ Es wird kein automatischer echter Testlauf gestartet.
   eines einzelnen Empfehlungsalgorithmus-Effekts.
 - `without:<AgentTyp>` verändert bei entfernten Startbeiträgen sowohl Akteursbestand als auch Ausgangsimpuls. Genau das
   ist für die angeforderte Gegenprobe beabsichtigt, muss aber bei kausalen Aussagen beachtet werden.
+
+## Fehler im ersten Nachtlauf und Korrektur
+
+Im Nachtlauf `ens_9c4647555d4b` wurden alle Beiträge eines Laufs in einer einzigen LLM-Anfrage klassifiziert. Besonders
+die isolierten Läufe erzeugten etwa 95.000–100.000 Zeichen (rund 32.000 geschätzte Token). Das lokale Modell hatte
+jedoch nur 16.384 Token Kontext. Ollama kürzte die Eingabe still am Anfang; damit fehlten Anweisung und Checkliste, und
+die Klassifikation ergab fälschlich durchgehend Nein. Auch die Basisläufe mit etwa 8.000–13.000 Token lagen zu nahe an
+der Grenze. Außerdem konnte das negative Ergebnis „Medien reagieren nicht“ technisch nie Ja werden, weil jedes Ja
+einen Belegbeitrag verlangte.
+
+Die Korrektur klassifiziert Beiträge nun in reihenfolgetreuen Stapeln. Anweisung, Checkliste und Beiträge bleiben unter
+`ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET` (Standard 9.000 geschätzte Eingabetoken bei Zeichen/3); zusätzlich wird Platz
+für die Ausgabe innerhalb von `LOCAL_LLM_CONTEXT` (Standard 16.384) reserviert. Selbst ein einzelner überlanger Beitrag
+wird dafür in prüfbare Textfragmente zerlegt. `classification.json` im jeweiligen Laufverzeichnis hält je Stapel die
+Modellantwort, das geprüfte Ergebnis, die Größe und die Tokenschätzung fest. Belege werden vereinigt und auf fünf pro
+Ergebnis begrenzt.
+
+Jeder Checklistenpunkt besitzt die Polarität `presence` oder `absence`. Bei alten Checklisten wird `absence` aus
+Formulierungen mit „nicht“, „keine/kein“ oder „bleibt aus“ abgeleitet. Für ein Abwesenheitsergebnis sucht der Prompt
+nach dem positiven Gegenereignis; nur wenn es in keinem vollständig klassifizierten Stapel belegt ist, lautet das
+Ergebnis Ja. Der Auditbeleg nennt dann „kein passender Beitrag in N geprüften Beiträgen“.
+
+Eine nach zwei Inhaltsversuchen nicht parsebare Stapelantwort wird nicht mehr als Nein behandelt. Der betreffende Lauf
+ist für das Ergebnis `unclassified`, wird aus `n` und damit aus Anteil und Wilson-Intervall entfernt und separat unter
+`results.<variant>.<outcome>.unclassified` sowie in der Berichtstabelle ausgewiesen.
+
+Bestehende Ensembles können mit `POST /api/ensemble/<id>/reclassify` ohne neue Simulation ausgewertet werden. Der
+Hintergrundlauf liest ausschließlich die gespeicherten SQLite-Datenbanken beziehungsweise Nullmodell-Erzählungen,
+verwendet dieselbe Checkliste und berechnet Ergebnisse und Vergleiche neu. Der vorherige Ergebnisstand bleibt als
+`results_v1` erhalten; Fortschritt und Abschluss sind wie beim ursprünglichen Lauf über `GET /api/ensemble/<id>`
+sichtbar.

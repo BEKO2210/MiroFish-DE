@@ -44,6 +44,10 @@ class Config:
     LOCAL_LLM_BASE_URL = os.environ.get('LOCAL_LLM_BASE_URL', 'http://localhost:1234/v1')
     LOCAL_LLM_MODEL_NAME = os.environ.get('LOCAL_LLM_MODEL_NAME', 'whiterabbitneo-2.5-qwen-2.5-coder-7b')
     LOCAL_LLM_API_KEY = os.environ.get('LOCAL_LLM_API_KEY', 'not-needed-for-local-llm')
+    LOCAL_LLM_CONTEXT = int(os.environ.get('LOCAL_LLM_CONTEXT', '16384'))
+    ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET = int(
+        os.environ.get('ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET', '9000')
+    )
     
     # Memory-Provider: 'zep', 'obsidian', 'hybrid'
     MEMORY_PROVIDER = os.environ.get('MEMORY_PROVIDER', 'zep').lower()
