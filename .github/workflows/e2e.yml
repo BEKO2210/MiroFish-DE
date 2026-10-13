@@ -8,6 +8,12 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    # Gleiches Image wie e2e/docker-test.sh lokal: identische Browser und Schriften für den Pixelvergleich
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    env:
+      HOME: /root
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,10 +34,6 @@ jobs:
       - name: E2E dependencies
         working-directory: e2e
         run: npm ci
-
-      - name: Playwright browsers
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium webkit
 
       - name: Run E2E suite
         working-directory: e2e
