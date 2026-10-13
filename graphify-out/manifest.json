@@ -1,8 +1,8 @@
 {
   "backend/app/__init__.py": {
-    "mtime": 1791877250.3446403,
-    "seen": 1791877262.4548085,
-    "ast_hash": "23d9d39534f904efb4089a9b0e354500",
+    "mtime": 1791877688.0719209,
+    "seen": 1791879169.0051706,
+    "ast_hash": "8ee57690b1d026e3e36788835450e7e5",
     "semantic_hash": ""
   },
   "backend/app/api/__init__.py": {
@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "backend/app/api/simulation.py": {
-    "mtime": 1791877217.2564852,
-    "seen": 1791877262.4548354,
-    "ast_hash": "38a06b37cdcfc4e782aa941d5006fc71",
+    "mtime": 1791877688.0719209,
+    "seen": 1791879169.005189,
+    "ast_hash": "04607431bcdf7d9f2fda7f4b6e8fda60",
     "semantic_hash": ""
   },
   "backend/app/api/system.py": {
@@ -252,9 +252,9 @@
     "semantic_hash": ""
   },
   "frontend/src/App.vue": {
-    "mtime": 1791877217.258485,
-    "seen": 1791877262.4549472,
-    "ast_hash": "b8043966d14c5b4ef522cb20bc8c6d27",
+    "mtime": 1791878957.8222458,
+    "seen": 1791879169.005247,
+    "ast_hash": "ff44742973677fbe7f65f6af7bd86187",
     "semantic_hash": ""
   },
   "frontend/src/api/graph.js": {
@@ -288,21 +288,21 @@
     "semantic_hash": ""
   },
   "frontend/src/components/HistoryDatabase.vue": {
-    "mtime": 1791877250.3446403,
-    "seen": 1791877262.4549882,
-    "ast_hash": "4615d8a0a47e59e3ff928d8d0503c5d6",
+    "mtime": 1791877726.1292496,
+    "seen": 1791879169.0052614,
+    "ast_hash": "b028a2060fd587f15ae2e55f4ab91643",
     "semantic_hash": ""
   },
   "frontend/src/components/Step1GraphBuild.vue": {
-    "mtime": 1791843059.5428681,
-    "seen": 1791844998.5019476,
-    "ast_hash": "4e32eef890d617c4c77121659e446c69",
+    "mtime": 1791878416.1163368,
+    "seen": 1791879169.005264,
+    "ast_hash": "311aa16de241b26ffa7ce6d7ab5f0cfc",
     "semantic_hash": ""
   },
   "frontend/src/components/Step2EnvSetup.vue": {
-    "mtime": 1791843059.5438683,
-    "seen": 1791844998.5019488,
-    "ast_hash": "6427cd45ab24d24767f6a9ba55832c0a",
+    "mtime": 1791878416.118337,
+    "seen": 1791879169.0052655,
+    "ast_hash": "c835388fd2a22ab5037fc39a26371f43",
     "semantic_hash": ""
   },
   "frontend/src/components/Step3Simulation.vue": {
@@ -312,9 +312,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/Step4Report.vue": {
-    "mtime": 1791851557.9604292,
-    "seen": 1791859646.6029046,
-    "ast_hash": "b7ebc6ef64541b0e73967c1e0edabc24",
+    "mtime": 1791878416.122337,
+    "seen": 1791879169.0052683,
+    "ast_hash": "f122389313c3ed7e30f9102277f02b5d",
     "semantic_hash": ""
   },
   "frontend/src/components/Step5Interaction.vue": {
@@ -324,15 +324,15 @@
     "semantic_hash": ""
   },
   "frontend/src/main.js": {
-    "mtime": 1791843059.5448682,
-    "seen": 1791844998.5019536,
-    "ast_hash": "3a61bdea769a8fab28b3452eed8f71e4",
+    "mtime": 1791878496.0841284,
+    "seen": 1791879169.005274,
+    "ast_hash": "cf96aa3f2ac3733fb55570e2f0361215",
     "semantic_hash": ""
   },
   "frontend/src/router/index.js": {
-    "mtime": 1791843059.5448682,
-    "seen": 1791844998.5019548,
-    "ast_hash": "129334c4e9ce97b988ef1dcc4a811889",
+    "mtime": 1791878957.8162456,
+    "seen": 1791879169.0052755,
+    "ast_hash": "2430b348bb4ae0e193cd8f9f8a72691c",
     "semantic_hash": ""
   },
   "frontend/src/store/pendingUpload.js": {
@@ -342,21 +342,21 @@
     "semantic_hash": ""
   },
   "frontend/src/views/Home.vue": {
-    "mtime": 1791877168.69879,
-    "seen": 1791877262.4550326,
-    "ast_hash": "843b7c6bfc9ad3b3bce0e3095839b53e",
+    "mtime": 1791879035.463956,
+    "seen": 1791879169.0052812,
+    "ast_hash": "53321a7784643cbaa766f3ae6dbe31e6",
     "semantic_hash": ""
   },
   "frontend/src/views/InteractionView.vue": {
-    "mtime": 1791843059.5448682,
-    "seen": 1791844998.5019586,
-    "ast_hash": "af307a3eaee2c304c91a15bab92fa9f1",
+    "mtime": 1791877752.1021562,
+    "seen": 1791879169.0052829,
+    "ast_hash": "d2ea006bb1e672fd9a8307a43e2980cc",
     "semantic_hash": ""
   },
   "frontend/src/views/MainView.vue": {
-    "mtime": 1791843059.5448682,
-    "seen": 1791844998.5019596,
-    "ast_hash": "40b6bf21bd5cde7c73c4b23e8e6c4a1f",
+    "mtime": 1791878416.1163368,
+    "seen": 1791879169.005284,
+    "ast_hash": "66020003fe241a332810590b5266d33f",
     "semantic_hash": ""
   },
   "frontend/src/views/Process.vue": {
@@ -366,21 +366,21 @@
     "semantic_hash": ""
   },
   "frontend/src/views/ReportView.vue": {
-    "mtime": 1791843059.5458684,
-    "seen": 1791844998.501962,
-    "ast_hash": "67e33f93255620068afbdffff9df1e58",
+    "mtime": 1791877752.1031563,
+    "seen": 1791879169.005287,
+    "ast_hash": "86fffa175e265fa943cb6da5151e1b86",
     "semantic_hash": ""
   },
   "frontend/src/views/SimulationRunView.vue": {
-    "mtime": 1791843059.5458684,
-    "seen": 1791844998.501963,
-    "ast_hash": "f84041bb6cbf661683b9edc97e8024af",
+    "mtime": 1791878416.1153367,
+    "seen": 1791879169.0052907,
+    "ast_hash": "dd6dde1e46f26e63cd517bed248a8997",
     "semantic_hash": ""
   },
   "frontend/src/views/SimulationView.vue": {
-    "mtime": 1791843059.5458684,
-    "seen": 1791844998.5019734,
-    "ast_hash": "c8215927ecc0017b3bc56c73030f42bb",
+    "mtime": 1791878416.1153367,
+    "seen": 1791879169.005292,
+    "ast_hash": "5fa42a08eaac485b8bca615148479e21",
     "semantic_hash": ""
   },
   "frontend/vite.config.js": {
@@ -426,9 +426,9 @@
     "semantic_hash": ""
   },
   "frontend/index.html": {
-    "mtime": 1791876852.468751,
-    "seen": 1791877262.455071,
-    "ast_hash": "fa0d6c4f715bc7940445385d4950fc60",
+    "mtime": 1791878200.5008097,
+    "seen": 1791879169.0053103,
+    "ast_hash": "0621f2c18b011fc30ed44f111512a6aa",
     "semantic_hash": ""
   },
   "test_data.txt": {
@@ -528,15 +528,123 @@
     "semantic_hash": ""
   },
   "backend/app/api/pipeline.py": {
-    "mtime": 1791877250.3446403,
-    "seen": 1791877262.4548283,
-    "ast_hash": "cde9e5ebea745f66ac28bb0f9b06e3a8",
+    "mtime": 1791878496.0851283,
+    "seen": 1791879169.0051847,
+    "ast_hash": "e33d5114253e372962f6b9bcfdb02843",
     "semantic_hash": ""
   },
   "frontend/src/components/MobileNav.vue": {
-    "mtime": 1791877217.258485,
-    "seen": 1791877262.4549932,
-    "ast_hash": "12cda79d3d2642e07d810a6f633df354",
+    "mtime": 1791878722.711039,
+    "seen": 1791879169.0052629,
+    "ast_hash": "77f933fe3f09bb62c386bb9beb244691",
+    "semantic_hash": ""
+  },
+  "frontend/src/api/pipeline.js": {
+    "mtime": 1791878137.4436083,
+    "seen": 1791879169.0052524,
+    "ast_hash": "288d9ec8d5c97b63d961d091216b7787",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/AppHeader.vue": {
+    "mtime": 1791878722.4660304,
+    "seen": 1791879169.0052571,
+    "ast_hash": "c15f873deb1a5278b530e343f928c8d6",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ConfirmSheet.vue": {
+    "mtime": 1791878723.172055,
+    "seen": 1791879169.0052586,
+    "ast_hash": "b13ca0b3ac44e0962740e5632cce47f0",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/SwarmCanvas.vue": {
+    "mtime": 1791878821.0984733,
+    "seen": 1791879169.0052707,
+    "ast_hash": "f80c44cb625d91167cd764b704012979",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ThemePicker.vue": {
+    "mtime": 1791878820.6154566,
+    "seen": 1791879169.0052724,
+    "ast_hash": "f4ea46a209d78191943edb360e474dbc",
+    "semantic_hash": ""
+  },
+  "frontend/src/theme.js": {
+    "mtime": 1791878957.8172457,
+    "seen": 1791879169.0052783,
+    "ast_hash": "c49a34fec254a2c86bf4d99ed015c3f1",
+    "semantic_hash": ""
+  },
+  "frontend/src/views/HistoryView.vue": {
+    "mtime": 1791878966.25254,
+    "seen": 1791879169.00528,
+    "ast_hash": "6843f0a4eff2f251388ef68f1b6e2e6d",
+    "semantic_hash": ""
+  },
+  "frontend/src/views/RunView.vue": {
+    "mtime": 1791878435.7500222,
+    "seen": 1791879169.0052881,
+    "ast_hash": "ab7942e5e2995192731a00c2dc39d7e9",
+    "semantic_hash": ""
+  },
+  "frontend/src/views/SettingsView.vue": {
+    "mtime": 1791878957.2892272,
+    "seen": 1791879169.0052893,
+    "ast_hash": "f6795b43a1721745be0fe3ffe7a551b6",
+    "semantic_hash": ""
+  },
+  "docs/API.md": {
+    "mtime": 1791877726.1342497,
+    "seen": 1791879169.0053039,
+    "ast_hash": "83fae969fd49e936d74a63b6a38f47e4",
+    "semantic_hash": ""
+  },
+  "docs/ROADMAP.md": {
+    "mtime": 1791878820.8494647,
+    "seen": 1791879169.0053053,
+    "ast_hash": "868e379a99505d2353b01609fbcce561",
+    "semantic_hash": ""
+  },
+  "docs/design/AUDIT.md": {
+    "mtime": 1791877317.3439791,
+    "seen": 1791879169.0053065,
+    "ast_hash": "7690c858d2ef92ba95c6298e53769dfd",
+    "semantic_hash": ""
+  },
+  "docs/design/DESIGN-SYSTEM.md": {
+    "mtime": 1791877317.344979,
+    "seen": 1791879169.0053077,
+    "ast_hash": "a0953d488bbb81bb452419d876a5797a",
+    "semantic_hash": ""
+  },
+  "docs/design/MOBILE-FIXES.md": {
+    "mtime": 1791877317.344979,
+    "seen": 1791879169.0053089,
+    "ast_hash": "399f7eca198c04408ade429282851077",
+    "semantic_hash": ""
+  },
+  "frontend/public/favicon.svg": {
+    "mtime": 1791878131.446399,
+    "seen": 1791879169.005313,
+    "ast_hash": "5ded83405b5d6013aaa4fbb4962d0997",
+    "semantic_hash": ""
+  },
+  "frontend/public/logo-horizontal.svg": {
+    "mtime": 1791878131.446399,
+    "seen": 1791879169.0053158,
+    "ast_hash": "5fd6c401249c72a32e3d97ff557cdd3a",
+    "semantic_hash": ""
+  },
+  "frontend/public/logo-mark-dark.svg": {
+    "mtime": 1791878131.446399,
+    "seen": 1791879169.0053172,
+    "ast_hash": "33f769ff67a0a36c7ddc586c7e8011e7",
+    "semantic_hash": ""
+  },
+  "frontend/public/logo-mark.svg": {
+    "mtime": 1791878131.446399,
+    "seen": 1791879169.0053182,
+    "ast_hash": "f5b4ee58ef2fe07302af284919b9e2a6",
     "semantic_hash": ""
   }
 }
