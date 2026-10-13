@@ -621,8 +621,14 @@ onUnmounted(() => {
     will-change: auto;
     padding-bottom: 0;
   }
-  .panel-wrapper.left { min-height: calc(100dvh - 200px); }
+  /* Graph-Ansicht: feste Höhe zwischen Sticky-Kopf und StickyBar/Fußmenü (nicht nur min-height – sonst kollabiert height:100% im Panel) */
+  .panel-wrapper.left {
+    height: calc(100dvh - 168px - 64px - 58px - env(safe-area-inset-bottom, 0px));
+    min-height: 420px;
+    overflow: hidden;
+  }
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
