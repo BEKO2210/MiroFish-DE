@@ -149,7 +149,7 @@
             <span class="step-title">{{ $t('step1.erstellungAbgeschlossen') }}</span>
           </div>
           <div class="step-status">
-            <span v-if="currentPhase >= 2" class="badge accent">{{ $t('common.processing') }}</span>
+            <span v-if="currentPhase >= 2" class="badge success">{{ $t('common.completed') }}</span>
           </div>
         </div>
         
