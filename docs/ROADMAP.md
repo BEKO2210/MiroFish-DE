@@ -49,3 +49,14 @@ im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über 
   Unterschriftensammlung oder einem Bürgerbegehren aufgerufen“), da die automatische Checkliste nur aus der Frage
   abgeleitet wird. Die eigenen Fragen werden ebenfalls auf „stand schon im Material“ geprüft.
 - Offen V4b: Sensitivität (Eingriffsstärke als Variable im Szenario), V5 Realitätsabgleich.
+
+### Lehren aus dem ersten Nachtlauf (13./14.10.2026)
+- Fehler 1: Klassifikation aller Beiträge in einer Anfrage → über 16k Kontext abgeschnitten (isoliert 0/10). Behoben:
+  Stapel, Prüfprotokoll classification.json, „unklassifiziert“ statt stillem Nein.
+- Fehler 2: Wechselwirkung ohne strukturellen Beleg („Debatte“ in isolierten Läufen). Behoben: interaction-Ergebnisse
+  brauchen Kommentar/Zitat/Antwort zwischen den Gruppen aus der Datenbank.
+- Fehler 3: Abwesenheits-Ergebnis widersprüchlich abgefragt (Definition beschrieb das Ausbleiben). Behoben.
+- Offen V3c **Zuverlässigkeit des Messinstruments:** dieselben Daten ergaben in zwei Auswertungen teils stark
+  verschiedene Raten (z. B. 1/10 → 6/10). Neu: jede Klassifikation zweifach (zweiter Seed bzw. zweites Modell, z. B.
+  qwen3.5:9b), Übereinstimmung und Cohens Kappa je Ergebnis; Ergebnisse mit Kappa < 0,6 gelten als „nicht messbar“ und
+  werden im Bericht nicht interpretiert. Zusätzlich Stichprobe von Belegen zur menschlichen Prüfung in der Oberfläche.
