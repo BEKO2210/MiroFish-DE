@@ -1369,6 +1369,15 @@ def test_blind_feed_clears_rec_and_refresh_returns_own_only():
         empty = await platform.refresh(7)
         assert empty == {"success": True, "posts": []}
 
+        # Wie oasis Platform.running(): agent_id nur bei mindestens zwei Parametern.
+        action_function = getattr(platform, "refresh")
+        code = action_function.__code__
+        params = {}
+        if len(code.co_varnames[:code.co_argcount]) >= 2:
+            params["agent_id"] = 0
+        dispatched = await action_function(**params)
+        assert [p["user_id"] for p in dispatched["posts"]] == [0]
+
     asyncio.run(exercise())
 
 

@@ -168,7 +168,9 @@ Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dab
 
 Startbeiträge: Nach Runde 0 werden die in der Plattform-DB liegenden Öffnungsposts jedem Agenten einmal als gelesener
 Stimulus in die Agenten-Erinnerung geschrieben und unter `twitter/stimulus_log.json` bzw. `reddit/stimulus_log.json`
-(Einzelplattform: `stimulus_log.json`) protokolliert. Ohne diesen Nachweis gilt der Arm nicht als „gleiche Information“.
+(Einzelplattform: `stimulus_log.json`) protokolliert. Das gilt für alle Simulationsarme einschließlich `blind_feed`: gleiche Ausgangsinformation, `blind_feed`
+sperrt nur die laufende Beobachtung fremder Beiträge. `seen` steht nur auf `true`, wenn das Eintragen gelang. Ohne diesen
+Nachweis gilt der Arm nicht als „gleiche Information“.
 
 Je Lauf speichert das Ensemble unter `run_stats` Beitragszahl, Zeichenzahl und Stapelzahl; der Markdown-Abschnitt
 „Mehrfachlauf“ zeigt sie als Zusatztabelle „Textmengen je Lauf“, damit Textmengen-Effekte sichtbar bleiben.

@@ -11,6 +11,7 @@ Zweig. Search/Trend bleiben als Aktionen nutzbar; die Standardbeobachtung nicht.
 from __future__ import annotations
 
 import json
+import types
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -30,7 +31,9 @@ def install_blind_feed(platform: Any) -> None:
     async def update_rec_table_blind() -> None:
         platform.pl_utils._execute_db_command("DELETE FROM rec", commit=True)
 
-    async def refresh_own_only(agent_id: int) -> Dict[str, Any]:
+    # OASIS übergibt agent_id nur an Aktionen mit mindestens zwei Parametern (self, agent_id);
+    # deshalb als gebundene Methode installieren.
+    async def refresh_own_only(self: Any, agent_id: int) -> Dict[str, Any]:
         try:
             platform.pl_utils._execute_db_command(
                 "SELECT post_id, user_id, original_post_id, content, "
@@ -51,7 +54,7 @@ def install_blind_feed(platform: Any) -> None:
             return {"success": False, "error": str(error)}
 
     platform.update_rec_table = update_rec_table_blind  # type: ignore[method-assign]
-    platform.refresh = refresh_own_only  # type: ignore[method-assign]
+    platform.refresh = types.MethodType(refresh_own_only, platform)  # type: ignore[method-assign]
     platform._blind_feed = True
 
 
@@ -96,11 +99,15 @@ def deliver_opening_stimulus(
             + ("\n".join(lines) if lines else "- (none)")
         )
         message = BaseMessage.make_user_message(role_name="User", content=body)
-        agent.update_memory(message, OpenAIBackendRole.USER)
+        try:
+            agent.update_memory(message, OpenAIBackendRole.USER)
+            seen = True
+        except Exception:
+            seen = False
         agents_log.append({
             "agent_id": int(agent_id),
-            "seen_post_ids": visible_ids,
-            "seen": True,
+            "seen_post_ids": visible_ids if seen else [],
+            "seen": seen,
             "post_count": len(visible_ids),
         })
     document = {
