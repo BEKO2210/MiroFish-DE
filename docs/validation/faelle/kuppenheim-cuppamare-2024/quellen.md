@@ -57,7 +57,8 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst
 samt den berichteten Gründen (Ereignis an T0; die Berichte [2] und [4] erschienen am 07.05.2024 – dokumentierte Ausnahme).
-Zahlen sind gerundet (Anonymisierung); die Originalwerte stehen hier.
+Zahlen sind gerundet (Anonymisierung); die Originalwerte stehen hier. Zweiter Anonymisierungsdurchgang: Beträge,
+Prozent- und Schulzahlen sowie „Herbst“ sind in `ausgangslage.md` nochmals vergröbert (qualitativ bzw. Größenklasse).
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|

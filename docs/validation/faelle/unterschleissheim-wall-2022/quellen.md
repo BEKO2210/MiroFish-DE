@@ -85,7 +85,9 @@ aber durch [5] und [6] unabhängig bestätigt.
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt den
 in der Sitzung vorgetragenen Gründen (Ereignis an T0; Berichte erst ab 06.12.2022 – dokumentierte Ausnahme). Zum Beschluss selbst
-liegt kein Bericht ≤ T0 vor.
+liegt kein Bericht ≤ T0 vor. Zweiter Anonymisierungsdurchgang: `ausgangslage.md` vergröbert Datum, Baumzahlen (25, 94 → 119),
+Wallalter und Fristen und streicht Wegbreiten, Vorplatz-Baumzahl, Oktober-Beschluss und „Erster/Zweiter Bürgermeister“
+(→ „Stadtspitze“); die Tabelle nennt die Originalwerte.
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|

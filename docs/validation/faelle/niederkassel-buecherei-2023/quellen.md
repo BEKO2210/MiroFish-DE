@@ -80,6 +80,9 @@ abgerufen bzw. nicht gefunden.
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst
 (Ereignis an T0; die Stadtmitteilung [1] ist undatiert, Seitentext nennt 14.02. und 16.03.2023 – dokumentierte Ausnahme).
+Zweiter Anonymisierungsdurchgang: `ausgangslage.md` vergröbert Defizitbeträge, Nutzeranteil, Standortzahlen und
+Ausschussbezeichnung („Fachausschuss“) und streicht IT-Einzug, Amtsumzüge, Sommerbeschluss und Kämmerin-Ausscheiden; die
+Tabelle nennt die Originalwerte.
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|

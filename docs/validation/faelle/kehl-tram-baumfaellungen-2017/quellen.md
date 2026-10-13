@@ -61,7 +61,9 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
 ## T0-Prüfung (T0 = 22.02.2017)
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0. Zahlen sind gerundet bzw. ohne
-Eigennamen (Anonymisierung); die Originalwerte stehen hier.
+Eigennamen (Anonymisierung); die Originalwerte stehen hier. Zweiter Anonymisierungsdurchgang: Datum, Baumzahlen
+(86/73/13, 3 Orte, 50+24+6), Alter/Baumart, Holzverwertung und „Gemeinderat“ sind in `ausgangslage.md` vergröbert oder
+gestrichen; die Tabelle nennt die Originalwerte.
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|
