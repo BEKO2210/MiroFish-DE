@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "backend/app/api/simulation.py": {
-    "mtime": 1791909867.1382544,
-    "seen": 1791916338.1827102,
-    "ast_hash": "ee0d57c746032dcc559c82b6f83f61e8",
+    "mtime": 1791933454.0740025,
+    "seen": 1791933503.4241424,
+    "ast_hash": "9bec96a6980e04b0b6dbc681ff20b547",
     "semantic_hash": ""
   },
   "backend/app/api/system.py": {
@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "backend/app/config.py": {
-    "mtime": 1791880491.0027444,
-    "seen": 1791916338.182716,
-    "ast_hash": "910b4b182c0b287c40e027d2280b9339",
+    "mtime": 1791931748.1395693,
+    "seen": 1791933503.4241471,
+    "ast_hash": "d49cf80a411832b3e57f5c76bfa3a846",
     "semantic_hash": ""
   },
   "backend/app/models/__init__.py": {
@@ -138,9 +138,9 @@
     "semantic_hash": ""
   },
   "backend/app/services/simulation_runner.py": {
-    "mtime": 1791911623.1183698,
-    "seen": 1791916338.1827717,
-    "ast_hash": "6d4be3bebf1d691700db9ca0dda08856",
+    "mtime": 1791933454.0750024,
+    "seen": 1791933503.4242015,
+    "ast_hash": "a7a3a9d86a75255320b5951b22ab0419",
     "semantic_hash": ""
   },
   "backend/app/services/text_processor.py": {
@@ -180,9 +180,9 @@
     "semantic_hash": ""
   },
   "backend/app/utils/llm_client.py": {
-    "mtime": 1791911623.1193697,
-    "seen": 1791916338.1827917,
-    "ast_hash": "3cae9f7a44b35b770d800f0c5f31ca49",
+    "mtime": 1791924050.3132195,
+    "seen": 1791933503.4242249,
+    "ast_hash": "c8785482b252d0363b43b46160ce18ab",
     "semantic_hash": ""
   },
   "backend/app/utils/logger.py": {
@@ -222,21 +222,21 @@
     "semantic_hash": ""
   },
   "backend/scripts/run_parallel_simulation.py": {
-    "mtime": 1791912601.694872,
-    "seen": 1791916338.1828208,
-    "ast_hash": "4fbc039a314c9093e7585cc9216b9610",
+    "mtime": 1791933454.0760026,
+    "seen": 1791933503.4242477,
+    "ast_hash": "e54a3e46345902227a8f7d98eaea1504",
     "semantic_hash": ""
   },
   "backend/scripts/run_reddit_simulation.py": {
-    "mtime": 1791912601.694872,
-    "seen": 1791916338.1828232,
-    "ast_hash": "148bb763aa6c273905d77ebeff7666c8",
+    "mtime": 1791933454.0760026,
+    "seen": 1791933503.4242494,
+    "ast_hash": "b3b9b76d548c73a3371eee0bc07e5892",
     "semantic_hash": ""
   },
   "backend/scripts/run_twitter_simulation.py": {
-    "mtime": 1791912601.695872,
-    "seen": 1791916338.182828,
-    "ast_hash": "927ede2aef9db3336a662db031588e6b",
+    "mtime": 1791933454.0770025,
+    "seen": 1791933503.4242508,
+    "ast_hash": "f5ac4678c9afe29042b051f551cbe6a8",
     "semantic_hash": ""
   },
   "backend/scripts/test_profile_format.py": {
@@ -312,9 +312,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/Step4Report.vue": {
-    "mtime": 1791912601.754874,
-    "seen": 1791916338.1829832,
-    "ast_hash": "a591c1433c155340fbfd8449916dbe5a",
+    "mtime": 1791931822.6771698,
+    "seen": 1791933503.4243422,
+    "ast_hash": "161f9772bb42b3456f7e0593557f1a02",
     "semantic_hash": ""
   },
   "frontend/src/components/Step5Interaction.vue": {
@@ -600,9 +600,9 @@
     "semantic_hash": ""
   },
   "docs/ROADMAP.md": {
-    "mtime": 1791916327.2968895,
-    "seen": 1791916338.183039,
-    "ast_hash": "4667dc408a299944799912503030d4b1",
+    "mtime": 1791926635.689309,
+    "seen": 1791933503.424407,
+    "ast_hash": "921bfffc49075ef92ce7a180880d5baf",
     "semantic_hash": ""
   },
   "docs/design/AUDIT.md": {
@@ -666,15 +666,15 @@
     "semantic_hash": ""
   },
   "frontend/src/i18n/de.json": {
-    "mtime": 1791916305.4401393,
-    "seen": 1791916338.1829906,
-    "ast_hash": "22b454fd40a4f57b721ae01be436f67d",
+    "mtime": 1791931822.6771698,
+    "seen": 1791933503.4243503,
+    "ast_hash": "2360abbfc0445855dc0a6b6c23d4a3e0",
     "semantic_hash": ""
   },
   "frontend/src/i18n/en.json": {
-    "mtime": 1791916305.4411395,
-    "seen": 1791916338.1829922,
-    "ast_hash": "2732aea9d7b8bb9775e44a87af5e82c0",
+    "mtime": 1791931822.6781697,
+    "seen": 1791933503.4243517,
+    "ast_hash": "d9beda4103045c7d047d3805a4abe360",
     "semantic_hash": ""
   },
   "frontend/src/i18n/index.js": {
@@ -792,9 +792,9 @@
     "semantic_hash": ""
   },
   "e2e/support/mockApi.ts": {
-    "mtime": 1791912601.7148726,
-    "seen": 1791916338.1829028,
-    "ast_hash": "200b106f2893faf75ecb1254caff0af8",
+    "mtime": 1791931822.6691694,
+    "seen": 1791933503.4243019,
+    "ast_hash": "fd7a29ae65a521b6608d7a438272b5e4",
     "semantic_hash": ""
   },
   "e2e/tests/a11y.spec.ts": {
@@ -804,9 +804,9 @@
     "semantic_hash": ""
   },
   "e2e/tests/flows.spec.ts": {
-    "mtime": 1791912601.7148726,
-    "seen": 1791916338.1829095,
-    "ast_hash": "28c409e9b62c6f29fa0271c2f41b2b14",
+    "mtime": 1791931822.6691694,
+    "seen": 1791933503.424305,
+    "ast_hash": "bdbea7f7d2e3da88cf8a576f7bd0385b",
     "semantic_hash": ""
   },
   "e2e/tests/safety.spec.ts": {
@@ -1110,21 +1110,21 @@
     "semantic_hash": ""
   },
   "backend/app/services/report_validation.py": {
-    "mtime": 1791908946.4474802,
-    "seen": 1791916338.1827612,
-    "ast_hash": "e0cbb9a4b6e537672f30b320a3e97833",
+    "mtime": 1791933454.0740025,
+    "seen": 1791933503.4241905,
+    "ast_hash": "63676e0893d9789c93f48431459e5605",
     "semantic_hash": ""
   },
   "backend/scripts/repro_seed.py": {
-    "mtime": 1791908946.4484804,
-    "seen": 1791916338.1828184,
-    "ast_hash": "4b39eba287b266473428e77209838314",
+    "mtime": 1791933454.0750024,
+    "seen": 1791933503.4242463,
+    "ast_hash": "dd79a6c82aba438b8192770d43b584a7",
     "semantic_hash": ""
   },
   "backend/tests/test_report_validation.py": {
-    "mtime": 1791908946.4504805,
-    "seen": 1791916338.182851,
-    "ast_hash": "95b65f00723cd6aa4905de6c10dab308",
+    "mtime": 1791933454.0770025,
+    "seen": 1791933503.424262,
+    "ast_hash": "ef745aea7b149e05687487a476d27330",
     "semantic_hash": ""
   },
   "e2e/docker-test.sh": {
@@ -1146,9 +1146,9 @@
     "semantic_hash": ""
   },
   "docs/VALIDIERUNG.md": {
-    "mtime": 1791912601.695872,
-    "seen": 1791916338.1830418,
-    "ast_hash": "08a67ce788fb7ce76874cc4ae3700e63",
+    "mtime": 1791933454.0780025,
+    "seen": 1791933503.42441,
+    "ast_hash": "435438bfc2020eb9b87ba9461fc5e720",
     "semantic_hash": ""
   },
   "docs/validation/szenarien/README.md": {
@@ -1230,21 +1230,21 @@
     "semantic_hash": ""
   },
   "backend/app/api/ensemble.py": {
-    "mtime": 1791912601.693872,
-    "seen": 1791916338.1826975,
-    "ast_hash": "7ed3f8d01cd3e6c77bb213dc32bab791",
+    "mtime": 1791933283.7680814,
+    "seen": 1791933503.4241288,
+    "ast_hash": "27f44c3e89c144a45bc3ad485d91830a",
     "semantic_hash": ""
   },
   "backend/app/services/ensemble.py": {
-    "mtime": 1791912601.693872,
-    "seen": 1791916338.1827333,
-    "ast_hash": "8387fc84c65f422c0995998b488e112f",
+    "mtime": 1791933283.7690816,
+    "seen": 1791933503.4241638,
+    "ast_hash": "d8200c76a4d014f41adccbf06dea66bd",
     "semantic_hash": ""
   },
   "backend/tests/test_ensemble.py": {
-    "mtime": 1791912601.695872,
-    "seen": 1791916338.1828473,
-    "ast_hash": "7c5a47ec994f2e06c12cee9c04fe7e18",
+    "mtime": 1791933283.7690816,
+    "seen": 1791933503.4242604,
+    "ast_hash": "7a343ebdbe3fe849df03b63f5aa87cd5",
     "semantic_hash": ""
   },
   "frontend/src/api/ensemble.js": {
@@ -1254,9 +1254,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/EnsembleView.vue": {
-    "mtime": 1791916305.4411395,
-    "seen": 1791916338.1830046,
-    "ast_hash": "79e787f17264312cfbdcab74488214b4",
+    "mtime": 1791931822.6781697,
+    "seen": 1791933503.4243658,
+    "ast_hash": "883b3d53021716a2c29799a7a3a65ed0",
     "semantic_hash": ""
   },
   "frontend/UX-REPORT-cursor-ensemble.md": {
@@ -1266,33 +1266,279 @@
     "semantic_hash": ""
   },
   "e2e/tests/visual.spec.ts-snapshots/-ensemble-ens-test-desktop-desktop-linux.png": {
-    "mtime": 1791916305.378137,
-    "seen": 1791916338.1830783,
-    "ast_hash": "cbf916a993a3d9869847451a408eea40",
+    "mtime": 1791931822.6701696,
+    "seen": 1791933503.4244971,
+    "ast_hash": "35000ca4223895938ae2f6eb72c8461a",
     "semantic_hash": ""
   },
   "e2e/tests/visual.spec.ts-snapshots/-ensemble-ens-test-handy-handy-linux.png": {
-    "mtime": 1791916305.3791373,
-    "seen": 1791916338.1830804,
-    "ast_hash": "f4153e8c2ecd47a0e0a623ff4575c4a6",
+    "mtime": 1791931822.6721697,
+    "seen": 1791933503.424499,
+    "ast_hash": "e4f3cefb5b69b0a676e93edd8fa05a2b",
     "semantic_hash": ""
   },
   "e2e/tests/visual.spec.ts-snapshots/-ensemble-ens-test-iphone-iphone-linux.png": {
-    "mtime": 1791916305.3801372,
-    "seen": 1791916338.1830819,
-    "ast_hash": "141e1f581f1e619dfa06600bee81a2a6",
+    "mtime": 1791931822.6741698,
+    "seen": 1791933503.4245005,
+    "ast_hash": "6fd563be1d7f7fd34a372f26a69d2d28",
     "semantic_hash": ""
   },
   "e2e/tests/visual.spec.ts-snapshots/-ensemble-ens-test-tablet-tablet-linux.png": {
-    "mtime": 1791916305.3811374,
-    "seen": 1791916338.1830835,
-    "ast_hash": "7c5e9701e321a275c1dc446b2fcc2dbf",
+    "mtime": 1791931822.6761699,
+    "seen": 1791933503.4245026,
+    "ast_hash": "1c8dc9c1acd9358b8784a1d414e1acb6",
     "semantic_hash": ""
   },
   "backend/app/utils/simulation_time.py": {
     "mtime": 1791912601.693872,
     "seen": 1791916338.182805,
     "ast_hash": "8824bb1debbfcaa525756d504525a66f",
+    "semantic_hash": ""
+  },
+  "backend/scripts/repro_check.py": {
+    "mtime": 1791933454.0750024,
+    "seen": 1791933503.4242437,
+    "ast_hash": "e62a9a0046d835d9782b14a45e4a166b",
+    "semantic_hash": ""
+  },
+  "backend/scripts/validate_case.py": {
+    "mtime": 1791932466.524632,
+    "seen": 1791933503.4242547,
+    "ast_hash": "b269cf547ed1869c6ec2b20117322908",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_repro.py": {
+    "mtime": 1791933454.0770025,
+    "seen": 1791933503.4242637,
+    "ast_hash": "8824987996206257cf80f1a382d5d448",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_validate_case.py": {
+    "mtime": 1791932466.524632,
+    "seen": 1791933503.4242651,
+    "ast_hash": "5fc3b625eeb54d70cf7c39dda6f3912f",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/freiburg-bewohnerparken-2021/ergebnisse.json": {
+    "mtime": 1791932857.2452526,
+    "seen": 1791933503.4242687,
+    "ast_hash": "9fd1073cc870833a6a71bca4033562f4",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/karlsfeld-hallenbad-2023/ergebnisse.json": {
+    "mtime": 1791933394.001914,
+    "seen": 1791933503.4242704,
+    "ast_hash": "9c9cf6326ff7870acbb3927e773ef471",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kehl-tram-baumfaellungen-2017/ergebnisse.json": {
+    "mtime": 1791932857.2452526,
+    "seen": 1791933503.4242718,
+    "ast_hash": "73e1c7cc6938dc04f33743de2d3b7375",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kuppenheim-cuppamare-2024/ergebnisse.json": {
+    "mtime": 1791932857.2462528,
+    "seen": 1791933503.4242733,
+    "ast_hash": "f78a8910174bf68a76d6aa6988cab4b9",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/neuwied-parkgebuehren-2025/ergebnisse.json": {
+    "mtime": 1791933394.002914,
+    "seen": 1791933503.4242747,
+    "ast_hash": "e699b4d6caf3e8e0788aaa530ba6cf90",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/niederkassel-buecherei-2023/ergebnisse.json": {
+    "mtime": 1791933394.0039139,
+    "seen": 1791933503.424276,
+    "ast_hash": "ea7a36c270cc5a4c6a95f518a99669d9",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/unterschleissheim-wall-2022/ergebnisse.json": {
+    "mtime": 1791933394.0039139,
+    "seen": 1791933503.4242775,
+    "ast_hash": "9e7124e158d5dda1bb10a8dc9efbf1bf",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/wanzleben-grundschule-2025/ergebnisse.json": {
+    "mtime": 1791933394.004914,
+    "seen": 1791933503.424279,
+    "ast_hash": "b7a61d419a709b03e7bdba2c3c14a076",
+    "semantic_hash": ""
+  },
+  "docs/VERLAESSLICHKEIT.md": {
+    "mtime": 1791933456.0220702,
+    "seen": 1791933503.4244113,
+    "ast_hash": "e083b8af0564e0c30de21602d6fa018e",
+    "semantic_hash": ""
+  },
+  "docs/validation/GUTACHTEN-GROK-2026-10-14.md": {
+    "mtime": 1791931822.4451618,
+    "seen": 1791933503.4244196,
+    "ast_hash": "466dc1756ec74fc1506183dc92562f89",
+    "semantic_hash": ""
+  },
+  "docs/validation/PROTOKOLL-V5.md": {
+    "mtime": 1791933394.0009139,
+    "seen": 1791933503.424421,
+    "ast_hash": "4423a7bae0dc3b5217b3356c3816e346",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/README.md": {
+    "mtime": 1791933394.001914,
+    "seen": 1791933503.4244225,
+    "ast_hash": "4002158ddece313f004a533eb9c63a7b",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/freiburg-bewohnerparken-2021/ausgangslage.md": {
+    "mtime": 1791932857.2452526,
+    "seen": 1791933503.4244237,
+    "ast_hash": "c77be83ea8b6cc03cc61e11060c9f0dd",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/freiburg-bewohnerparken-2021/quellen.md": {
+    "mtime": 1791933394.001914,
+    "seen": 1791933503.4244251,
+    "ast_hash": "7c12263efd23ccc20721a44d43f6eb7c",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/freiburg-bewohnerparken-2021/verlauf.md": {
+    "mtime": 1791932857.2452526,
+    "seen": 1791933503.4244268,
+    "ast_hash": "f8b2fcbb69e88be93f4f911cad8b1221",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/karlsfeld-hallenbad-2023/ausgangslage.md": {
+    "mtime": 1791933096.6875772,
+    "seen": 1791933503.4244282,
+    "ast_hash": "0f1d45554d7d837b2dd23343cd10cbef",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/karlsfeld-hallenbad-2023/quellen.md": {
+    "mtime": 1791933394.002914,
+    "seen": 1791933503.42443,
+    "ast_hash": "044c33c3c7ebc52c3d264476fa6ff43d",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/karlsfeld-hallenbad-2023/verlauf.md": {
+    "mtime": 1791931748.15857,
+    "seen": 1791933503.4244316,
+    "ast_hash": "baa3b1d6ead397e2352cd3d989537fe0",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kehl-tram-baumfaellungen-2017/ausgangslage.md": {
+    "mtime": 1791932857.2452526,
+    "seen": 1791933503.4244332,
+    "ast_hash": "727c903071bad19fdd6980c223208fc8",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kehl-tram-baumfaellungen-2017/quellen.md": {
+    "mtime": 1791933394.002914,
+    "seen": 1791933503.4244344,
+    "ast_hash": "721f464d59470589b90c65fa5bb02158",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kehl-tram-baumfaellungen-2017/verlauf.md": {
+    "mtime": 1791932857.2462528,
+    "seen": 1791933503.4244356,
+    "ast_hash": "746f0126ddea4ce00348074c46e9b761",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kuppenheim-cuppamare-2024/ausgangslage.md": {
+    "mtime": 1791932857.2462528,
+    "seen": 1791933503.4244373,
+    "ast_hash": "32ca73a454f5ac27d84f8e1c8a1236bd",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kuppenheim-cuppamare-2024/quellen.md": {
+    "mtime": 1791933394.002914,
+    "seen": 1791933503.4244385,
+    "ast_hash": "399552544776cfa427d6d88cc1d9c1e5",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/kuppenheim-cuppamare-2024/verlauf.md": {
+    "mtime": 1791932857.2462528,
+    "seen": 1791933503.42444,
+    "ast_hash": "534540b4bb702d3263ca00ff4dc5e0b4",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/neuwied-parkgebuehren-2025/ausgangslage.md": {
+    "mtime": 1791933096.6875772,
+    "seen": 1791933503.424441,
+    "ast_hash": "03e81f08f21b60e091a4687127a418a2",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/neuwied-parkgebuehren-2025/quellen.md": {
+    "mtime": 1791933394.0039139,
+    "seen": 1791933503.4244423,
+    "ast_hash": "1093916af1895a17887ddbae6af3fbc3",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/neuwied-parkgebuehren-2025/verlauf.md": {
+    "mtime": 1791933096.6885774,
+    "seen": 1791933503.424444,
+    "ast_hash": "b918bd19e015c4bfb8a557b19eb13d10",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/niederkassel-buecherei-2023/ausgangslage.md": {
+    "mtime": 1791933096.6885774,
+    "seen": 1791933503.4244452,
+    "ast_hash": "95bd2d31f83dab7c1cd1692ace8d6e6b",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/niederkassel-buecherei-2023/quellen.md": {
+    "mtime": 1791933394.0039139,
+    "seen": 1791933503.4244468,
+    "ast_hash": "31df2babbc8392533a7bae3dc2a4f5f3",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/niederkassel-buecherei-2023/verlauf.md": {
+    "mtime": 1791931748.15957,
+    "seen": 1791933503.424448,
+    "ast_hash": "fbb7fe70a3bb79c8f84871fe9940224c",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/unterschleissheim-wall-2022/ausgangslage.md": {
+    "mtime": 1791933096.6895773,
+    "seen": 1791933503.4244494,
+    "ast_hash": "473a4462e46f167dc57f1ccfa2210d2f",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/unterschleissheim-wall-2022/quellen.md": {
+    "mtime": 1791933394.0039139,
+    "seen": 1791933503.4244509,
+    "ast_hash": "d27df32ed13f11701970c7f7eba76dcf",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/unterschleissheim-wall-2022/verlauf.md": {
+    "mtime": 1791931748.15957,
+    "seen": 1791933503.424452,
+    "ast_hash": "d9fa10ef9624011e0e896eb8c880569a",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/wanzleben-grundschule-2025/ausgangslage.md": {
+    "mtime": 1791933096.6895773,
+    "seen": 1791933503.4244533,
+    "ast_hash": "c6a40391e93fd3fbe8206ce529a7cd60",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/wanzleben-grundschule-2025/quellen.md": {
+    "mtime": 1791933394.004914,
+    "seen": 1791933503.424455,
+    "ast_hash": "801e9368d64198ed4ed2fe27a7d64b3c",
+    "semantic_hash": ""
+  },
+  "docs/validation/faelle/wanzleben-grundschule-2025/verlauf.md": {
+    "mtime": 1791931748.1605701,
+    "seen": 1791933503.4244564,
+    "ast_hash": "3a5c54815a14c6ea3bc5fc7bb0b753ee",
+    "semantic_hash": ""
+  },
+  "frontend/UX-REPORT-cursor-v3b.md": {
+    "mtime": 1791931822.6761699,
+    "seen": 1791933503.4244835,
+    "ast_hash": "a976b3429a9514d4d408be0a69f87a20",
     "semantic_hash": ""
   }
 }
