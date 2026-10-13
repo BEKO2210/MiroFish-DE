@@ -9,7 +9,7 @@ import warnings
 # Muss vor allen anderen Importen gesetzt werden
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, request
+from flask import Flask, request, send_from_directory, jsonify
 from flask_cors import CORS
 
 from .config import Config
@@ -76,4 +76,19 @@ def create_app(config_class=Config):
     if should_log_startup:
         logger.info("MiroFish Backend-Start abgeschlossen")
     
+    # Gebautes Frontend (frontend/dist) vom selben Ursprung ausliefern: ein Port, keine Host-Kopplung im Client
+    dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'frontend', 'dist'))
+
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def frontend(path):
+        if path.startswith('api/'):
+            return jsonify({"success": False, "error": "Not Found"}), 404
+        target = os.path.join(dist, path)
+        if path and os.path.isfile(target):
+            return send_from_directory(dist, path)
+        if os.path.isfile(os.path.join(dist, 'index.html')):
+            return send_from_directory(dist, 'index.html')
+        return "Frontend nicht gebaut: cd frontend && npx vite build", 503
+
     return app

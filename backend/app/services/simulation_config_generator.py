@@ -629,7 +629,8 @@ Feldbeschreibungen:
             logger.warning(f"agents_per_hour_min >= max, korrigiert auf {agents_per_hour_min}")
         
         return TimeSimulationConfig(
-            total_simulation_hours=result.get("total_simulation_hours", 72),
+            # Tor: das Modell leitet den Horizont gern wörtlich aus der Frage ab ("vier Wochen" -> 672 h); 24-168 h laut Prompt
+            total_simulation_hours=max(24, min(168, int(result.get("total_simulation_hours", 72) or 72))),
             minutes_per_round=result.get("minutes_per_round", 60),  # Standardmäßig pro Runde 1 Stunde
             agents_per_hour_min=agents_per_hour_min,
             agents_per_hour_max=agents_per_hour_max,
