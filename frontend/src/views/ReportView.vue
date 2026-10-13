@@ -9,7 +9,7 @@
       <div class="header-center">
         <div class="view-switcher">
           <button 
-            v-for="mode in ['graph', 'split', 'workbench']" :class="'mode-' + mode" 
+            v-for="mode in ['graph', 'split', 'workbench']" :data-mode="mode" 
             :key="mode"
             class="switch-btn"
             :class="{ active: viewMode === mode }"
@@ -356,6 +356,6 @@ onMounted(() => {
   .header-right { gap: 6px; }
   .step-divider { display: none; }
   .step-name { white-space: nowrap; }
-  .mode-split { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
+  [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
 </style>
