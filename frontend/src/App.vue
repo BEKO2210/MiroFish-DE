@@ -52,4 +52,11 @@ button {
 h1, h2, h3, .main-title { font-family: var(--font-heading, 'Space Grotesk', system-ui, sans-serif); }
 code, pre, .card-id, .mono { font-family: var(--font-mono, 'JetBrains Mono', monospace); }
 .api-note { display: none; } /* interne API-Pfade gehören nicht in die Nutzeroberfläche */
+@media (max-width: 768px) {
+  /* Entwickler-Protokolle am Handy ausblenden: sie überdecken den Inhalt und helfen Nutzern nicht */
+  .system-logs, .console-logs { display: none !important; }
+  /* Berichtstitel: lange Wörter umbrechen, Größe fließend */
+  .main-title { font-size: clamp(22px, 6.5vw, 30px) !important; overflow-wrap: anywhere; hyphens: auto; }
+  .sub-title { font-size: 15px !important; }
+}
 </style>

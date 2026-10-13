@@ -784,9 +784,13 @@ def get_simulation(simulation_id: str):
 @simulation_bp.route('/<simulation_id>', methods=['DELETE'])
 def delete_simulation(simulation_id: str):
     """Einen Lauf samt Daten löschen: laufenden Prozess stoppen, Simulationsordner und zugehörige Berichte entfernen."""
+    import re
     import shutil
     from ..services.simulation_runner import SimulationRunner
     from ..services.report_agent import ReportManager
+    # Nur echte Kennungen zulassen: alles mit Pfadtrennern oder Sonderzeichen würde sonst über rmtree gefährlich.
+    if not re.fullmatch(r"sim_[A-Za-z0-9]+", simulation_id or ""):
+        return jsonify({"success": False, "error": "Ungültige Simulations-ID"}), 400
     try:
         try:
             SimulationRunner.stop_simulation(simulation_id)
@@ -796,6 +800,8 @@ def delete_simulation(simulation_id: str):
         reports_dir = ReportManager.REPORTS_DIR
         if os.path.isdir(reports_dir):
             for name in os.listdir(reports_dir):
+                if not re.fullmatch(r"report_[A-Za-z0-9]+", name):
+                    continue
                 meta = os.path.join(reports_dir, name, 'metadata.json')
                 try:
                     with open(meta, 'r', encoding='utf-8') as f:
@@ -804,7 +810,10 @@ def delete_simulation(simulation_id: str):
                             removed_reports.append(name)
                 except (OSError, ValueError):
                     continue
-        sim_dir = os.path.join(Config.UPLOAD_FOLDER, 'simulations', simulation_id)
+        base_dir = os.path.realpath(os.path.join(Config.UPLOAD_FOLDER, 'simulations'))
+        sim_dir = os.path.realpath(os.path.join(base_dir, simulation_id))
+        if os.path.dirname(sim_dir) != base_dir:
+            return jsonify({"success": False, "error": "Ungültiger Pfad"}), 400
         existed = os.path.isdir(sim_dir)
         shutil.rmtree(sim_dir, ignore_errors=True)
         if hasattr(SimulationManager, '_simulations') and isinstance(getattr(SimulationManager, '_simulations'), dict):
