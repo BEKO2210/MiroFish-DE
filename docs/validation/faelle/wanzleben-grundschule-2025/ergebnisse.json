@@ -1,0 +1,37 @@
+[
+  {
+    "text_de": "Innerhalb von 3 Monaten nach dem Beschluss wird eine Bürgerinitiative gegen die Schließung gegründet.",
+    "eingetreten": true,
+    "quelle": "2, 7"
+  },
+  {
+    "text_de": "Innerhalb von 3 Monaten nach dem Beschluss werden Unterschriften für ein Bürgerbegehren gegen die Schließung gesammelt.",
+    "eingetreten": true,
+    "quelle": "2, 4, 7"
+  },
+  {
+    "text_de": "Innerhalb von 3 Monaten nach dem Beschluss wird ein Bürgerbegehren förmlich eingereicht (genaues Einreichungsdatum nicht belegt, spätestens vor dem Ratsbeschluss vom 04.12.2025).",
+    "eingetreten": true,
+    "quelle": "1, 6"
+  },
+  {
+    "text_de": "Der Rat hebt den Schließungsbeschluss innerhalb von 3 Monaten auf oder ändert ihn inhaltlich.",
+    "eingetreten": false,
+    "quelle": "1, 6"
+  },
+  {
+    "text_de": "Ein Bürgerentscheid über die Schließung findet innerhalb von 3 Monaten nach dem Beschluss statt.",
+    "eingetreten": false,
+    "quelle": "1, 6"
+  },
+  {
+    "text_de": "Die Schule wird innerhalb von 3 Monaten nach dem Beschluss tatsächlich geschlossen.",
+    "eingetreten": false,
+    "quelle": "1"
+  },
+  {
+    "text_de": "Ratsmitglieder äußern sich öffentlich überrascht über die Reaktionen der Eltern.",
+    "eingetreten": true,
+    "quelle": "7"
+  }
+]

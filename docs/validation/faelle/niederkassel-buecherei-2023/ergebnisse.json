@@ -1,0 +1,37 @@
+[
+  {
+    "text_de": "Es wird eine Unterschriftensammlung oder Petition für den Erhalt der Einrichtung durchgeführt.",
+    "eingetreten": true,
+    "quelle": "6, 7"
+  },
+  {
+    "text_de": "Ein Förderverein oder Verein äußert sich öffentlich enttäuscht oder ablehnend zur Schließung.",
+    "eingetreten": true,
+    "quelle": "5, 6, 7"
+  },
+  {
+    "text_de": "Ein Verein oder Bürger bietet der Stadt öffentlich seine Unterstützung für eine Ersatzlösung an.",
+    "eingetreten": true,
+    "quelle": "6, 7"
+  },
+  {
+    "text_de": "Die Einrichtung wird wie beschlossen innerhalb von sechs Wochen geschlossen.",
+    "eingetreten": true,
+    "quelle": "1, 7"
+  },
+  {
+    "text_de": "Der Rat nimmt den Beschluss zurück oder setzt ihn aus.",
+    "eingetreten": false,
+    "quelle": "1, 6, 7"
+  },
+  {
+    "text_de": "Die Stadt beschließt innerhalb von drei Monaten einen Ersatzstandort für die geschlossene Einrichtung.",
+    "eingetreten": false,
+    "quelle": "6, 7"
+  },
+  {
+    "text_de": "Die Petition für den Erhalt erreicht mehr als 1.000 Unterstützer.",
+    "eingetreten": false,
+    "quelle": "6"
+  }
+]
