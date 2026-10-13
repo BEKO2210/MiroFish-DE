@@ -219,41 +219,53 @@ Zuverlässigkeitsmarkierung von Vergleichen sowie Validierung, Herkunft und Mate
 
 ## V5 Realitätsabgleich – Ablauf und Kennzahlen
 
+Das vorregistrierte Studiendesign steht in `docs/validation/PROTOKOLL-V5.md`.
 `backend/scripts/validate_case.py` führt einen dokumentierten Realfall blind gegen die bestehende HTTP-API aus:
 
 ```bash
 cd backend
-python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --runs 10 --hours 336
+python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --runs 10 --hours 336 \
+  --ort Beispielstadt --jahr 2025 --thema Bäderschließung
 ```
 
 Der Standardwert von `--hours` bleibt aus Kompatibilitäts- und Laufzeitgründen 168. Für die in der neutralen Frage
 genannten ersten zwei Wochen sind 336 Stunden anzugeben. `--base` zeigt standardmäßig auf
 `http://127.0.0.1:5002`.
 
+Die Standardarme sind `baseline` (S), `null_document` (D) und `null_personas` (P). Mit
+`--arms baseline,null_document,null_personas,isolated` kommt der explorative Isolationsarm hinzu. Ein älteres Backend,
+das D oder P noch nicht unterstützt, führt zu einer verständlichen Aktualisierungsfehlermeldung; die Namen werden
+nicht still auf das frühere, methodisch nicht vergleichbare `null_model` zurückgebogen.
+
 Das Skript lädt als einziges Dokument `ausgangslage.md` hoch und verwendet immer die neutrale Frage „Wie reagieren
 Bürgerinnen, Vereine, Medien und Politik in den ersten zwei Wochen nach der Bekanntgabe?“. Es erzeugt Ontologie und
-Graph, legt die Simulation an und wartet bis zum Ende der Vorbereitung. Ein Einzelbericht wird nicht erzeugt. Danach
-startet es ein Ensemble mit `baseline` und `null_model`. Die Texte `text_de` aus `ergebnisse.json` gehen als eigene
-Ergebnisfragen ein; die automatische Checkliste bleibt zusätzlich aktiv. Das Feld `eingetreten`, `verlauf.md` und die
-Quellen werden niemals an die API gesendet. Erst nachdem das Ensemble abgeschlossen ist, verbindet das Skript die
-Vorhersageraten mit den zuvor dokumentierten Wahrheitswerten.
+Graph, legt die Simulation an und wartet bis zum Ende der Vorbereitung. Noch vor diesen Modellaufrufen fragt es das
+konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge anhand von Ort, Jahr und Thema nach Fallkenntnis. Der
+Ausgang wird nicht genannt. Anfrageparameter und Antwort stehen im Resume-State und im Fallergebnis. Bekannte Fälle
+tragen `contaminated: true` und werden in der Gesamtauswertung separat geführt.
+
+Die Texte `text_de` aus `ergebnisse.json` gehen als eigene Ergebnisfragen ein. Optional markiert genau ein Eintrag
+`"primaer": true`; dessen stabile ID sendet das Werkzeug als `primary_outcome_id` im Start-POST. Mehrere Markierungen
+werden vor jedem API-Aufruf abgewiesen. `eingetreten`, `verlauf.md` und Quellen werden niemals gesendet. Erst nach dem
+Ensemble verbindet das Skript die Häufigkeiten mit den dokumentierten Wahrheitswerten. Das Primärergebnis wird
+konfirmatorisch, alle übrigen Fragen werden getrennt als explorativ ausgewiesen.
 
 Die API akzeptiert für Ensembles nun 1 bis 336 Stunden und bis zu 20 eigene Ergebnisfragen. An der Zeitachse war keine
 weitere technische Grenze nötig: `total_simulation_hours` wird in die kopierte Laufkonfiguration geschrieben, die
 Rundenzahl ergibt sich aus `hours * 60 / minutes_per_round`, und Tageszeit sowie Tageswechsel werden fortlaufend
 berechnet. Bei 30 Minuten pro Runde sind zwei Wochen 672 Runden je OASIS-Lauf. Zehn Basisläufe können daher je nach
 Agentenzahl und Modell mehrere Tage dauern. Die vorhandene ETA skaliert mit der tatsächlichen Rundenzahl; das
-Nullmodell zählt je Seed als eine Modellrunde.
+D und P zählen je Seed jeweils als eine Modellrunde.
 
 Nach jedem dauerhaften Schritt speichert das Skript Projekt-, Graph-Aufgaben-, Graph-, Simulations-, Vorbereitungs-
 und Ensemble-ID in `docs/validation/ergebnisse/<fall>.state.json`. Ein identischer Aufruf setzt am letzten bekannten
-Schritt wieder auf. Abweichende Basis-URL, Laufzahl oder Stundenzahl werden bei vorhandenem State abgewiesen, damit
-keine Ergebnisse verschiedener Konfigurationen vermischt werden.
+Schritt wieder auf. Abweichende Basis-URL, Laufzahl, Stundenzahl oder Armauswahl werden bei vorhandenem State
+abgewiesen, damit keine Ergebnisse verschiedener Konfigurationen vermischt werden.
 
 Die fallbezogenen Dateien `docs/validation/ergebnisse/<fall>.md` und `.json` enthalten je eigener Frage den echten
-Wert, `yes/n` und Rate von Simulation und Nullmodell sowie Übereinstimmung, Cohen's Kappa und Messbarkeitslabel der
+Wert, `yes/n` und Rate je Arm sowie Übereinstimmung, Cohen's Kappa und Messbarkeitslabel der
 Doppelbewertung. Strittige beziehungsweise unklassifizierte Einzelläufe stehen separat und zählen wie in V3 nicht zu
-`n`. Fragen mit `n = 0` in einer Variante oder dem Label „nicht messbar“ werden ausgewiesen, aber nicht gescored.
+`n`. Fragen mit `n = 0`, Kappa unter 0,6 oder `in_material: true` werden ausgewiesen, aber nicht gescored.
 
 Für die verbleibenden, gepaarten Fragen werden berechnet:
 
@@ -262,8 +274,13 @@ Für die verbleibenden, gepaarten Fragen werden berechnet:
 - **Log-Score:** mittlerer negativer Log-Likelihood-Verlust; Wahrscheinlichkeiten werden nur für den Logarithmus auf
   `[10⁻¹⁵, 1 - 10⁻¹⁵]` begrenzt. Bei Brier- und Log-Score ist kleiner besser.
 
-`GESAMT.md` und `GESAMT.json` werden aus allen vorhandenen Fall-JSONs neu aufgebaut. Sie vergleichen den mittleren
-Brier-Score von Simulation, Nullmodell und der konstanten naiven Vorhersage 0,5 auf demselben Fragensatz. Ein
-perzentiles 95-%-Bootstrap-Konfidenzintervall resampelt die Fragen 10.000-mal mit Zurücklegen; der feste Seed 20261014
-macht die Auswertung reproduzierbar. Die Unsicherheit bezieht sich damit auf die dokumentierten Fragen, nicht auf eine
-repräsentative Stichprobe aller kommunalpolitischen Ereignisse.
+`GESAMT.md` und `GESAMT.json` werden aus allen Fall-JSONs der Schema-Version 2 neu aufgebaut. Pro Fall geht ausschließlich
+die Seed-Häufigkeit des messbaren Primärergebnisses ein. Ausgegeben werden Brier-Score je Arm, `1 − BS_S/BS_D` und
+`1 − BS_P/BS_D`. Das perzentile 95-%-Intervall resampelt 10.000-mal ganze Fälle mit Zurücklegen (fester Seed 20261014),
+niemals Fragen oder Seeds. Kontaminierte Fälle bilden eine eigene Gruppe.
+
+Die Kalibrierungssteigung wird ohne Statistikbibliothek per logistischer Regression von Ereignissen auf den Logit der
+Arm-Häufigkeit geschätzt. Bei weniger als acht auswertbaren Fällen erscheint fest „Pilot, keine
+Kalibrierungsaussage“. Das vorab registrierte Kriterium wird als „bestanden“, „nicht bestanden“ oder „nicht prüfbar“
+ausgegeben: Das Skill-Intervall S gegen D muss vollständig über 0 liegen, die Steigung von S in [0,5; 1,5] und das
+Kappa des Primärergebnisses mindestens 0,6. Die konfirmatorische Stichprobe umfasst mindestens 25 Fälle.
