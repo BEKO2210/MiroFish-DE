@@ -7,7 +7,7 @@ const KEY = 'mirofish:theme'
 export const COMBO_SITE = 'https://combo.it-handwerk-stuttgart.de'
 
 // Standard: MiroFish-Terracotta auf Weiß (identisch zu tokens.css)
-export const DEFAULT_THEME = { id: null, a: '#FFFFFF', aName: 'Weiß', b: '#C2410C', bName: 'Terracotta', mode: 'soft' }
+export const DEFAULT_THEME = { id: null, a: '#FFFFFF', aName: 'Weiß', b: '#D8401A', bName: 'MiroFish-Orange', mode: 'soft' }
 
 // Aus dem Katalog gezogen (eine je Farbfamilie), echte Combo-Nummern
 export const PRESETS = [

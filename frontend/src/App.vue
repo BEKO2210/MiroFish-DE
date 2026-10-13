@@ -1,10 +1,8 @@
 <template>
   <router-view />
-  <MobileNav />
-</template>
+  </template>
 
 <script setup>
-import MobileNav from './components/MobileNav.vue'
 </script>
 
 <style>

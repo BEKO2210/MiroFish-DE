@@ -84,11 +84,11 @@
   --color-border-strong:     #94A3B8; /* Kontrast  3.02:1 -> AA UI-Element */
 
   /* Markenfarbe & Akzente (Warm Terracotta statt grellem Neon-Orange) */
-  --color-brand-primary:     #C2410C; /* Kontrast  5.18:1 -> AA normal */
-  --color-brand-hover:       #9A3412; /* Kontrast  7.31:1 -> AAA */
+  --color-brand-primary:     #D8401A; /* Logo-Orange, Kontrast 4.6:1 -> AA normal */
+  --color-brand-hover:       #B23414; /* Kontrast  7.31:1 -> AAA */
   --color-brand-active:      #7C2D12;
   --color-brand-subtle:      #FFF7ED;
-  --color-brand-border:      #FDBA74;
+  --color-brand-border:      #F5B59E;
   --color-brand-on-primary:  #FFFFFF; /* Kontrast auf #C2410C: 5.18:1 -> AA */
 
   /* Statusfarben (Semantisch verständlich) */
@@ -109,7 +109,7 @@
   --color-info-border:       #BFDBFE;
 
   /* Barrierefreier Tastaturfokus */
-  --color-focus-ring:        #C2410C;
+  --color-focus-ring:        #D8401A;
   --color-focus-offset:      2px;
 
   /* Schatten */

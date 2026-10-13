@@ -74,7 +74,7 @@ const error = ref('')
 
 const swatchStyle = (t) => ({ background: `linear-gradient(135deg, ${t.a} 50%, ${t.b} 50%)` })
 const choose = (t) => {
-  current.value = { ...t, mode: current.value.mode || 'soft' }
+  current.value = { ...t, mode: t.mode || current.value.mode || 'soft' }
   saveTheme(current.value)
   error.value = ''
 }

@@ -1,19 +1,21 @@
-# Roadmap „MiroFish wie eine App“ (Stand 13.10.2026)
+# Roadmap v2 – „so gut, dass es jeder gern benutzt"
 
-Ziel: Am Handy wie eine native App, am Desktop vollwertig, deutsch und englisch, ohne Fachjargon, ohne Cloud.
-Abnahme pro Punkt: Screenshot 412 px + 1280 px, keine Konsolenfehler, `npx vite build` grün, Funktion live geprüft.
+Stand 13.10.2026. Reihenfolge = Priorität. Jeder Punkt gilt erst als erledigt, wenn er auf dem Handy (412 px)
+und auf dem Desktop per Screenshot geprüft ist, der Build grün ist und die Konsole leer bleibt.
 
-| # | Thema | Wer | Status |
-|---|---|---|---|
-| P0 | Lesbarkeit: Dunkelmodus-Token zerstörte Kontrast (weißer Text auf Weiß) | Claude | erledigt |
-| P1 | Startseite neu: Kopf, Erklärung in 3 Schritten, eine Karte „Neue Vorhersage“ (Datei, Frage, Start), Verlauf darunter; Marketingfloskeln raus | Claude | offen |
-| P2 | Automatischer Durchlauf im UI: Schalter „bis zum Bericht“, Fortschrittsseite `/run/<id>` mit Stufen, Detail, Zeitschätzung, Link zum Bericht | Claude | offen |
-| P3 | Schrittseiten (Prozess, Simulation, Lauf, Bericht, Interaktion): einspaltig mobil, Kopfzeile kompakt, Entwicklerinfos ausgeblendet, Tippflächen ≥ 44 px | Claude | teilweise |
-| P4 | Bericht: Typografie, Export (ZIP/Markdown), Teilen | Claude | Export erledigt |
-| P5 | Zweisprachigkeit DE/EN mit Umschalter | codex (Branch `i18n`) | läuft |
-| P6 | Eigenes Logo (Bildmarke, Wortmarke, Favicon, OG-Bild) | codex | läuft |
-| P7 | Texte ohne Jargon (Ontologie, GraphRAG, Dualwelt …) | Claude + grok-Texte | offen |
-| P8 | Dunkelmodus bewusst (Komponenten mit Token-Hintergründen), erst wenn alle Seiten auf Token sind | Claude | später |
-| P9 | Desktop-Feinschliff: Maximalbreiten, Zwei-Spalten nur wo sinnvoll | Claude | offen |
-| P10 | QA-Durchlauf: jede Seite mobil + desktop, kompletter Lauf aus dem UI, Löschen/Export getestet, Review durch Cursor | Claude + Cursor | offen |
-| P11 | README/API-Doku, öffentliche Version ohne private Daten gepusht | Claude | API-Doku erledigt |
+| # | Thema | Inhalt | Prüfung | Wer |
+|---|-------|--------|---------|-----|
+| 1 | App-Gerüst | Ein Kopf (Logo, Navigation, Farben), ein Fußmenü mit drei echten Zielen: Start, Verlauf, Einstellungen. Keine „Oben"-Taste, keine Platzhalter-Ziele. | Jede Seite zeigt denselben Kopf; Fußmenü markiert die aktive Seite | Claude |
+| 2 | Startseite | Hero mit lebendiger Schwarm-Grafik (Canvas, reagiert auf Berührung, respektiert reduced-motion), Formular als Hauptobjekt, „So funktioniert es" als vier Kacheln mit Symbolen statt nummerierter Pillen. Keine Entwickler-Sprache (kein „läuft auf deinem Rechner", kein „0 €", keine Modellnamen). | Screenshots 412/1280, keine Konsolenfehler | Claude |
+| 3 | Verlauf | Eigene Seite `/history`: Liste mit Status-Chip (Läuft/Fertig/Abgebrochen), Titel = Frage, Datum, Runden; Aktionen Bericht/Export/Löschen mit Bestätigungsblatt. Keine IDs, keine Monospace-Schrift, keine Rauten. | Löschen und Export am Handy getestet | Claude |
+| 4 | Einstellungen | Eigene Seite `/settings`: Modell, Gedächtnis, Verbindung prüfen, Farben, Sprache, Über. Fachbegriffe erklärt. | Speichern + Verbindung prüfen funktionieren | Claude |
+| 5 | Durchlauf | `/run/:id` bleibt, Details ohne technische Präfixe, Agentenzahl, Restzeit, Abschlussbild mit Link zum Bericht. | Vollständiger Durchlauf im UI bis Bericht | Claude |
+| 6 | Farben | Fehler „Voll" nicht wählbar beheben; Akzent folgt der bunteren Farbe; Umschalter im Kopf jeder Seite. | Alle 12 Vorgaben + Zufall in beiden Modi geprüft | Claude |
+| 7 | Backend-Neustart | Nach Abschluss des laufenden Berichts: Dienst neu starten (DELETE/Export/Pipeline-Fixes live). `progress_percent` = Minimum beider Plattformen. | `curl -X DELETE` liefert 200/404 statt 405 | Claude |
+| 8 | Expertenseiten | Schritt-für-Schritt-Seiten (Graph, Umgebung, Simulation, Bericht, Interview) entschlacken: kein „dringend empfohlen", keine Debug-Protokolle, keine englischen Reste („INFO PLAZA", „TOPIC COMMUNITY", „POST", „ACTS"), Touchziele ≥ 44 px, Kopf einheitlich. | Screenshots jeder Seite mobil | codex (Worktree) |
+| 9 | Bericht | Lesetypografie (max. 70 Zeichen Zeile, Zwischenüberschriften), Teilen/Export, Interview-Dialog mobil. | Screenshot mobil/desktop | Claude |
+| 10 | Zweisprachig | i18n-Zweig (codex, 705 Schlüssel) in main mergen, neue Seiten nachziehen, Umschalter in Einstellungen + Kopf. | DE/EN-Wechsel ohne Reload-Fehler | Claude |
+| 11 | Erststart für Fremde | `README`: ein Befehl bis zur laufenden App (Docker Compose), Einrichtungsassistent wenn kein Modell erreichbar. | Frische Maschine, Docker, Ollama → Startseite „Bereit" | Claude |
+| 12 | QA + Veröffentlichung | Jede Seite mobil/desktop, hell + dunkle Combos, Cursor-Review, `git push` public ohne private Daten. | Review-Protokoll in docs/QA.md | Claude + Cursor |
+
+Erledigt (v1): Lesbarkeit, Design-Tokens, Durchlauf-API, Löschen/Export-API, Logo, Farbsystem-Grundlage, Startseite v2, Durchlauf-Ansicht.

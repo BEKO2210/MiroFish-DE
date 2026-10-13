@@ -6,6 +6,8 @@ import SimulationRunView from '../views/SimulationRunView.vue'
 import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
 import RunView from '../views/RunView.vue'
+import HistoryView from '../views/HistoryView.vue'
+import SettingsView from '../views/SettingsView.vue'
 
 const routes = [
   {
@@ -13,6 +15,8 @@ const routes = [
     name: 'Home',
     component: Home
   },
+  { path: '/history', name: 'History', component: HistoryView },
+  { path: '/settings', name: 'Settings', component: SettingsView },
   {
     path: '/process/:projectId',
     name: 'Process',
