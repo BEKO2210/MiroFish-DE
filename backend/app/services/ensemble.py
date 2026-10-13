@@ -78,11 +78,21 @@ def _round(value: float) -> float:
 
 
 ABSENCE_RE = re.compile(r"\b(?:nicht|kein(?:e|en|er|es)?|bleibt\s+aus)\b", re.IGNORECASE)
+INTERACTION_RE = re.compile(
+    r"\b(?:Debatte|Diskussion|antwortet|reagiert\s+auf)\b|"
+    r"\bzwischen\b.+\bund\b",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def infer_polarity(text: str) -> str:
     """Alte Checklisten anhand eindeutig negativer Formulierungen migrieren."""
     return "absence" if ABSENCE_RE.search(text or "") else "presence"
+
+
+def infer_kind(text: str) -> str:
+    """Alte Checklisten mit eindeutigem Interaktionswortlaut migrieren."""
+    return "interaction" if INTERACTION_RE.search(text or "") else "event"
 
 
 def _positive_event_text(item: Dict[str, Any]) -> str:
@@ -106,7 +116,7 @@ def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
     if not isinstance(items, list):
         raise ValueError("Checkliste muss eine Liste enthalten")
 
-    result: List[Dict[str, str]] = []
+    result: List[Dict[str, Any]] = []
     seen = set()
     for raw in items:
         if isinstance(raw, str):
@@ -123,17 +133,35 @@ def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
         seen.add(key)
         supplied = str(raw.get("polarity") or "").strip().lower() if isinstance(raw, dict) else ""
         polarity = supplied if supplied in {"presence", "absence"} else infer_polarity(f"{text} {definition}")
+        supplied_kind = str(raw.get("kind") or "").strip().lower() if isinstance(raw, dict) else ""
+        kind = supplied_kind if supplied_kind in {"event", "interaction"} else infer_kind(
+            f"{text} {definition}"
+        )
         item: Dict[str, Any] = {
             "id": f"o{len(result) + 1}",
             "text_de": text,
             "definition": definition,
             "polarity": polarity,
+            "kind": kind,
         }
         if isinstance(raw, dict) and str(raw.get("presence_event") or "").strip():
             item["presence_event"] = str(raw["presence_event"]).strip()
+        if isinstance(raw, dict) and str(raw.get("counter_outcome_id") or "").strip():
+            item["counter_outcome_id"] = str(raw["counter_outcome_id"]).strip()
         result.append(item)
     if not 5 <= len(result) <= 8:
         raise ValueError("Das Modell muss 5 bis 8 eindeutige Ergebnisse liefern")
+    ids = {str(item["id"]) for item in result}
+    polarity_by_id = {str(item["id"]): item["polarity"] for item in result}
+    for item in result:
+        counter = str(item.get("counter_outcome_id") or "")
+        if (
+            item["polarity"] != "absence"
+            or counter not in ids
+            or counter == item["id"]
+            or polarity_by_id.get(counter) != "presence"
+        ):
+            item.pop("counter_outcome_id", None)
     return result
 
 
@@ -400,31 +428,122 @@ def load_simulation_posts(
                 continue
             id_column = "post_id" if "post_id" in columns else "rowid"
             users = {}
-            if _table_columns(connection, "user"):
+            user_columns = _table_columns(connection, "user")
+            if "user_id" in user_columns:
+                agent_expr = "agent_id" if "agent_id" in user_columns else "user_id"
+                name_expr = "name" if "name" in user_columns else "NULL"
+                username_expr = "user_name" if "user_name" in user_columns else "NULL"
                 for row in connection.execute(
-                    "SELECT user_id, agent_id, name, user_name FROM user"
+                    f"SELECT user_id, {agent_expr} AS agent_id, {name_expr} AS name, "
+                    f"{username_expr} AS user_name FROM user"
                 ):
                     users[row["user_id"]] = {
                         "agent_id": _agent_id(row["agent_id"]),
                         "name": row["name"] or row["user_name"] or f"Agent {row['agent_id']}",
                     }
-            query = f"SELECT {id_column} AS post_id, user_id, content FROM post ORDER BY {id_column}"
-            for row in connection.execute(query):
-                user = users.get(row["user_id"], {})
-                text = " ".join(str(row["content"] or "").split())
-                if (user.get("agent_id", _agent_id(row["user_id"])), text) in initial:
-                    continue
-                result.append(
-                    {
-                        "platform": platform,
-                        "post_id": f"{platform}:{row['post_id']}",
-                        "agent": user.get("name") or f"Agent {row['user_id']}",
-                        "text": text,
-                    }
+            link_columns = [
+                name for name in (
+                    "original_post_id", "quoted_post_id", "quote_post_id",
+                    "reply_to_post_id", "in_reply_to_post_id", "parent_post_id",
+                    "replied_post_id",
+                ) if name in columns
+            ]
+            extra = "".join(f", {name}" for name in link_columns)
+            query = (
+                f"SELECT {id_column} AS post_id, user_id, content{extra} "
+                f"FROM post ORDER BY {id_column}"
+            )
+            post_rows = list(connection.execute(query))
+            post_authors = {
+                row["post_id"]: users.get(row["user_id"], {}).get(
+                    "agent_id", _agent_id(row["user_id"])
                 )
+                for row in post_rows
+            }
+            for row in post_rows:
+                user = users.get(row["user_id"], {})
+                agent_id = user.get("agent_id", _agent_id(row["user_id"]))
+                text = " ".join(str(row["content"] or "").split())
+                if (agent_id, text) in initial:
+                    continue
+                item = {
+                    "platform": platform,
+                    "post_id": f"{platform}:{row['post_id']}",
+                    "agent_id": agent_id,
+                    "agent": user.get("name") or f"Agent {row['user_id']}",
+                    "text": text,
+                }
+                for link_column in link_columns:
+                    target_post_id = row[link_column]
+                    if target_post_id is not None and target_post_id in post_authors:
+                        item["structural_link"] = {
+                            "type": "reply" if "reply" in link_column or "parent" in link_column else "quote_or_repost",
+                            "target_post_id": f"{platform}:{target_post_id}",
+                            "target_agent_id": post_authors[target_post_id],
+                        }
+                        break
+                result.append(item)
+
+            comment_columns = _table_columns(connection, "comment")
+            if {"user_id", "post_id"}.issubset(comment_columns):
+                comment_id = "comment_id" if "comment_id" in comment_columns else "rowid"
+                content_expr = "content" if "content" in comment_columns else "''"
+                for row in connection.execute(
+                    f"SELECT {comment_id} AS comment_id, user_id, post_id, "
+                    f"{content_expr} AS content FROM comment ORDER BY {comment_id}"
+                ):
+                    target_agent_id = post_authors.get(row["post_id"])
+                    if target_agent_id is None:
+                        continue
+                    user = users.get(row["user_id"], {})
+                    result.append({
+                        "platform": platform,
+                        "post_id": f"{platform}:comment:{row['comment_id']}",
+                        "agent_id": user.get("agent_id", _agent_id(row["user_id"])),
+                        "agent": user.get("name") or f"Agent {row['user_id']}",
+                        "text": " ".join(str(row["content"] or "").split()),
+                        "structural_link": {
+                            "type": "comment",
+                            "target_post_id": f"{platform}:{row['post_id']}",
+                            "target_agent_id": target_agent_id,
+                        },
+                    })
         finally:
             connection.close()
     return result
+
+
+def structural_interaction_evidence(
+    posts: Sequence[Dict[str, Any]],
+    side_a_agent_ids: Sequence[Any],
+    side_b_agent_ids: Sequence[Any],
+    run_number: int,
+) -> List[Dict[str, Any]]:
+    """Direkte DB-Verbindungen zwischen den zwei modellseitig bestimmten Gruppen."""
+    side_a = {_agent_id(value) for value in side_a_agent_ids}
+    side_b = {_agent_id(value) for value in side_b_agent_ids}
+    side_a.discard(None)
+    side_b.discard(None)
+    evidence = []
+    for post in posts:
+        link = post.get("structural_link")
+        if not isinstance(link, dict):
+            continue
+        source = _agent_id(post.get("agent_id"))
+        target = _agent_id(link.get("target_agent_id"))
+        if not ((source in side_a and target in side_b) or (source in side_b and target in side_a)):
+            continue
+        evidence.append({
+            "run": run_number,
+            **post,
+            "text": (
+                f"Struktureller Beleg ({link.get('type')}): {post.get('agent')} "
+                f"verknüpft auf {link.get('target_post_id')}"
+            ),
+        })
+        if len(evidence) == 5:
+            break
+    return evidence
 
 
 def verify_classification_evidence(
@@ -644,6 +763,7 @@ class EnsembleService:
             "checklist": [],
             "results": {},
             "comparisons": [],
+            "consistency_warnings": [],
             "current": None,
             "eta_seconds": estimate,
             "error": None,
@@ -692,12 +812,16 @@ class EnsembleService:
             item["polarity"] = item.get("polarity") or infer_polarity(
                 f"{item.get('text_de', '')} {item.get('definition', '')}"
             )
+            item["kind"] = item.get("kind") or infer_kind(
+                f"{item.get('text_de', '')} {item.get('definition', '')}"
+            )
         state["status"] = "queued"
         state["error"] = None
         state["finished_at"] = None
         state["cancel_requested"] = False
         state["current"] = None
         state["current_runner_id"] = None
+        state["consistency_warnings"] = []
         state["eta_seconds"] = None
         for variant in state["variants"]:
             variant["status"] = "queued"
@@ -808,9 +932,15 @@ class EnsembleService:
             "Meinungen oder vagen Tendenzen. Setze polarity auf presence, wenn das Ereignis "
             "eintreten muss, und auf absence, wenn sein Ausbleiben das Ergebnis ist. Gib bei "
             "absence zusätzlich in presence_event das konkrete positive Gegenereignis an, nach "
-            "dem später gesucht werden soll. Antworte als JSON "
+            "dem später gesucht werden soll. Setze kind auf interaction, wenn das Ergebnis eine "
+            "Debatte, Diskussion, Antwort, Reaktion auf einen anderen Akteur oder sonstige "
+            "direkte Wechselwirkung zwischen Gruppen verlangt, sonst auf event. Nummeriere die "
+            "Ergebnisse in der JSON-Reihenfolge gedanklich als o1, o2 usw. Wenn ein absence-Punkt "
+            "das direkte Gegenstück zu einem presence-Punkt derselben Checkliste und desselben "
+            "Akteurs ist, setze counter_outcome_id auf dessen ID, sonst auf null. Antworte als JSON "
             "{\"outcomes\":[{\"text_de\":...,\"definition\":...,"
-            "\"polarity\":\"presence|absence\",\"presence_event\":...}]}.\n\n"
+            "\"polarity\":\"presence|absence\",\"kind\":\"event|interaction\","
+            "\"presence_event\":...,\"counter_outcome_id\":\"o2|null\"}]}.\n\n"
             f"Frage: {state['question']}\nSimulierter Zeitraum: {state['hours']} Stunden\n"
             f"Eingabematerial:\n{material}"
         )
@@ -873,6 +1003,83 @@ class EnsembleService:
             seed=seed,
         )
 
+    def _interaction_groups(
+        self,
+        llm: Any,
+        item: Dict[str, Any],
+        posts: Sequence[Dict[str, Any]],
+        seed: int,
+        run_dir: Optional[Path],
+    ) -> Dict[str, Any]:
+        """Akteure genau einmal je Interaktionsergebnis zwei Seiten zuordnen."""
+        config = _read_json(Path(run_dir) / "simulation_config.json") if run_dir else {}
+        catalog: Dict[int, Dict[str, Any]] = {}
+        for agent in config.get("agent_configs") or []:
+            agent_id = _agent_id(agent.get("agent_id"))
+            if agent_id is not None:
+                catalog[agent_id] = {
+                    "agent_id": agent_id,
+                    "name": agent.get("entity_name") or f"Agent {agent_id}",
+                    "type": agent.get("entity_type") or "Unknown",
+                }
+        for post in posts:
+            agent_id = _agent_id(post.get("agent_id"))
+            if agent_id is not None and agent_id not in catalog:
+                catalog[agent_id] = {
+                    "agent_id": agent_id,
+                    "name": post.get("agent") or f"Agent {agent_id}",
+                    "type": "Unknown",
+                }
+        agents = [catalog[key] for key in sorted(catalog)]
+        prompt = (
+            "Ordne für dieses Interaktionsergebnis die vorhandenen Agenten den zwei im Text "
+            "genannten Seiten zu. Nutze ausschließlich agent_id aus dem Katalog; Typ und Name "
+            "sind die Grundlage. Agenten, die zu keiner Seite gehören, bleiben weg. JSON: "
+            "{\"side_a_label\":\"...\",\"side_a_agent_ids\":[1],"
+            "\"side_b_label\":\"...\",\"side_b_agent_ids\":[2]}.\n\n"
+            f"Ergebnis: {item.get('text_de')} -- {item.get('definition')}\n"
+            f"Agentenkatalog: {json.dumps(agents, ensure_ascii=False)}"
+        )
+        try:
+            raw = llm.chat_json(
+                [
+                    {"role": "system", "content": "Du ordnest Simulationsagenten Akteursgruppen zu."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0,
+                max_tokens=1000,
+                max_attempts=2,
+                seed=seed,
+            )
+        except Exception as error:
+            return {"side_a_agent_ids": [], "side_b_agent_ids": [], "error": str(error)}
+        valid_ids = set(catalog)
+
+        def valid_list(key: str) -> List[int]:
+            values = raw.get(key, []) if isinstance(raw, dict) else []
+            if not isinstance(values, list):
+                return []
+            result = []
+            for value in values:
+                agent_id = _agent_id(value)
+                if agent_id in valid_ids and agent_id not in result:
+                    result.append(agent_id)
+            return result
+
+        side_a = valid_list("side_a_agent_ids")
+        side_b = valid_list("side_b_agent_ids")
+        overlap = set(side_a) & set(side_b)
+        side_a = [agent_id for agent_id in side_a if agent_id not in overlap]
+        side_b = [agent_id for agent_id in side_b if agent_id not in overlap]
+        return {
+            "side_a_label": str(raw.get("side_a_label") or "Seite A") if isinstance(raw, dict) else "Seite A",
+            "side_a_agent_ids": side_a,
+            "side_b_label": str(raw.get("side_b_label") or "Seite B") if isinstance(raw, dict) else "Seite B",
+            "side_b_agent_ids": side_b,
+            "removed_overlapping_agent_ids": sorted(overlap),
+            "raw_response": raw,
+        }
+
     def _classify_posts(
         self,
         state: Dict[str, Any],
@@ -882,9 +1089,15 @@ class EnsembleService:
         run_dir: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
         checklist_items = [
-            dict(item, polarity=item.get("polarity") or infer_polarity(
-                f"{item.get('text_de', '')} {item.get('definition', '')}"
-            ))
+            dict(
+                item,
+                polarity=item.get("polarity") or infer_polarity(
+                    f"{item.get('text_de', '')} {item.get('definition', '')}"
+                ),
+                kind=item.get("kind") or infer_kind(
+                    f"{item.get('text_de', '')} {item.get('definition', '')}"
+                ),
+            )
             for item in state["checklist"]
         ]
         checklist = "\n".join(
@@ -893,6 +1106,8 @@ class EnsembleService:
         )
         instruction = (
             "Für jedes aufgeführte positive Ereignis: yes=true nur bei einem eindeutigen Beleg. "
+            "Ein konkreter aufgeführter Punkt kann zugleich ein allgemeineres positives Ereignis "
+            "belegen; verwende dann dieselben Beitrags-IDs für alle passenden outcome_ids. "
             "Nenne ausschließlich vorhandene IDs und liefere genau eine Zeile je outcome_id. "
             "JSON: {\"results\":[{\"outcome_id\":\"o1\",\"yes\":true,"
             "\"post_ids\":[\"twitter:1\"]}]}.\n\n"
@@ -909,6 +1124,13 @@ class EnsembleService:
         prefix = f"{system}\n{instruction}"
         batches = build_post_batches(posts, prefix, token_budget)
         llm = self._llm()
+        interaction_groups = {
+            str(item["id"]): self._interaction_groups(
+                llm, item, posts, seed, run_dir
+            )
+            for item in checklist_items
+            if item.get("kind") == "interaction"
+        }
         audits: List[Dict[str, Any]] = []
         batch_results: List[Dict[str, Dict[str, Any]]] = []
         for index, batch in enumerate(batches, 1):
@@ -949,13 +1171,12 @@ class EnsembleService:
             audits.append(audit)
             batch_results.append(verified)
 
-        combined: Dict[str, Dict[str, Any]] = {}
+        positive_by_outcome: Dict[str, List[Dict[str, Any]]] = {}
+        unclassified_by_outcome: Dict[str, bool] = {}
         for item in checklist_items:
             oid = str(item["id"])
             values = [result[oid] for result in batch_results]
-            if any(value.get("unclassified") for value in values):
-                combined[oid] = {"yes": False, "evidence": [], "unclassified": True}
-                continue
+            unclassified_by_outcome[oid] = any(value.get("unclassified") for value in values)
             positive_evidence: List[Dict[str, Any]] = []
             seen_evidence = set()
             for value in values:
@@ -969,7 +1190,20 @@ class EnsembleService:
                         break
                 if len(positive_evidence) == 5:
                     break
-            positive_found = bool(positive_evidence)
+            positive_by_outcome[oid] = positive_evidence
+
+        combined: Dict[str, Dict[str, Any]] = {}
+        interaction_checks: Dict[str, Dict[str, Any]] = {}
+        for item in checklist_items:
+            oid = str(item["id"])
+            counter = str(item.get("counter_outcome_id") or "")
+            relevant_ids = [oid] + ([counter] if counter else [])
+            if any(unclassified_by_outcome.get(value) for value in relevant_ids):
+                combined[oid] = {"yes": False, "evidence": [], "unclassified": True}
+                continue
+            positive_evidence = list(positive_by_outcome.get(oid, []))
+            counter_evidence = positive_by_outcome.get(counter, []) if counter else []
+            positive_found = bool(positive_evidence or counter_evidence)
             if item["polarity"] == "absence":
                 yes = not positive_found
                 evidence = ([{
@@ -982,6 +1216,29 @@ class EnsembleService:
             else:
                 yes = positive_found
                 evidence = positive_evidence
+            if item.get("kind") == "interaction":
+                groups = interaction_groups.get(oid, {})
+                structural = structural_interaction_evidence(
+                    posts,
+                    groups.get("side_a_agent_ids", []),
+                    groups.get("side_b_agent_ids", []),
+                    run_number,
+                )
+                interaction_checks[oid] = {
+                    "structural_evidence": structural,
+                    "accepted": bool(yes and structural),
+                    "note": (
+                        "Kein struktureller Beleg zwischen den zugeordneten Gruppen; "
+                        "Interaktion wird als Nein gewertet."
+                        if not structural else
+                        "Struktureller Beleg zwischen den zugeordneten Gruppen vorhanden."
+                    ),
+                }
+                if not structural:
+                    yes = False
+                    evidence = []
+                elif yes:
+                    evidence = structural
             combined[oid] = {"yes": yes, "evidence": evidence}
 
         audit_document = {
@@ -989,6 +1246,8 @@ class EnsembleService:
             "post_count": len(posts),
             "token_budget": token_budget,
             "batches": audits,
+            "interaction_groups": interaction_groups,
+            "interaction_checks": interaction_checks,
             "result": combined,
         }
         if run_dir is not None:
@@ -1029,20 +1288,35 @@ class EnsembleService:
             parse_error = str(error)
         rows = payload.get("results", []) if isinstance(payload, dict) else []
         by_id = {str(r.get("outcome_id")): r for r in rows if isinstance(r, dict)}
-        result = {}
+        positive: Dict[str, Tuple[bool, str]] = {}
         for outcome in state["checklist"]:
             raw = by_id.get(outcome["id"])
             if parse_error or not isinstance(raw, dict):
-                result[outcome["id"]] = {"yes": False, "evidence": [], "unclassified": True}
+                positive[outcome["id"]] = (False, "")
                 continue
             answer = raw.get("yes", False)
             snippet = " ".join(str(raw.get("snippet") or "").split())
             valid = bool(snippet and snippet.casefold() in " ".join(narrative.split()).casefold())
-            positive_found = bool(answer is True and valid)
+            positive[outcome["id"]] = (bool(answer is True and valid), snippet)
+
+        result = {}
+        for outcome in state["checklist"]:
+            raw = by_id.get(outcome["id"])
+            counter = str(outcome.get("counter_outcome_id") or "")
+            if parse_error or not isinstance(raw, dict) or (counter and not isinstance(by_id.get(counter), dict)):
+                result[outcome["id"]] = {"yes": False, "evidence": [], "unclassified": True}
+                continue
+            positive_found, snippet = positive.get(outcome["id"], (False, ""))
+            if counter:
+                positive_found = positive_found or positive.get(counter, (False, ""))[0]
             absence = (outcome.get("polarity") or infer_polarity(
                 f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
             )) == "absence"
             yes = not positive_found if absence else positive_found
+            if (outcome.get("kind") or infer_kind(
+                f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
+            )) == "interaction":
+                yes = False
             result[outcome["id"]] = {
                 "yes": yes,
                 "evidence": ([{
@@ -1069,10 +1343,32 @@ class EnsembleService:
 
     def _aggregate(self, state: Dict[str, Any], per_run: Dict[str, List[Dict[str, Any]]]) -> None:
         results = {}
+        consistency_warnings = []
         for variant in state["variants"]:
             key = variant["key"]
             results[key] = {}
             runs = per_run.get(key, [])
+            for run_number, row in enumerate(runs, 1):
+                for outcome in state["checklist"]:
+                    counter = str(outcome.get("counter_outcome_id") or "")
+                    if (
+                        (outcome.get("polarity") or infer_polarity(
+                            f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
+                        )) == "absence"
+                        and counter
+                        and row.get(outcome["id"], {}).get("yes")
+                        and row.get(counter, {}).get("yes")
+                    ):
+                        consistency_warnings.append({
+                            "variant": key,
+                            "run": run_number,
+                            "absence_outcome_id": outcome["id"],
+                            "presence_outcome_id": counter,
+                            "message": (
+                                "Presence- und Absence-Ergebnis zum selben Akteur "
+                                "wurden im selben Lauf beide mit Ja klassifiziert."
+                            ),
+                        })
             for outcome in state["checklist"]:
                 oid = outcome["id"]
                 unclassified = sum(
@@ -1099,6 +1395,7 @@ class EnsembleService:
                     "evidence": evidence,
                 }
         state["results"] = results
+        state["consistency_warnings"] = consistency_warnings
         comparisons = []
         baseline = results.get("baseline", {})
         for variant in state["variants"]:

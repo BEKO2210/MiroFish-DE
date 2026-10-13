@@ -156,3 +156,29 @@ Hintergrundlauf liest ausschließlich die gespeicherten SQLite-Datenbanken bezie
 verwendet dieselbe Checkliste und berechnet Ergebnisse und Vergleiche neu. Der vorherige Ergebnisstand bleibt als
 `results_v1` erhalten; Fortschritt und Abschluss sind wie beim ursprünglichen Lauf über `GET /api/ensemble/<id>`
 sichtbar.
+
+## Gültigkeitskorrekturen: Abwesenheit, Interaktion und Konsistenz
+
+Checklistenpunkte besitzen zusätzlich `kind: event|interaction`. Neue Checklisten lassen das Feld direkt erzeugen;
+bei älteren Checklisten werden Formulierungen mit „zwischen … und“, „Debatte“, „Diskussion“, „antwortet“ oder
+„reagiert auf“ als `interaction` migriert. Für jeden solchen Punkt ordnet das Hauptmodell einmal je Lauf anhand von
+`entity_type` und `entity_name` die vorhandenen Agenten-IDs den zwei genannten Seiten zu. Zuordnung, Modellantwort,
+strukturelle Funde und Entscheidung stehen in `classification.json`.
+
+Ein semantischer Texttreffer allein genügt für Interaktionen nicht mehr. Zusätzlich muss die OASIS-SQLite-DB eine
+direkte Verbindung zwischen Agenten der beiden zugeordneten Seiten enthalten: einen Reddit-Datensatz aus `comment`
+mit `post_id`, einen Twitter-Post mit `original_post_id` (Quote/Repost) oder eine von der verwendeten OASIS-Version
+gespeicherte Reply-/Parent-Post-Verknüpfung. Kommentare werden mit der qualifizierten ID
+`reddit:comment:<comment_id>` ebenfalls dem Textklassifikator vorgelegt. Getrennte `CREATE_POST`-Beiträge beider
+Seiten sind kein struktureller Beleg und führen mit einem entsprechenden Audit-Hinweis zu Nein. Das Nullmodell hat
+keine solche DB-Verbindung; Interaktionsergebnisse sind dort deshalb Nein.
+
+Ein `absence`-Punkt nennt bei der Erzeugung in `counter_outcome_id` den passenden `presence`-Punkt derselben
+Checkliste, sofern es ihn gibt. Verifizierte Belege dieses Gegenpunkts werden stapelübergreifend ebenfalls als Beleg
+des positiven Gegenereignisses behandelt. Damit können beispielsweise „Medien reagieren nicht“ und eine belegte
+offizielle Medien-Stellungnahme nicht gleichzeitig als Ja gewertet werden. Nach jeder Laufklassifikation prüft die
+Aggregation dennoch alle explizit verknüpften Presence-/Absence-Paare. Etwaige doppelte Ja-Wertungen werden mit
+Variante, Lauf und beiden Ergebnis-IDs unter `consistency_warnings` im Ensemble-Ergebnis ausgewiesen.
+
+Regressionstests decken das konkrete Paar o2/o6 aus `ens_9c4647555d4b`, eine isolierte DB ohne Kommentare, eine
+Basis-DB mit gruppenübergreifendem Kommentar sowie die Konsistenzwarnung ab.
