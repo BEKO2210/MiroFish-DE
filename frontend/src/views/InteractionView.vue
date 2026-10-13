@@ -1,5 +1,5 @@
 <template>
-  <div class="main-view">
+  <div class="main-view" :class="{ 'is-graph-view': viewMode === 'graph' }">
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
@@ -40,6 +40,7 @@
       <!-- Left Panel: Graph -->
       <div class="panel-wrapper left" :style="leftPanelStyle">
         <GraphPanel 
+          ref="graphPanelRef"
           :graphData="graphData"
           :loading="graphLoading"
           :currentPhase="5"
@@ -55,6 +56,7 @@
           :reportId="currentReportId"
           :simulationId="simulationId"
           :systemLogs="systemLogs"
+          :show-mobile-actions="viewMode !== 'graph'"
           @add-log="addLog"
           @update-status="updateStatus"
         />
@@ -64,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
@@ -87,6 +89,7 @@ const props = defineProps({
 
 // Layout-Status - Standardmäßig zur Arbeitsbereich-Ansicht wechseln
 const viewMode = ref(window.innerWidth <= 768 ? 'workbench' : 'split')
+const graphPanelRef = ref(null)
 const stepNames = computed(() => [t('main.graphErstellen'), t('main.umgebungAufbauen'), t('main.simulationStarten'), t('main.berichtGenerieren'), t('main.tiefeInteraktion')])
 
 // Data State
@@ -214,6 +217,14 @@ const refreshGraph = () => {
   }
 }
 
+const fitGraphAfterLayout = async () => {
+  await nextTick()
+  // Panel erst nach Display/Höhe messen, dann Fit-to-View
+  requestAnimationFrame(() => {
+    graphPanelRef.value?.zoomToFit?.(0.88, true)
+  })
+}
+
 // Watch route params
 watch(() => route.params.reportId, (newId) => {
   if (newId && newId !== currentReportId.value) {
@@ -221,6 +232,10 @@ watch(() => route.params.reportId, (newId) => {
     loadReportData()
   }
 }, { immediate: true })
+
+watch(viewMode, (mode) => {
+  if (mode === 'graph') fitGraphAfterLayout()
+})
 
 onMounted(() => {
   addLog(t('interactionView.initialized'))
@@ -411,18 +426,20 @@ onMounted(() => {
   .header-right { display: none; }
   .header-center { order: 3; }
   /* Seite scrollt selbst; kein fester Innen-Scroll über dem Fußmenü */
-  .main-view { height: auto; min-height: 0; min-width: 0; overflow: visible; }
-  .app-header { padding: 8px 12px; }
+  .main-view { height: auto; min-height: 0; min-width: 0; max-width: 100%; overflow-x: hidden; overflow-y: visible; }
+  .app-header { padding: 8px 12px; max-width: 100%; flex-shrink: 0; }
   .header-left, .header-right { min-width: 0; }
-  .header-center { position: static; transform: none; overflow: visible; }
-  .view-switcher { width: 100%; }
+  .header-center { position: static; transform: none; overflow: visible; max-width: 100%; }
+  .view-switcher { width: 100%; max-width: 100%; }
   .switch-btn { flex: 1; min-height: 44px; padding-inline: 8px; }
   .workflow-step, .status-indicator { font-size: var(--font-size-xs); }
-  .content-area { flex: none; height: auto; overflow: visible; min-width: 0; }
+  .content-area { flex: none; height: auto; overflow-x: hidden; overflow-y: visible; min-width: 0; max-width: 100%; }
   .panel-wrapper {
     min-width: 0;
+    max-width: 100%;
     height: auto;
-    overflow: visible;
+    overflow-x: hidden;
+    overflow-y: visible;
     will-change: auto;
     padding-bottom: 0;
   }
@@ -430,6 +447,26 @@ onMounted(() => {
     height: calc(100dvh - 168px - 64px - 58px - env(safe-area-inset-bottom, 0px));
     min-height: 420px;
     overflow: hidden;
+  }
+  /* Graph-Ansicht: füllt Viewport bis Fußmenü (keine „Frage senden“-Leiste) */
+  .main-view.is-graph-view {
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    /* body padding-bottom (130px) würde sonst Weißraum unter dem Graph erzeugen */
+    margin-bottom: calc(-130px - env(safe-area-inset-bottom, 0px));
+  }
+  .main-view.is-graph-view .content-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
+  .main-view.is-graph-view .panel-wrapper.left {
+    height: 100%;
+    min-height: 0;
   }
 }
 

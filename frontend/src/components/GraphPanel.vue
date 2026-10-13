@@ -955,6 +955,8 @@ onUnmounted(() => {
     currentSimulation.stop()
   }
 })
+
+defineExpose({ zoomToFit })
 </script>
 
 <style scoped>

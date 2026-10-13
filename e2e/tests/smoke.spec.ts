@@ -12,17 +12,13 @@ import { ROUTES, isLiveMode } from '../support/mockApi'
 const MOBILE_NAV_COVER = new Set([
 ])
 
-/** iPhone (WebKit): seitliche Scrollleiste – bekannter Fehler, siehe BEFUNDE.md */
-const IPHONE_HSCROLL = new Set(['/interaction/report_6587bcd7e3fa'])
-
 test.describe('Smoke', () => {
   for (const route of ROUTES) {
     test(`${route} lädt sauber`, async ({ page }, testInfo) => {
       const project = testInfo.project.name
       // bekannter Fehler, siehe BEFUNDE.md
       test.fail(
-        ((project === 'handy' || project === 'iphone') && MOBILE_NAV_COVER.has(route)) ||
-          (project === 'iphone' && IPHONE_HSCROLL.has(route)),
+        (project === 'handy' || project === 'iphone') && MOBILE_NAV_COVER.has(route),
         'bekannter Fehler, siehe BEFUNDE.md',
       )
 
@@ -107,11 +103,14 @@ test.describe('Handy Seiten-Scroll (Report/Interaction)', () => {
 
       const lastParaClear = await page.evaluate(() => {
         const sticky = document.querySelector('.mobile-sticky-bar') as HTMLElement | null
+        const composer = document.querySelector('.mobile-chat-composer') as HTMLElement | null
         const stickyTop =
           sticky && getComputedStyle(sticky).display !== 'none'
             ? sticky.getBoundingClientRect().top
-            : (document.querySelector('.mobile-nav') as HTMLElement | null)?.getBoundingClientRect()
-                .top ?? window.innerHeight
+            : composer && getComputedStyle(composer).display !== 'none'
+              ? composer.getBoundingClientRect().top
+              : (document.querySelector('.mobile-nav') as HTMLElement | null)?.getBoundingClientRect()
+                  .top ?? window.innerHeight
         // Nur Fließtext im Berichtskörper – keine fixierten Chat-/UI-Zeilen
         const paras = Array.from(
           document.querySelectorAll(
@@ -188,6 +187,92 @@ test.describe('Graph-Ansicht mobil/tablet', () => {
       metrics.spreadRatio,
       `Knoten-Spread >30% der Canvas-Höhe: ${JSON.stringify(metrics)}`,
     ).toBeGreaterThan(0.3)
+  })
+})
+
+/** Schritt 5 mobil: volle Breite, Graph-Höhe, eine Composer-Leiste. */
+test.describe('Interaction mobil (Schritt 5)', () => {
+  test('/interaction: Breite ≥95%, Graph ≥400px, ein Eingabefeld', async ({ page }, testInfo) => {
+    const project = testInfo.project.name
+    test.skip(project !== 'handy' && project !== 'iphone', 'nur handy und iphone')
+
+    await preparePage(page)
+    await page.goto('/interaction/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('.main-title, .generated-content', { timeout: 15000 })
+
+    const widthOk = await page.evaluate(() => {
+      const main =
+        (document.querySelector('.interaction-panel .left-panel, .report-content-wrapper, .interaction-panel') as HTMLElement) ||
+        null
+      if (!main) return { ok: false, reason: 'no-main' }
+      const r = main.getBoundingClientRect()
+      const ratio = r.width / window.innerWidth
+      return { ok: ratio >= 0.95, ratio, width: r.width, vw: window.innerWidth }
+    })
+    expect(widthOk.ok, `Hauptinhalt ≥95% Viewportbreite: ${JSON.stringify(widthOk)}`).toBe(true)
+
+    // Graph-Ansicht
+    await page.locator('.view-switcher .switch-btn[data-mode="graph"]').click()
+    await settle(page)
+    await page.waitForSelector('.graph-svg circle', { timeout: 15000 })
+    await page.waitForTimeout(900)
+
+    const graphMetrics = await page.evaluate(() => {
+      const container = document.querySelector('.graph-container') as HTMLElement | null
+      const svg = document.querySelector('.graph-svg') as SVGSVGElement | null
+      const canvasH = Math.max(
+        container?.clientHeight ?? 0,
+        svg?.clientHeight ?? 0,
+        Number(svg?.getAttribute('height')) || 0,
+      )
+      const circles = Array.from(document.querySelectorAll('.graph-svg g.nodes circle')) as SVGCircleElement[]
+      const tops = circles.map((c) => c.getBoundingClientRect().top)
+      const bottoms = circles.map((c) => c.getBoundingClientRect().bottom)
+      const spread =
+        tops.length && bottoms.length ? Math.max(...bottoms) - Math.min(...tops) : 0
+      const sticky = document.querySelector('.mobile-sticky-bar') as HTMLElement | null
+      const stickyVisible = !!(sticky && getComputedStyle(sticky).display !== 'none')
+      const composer = document.querySelector('.mobile-chat-composer') as HTMLElement | null
+      const composerVisible = !!(composer && getComputedStyle(composer).display !== 'none')
+      return {
+        canvasH,
+        circleCount: circles.length,
+        spreadRatio: canvasH > 0 ? spread / canvasH : 0,
+        stickyVisible,
+        composerVisible,
+      }
+    })
+    expect(graphMetrics.canvasH, `Graph ≥400px: ${JSON.stringify(graphMetrics)}`).toBeGreaterThanOrEqual(400)
+    expect(
+      graphMetrics.spreadRatio,
+      `Knoten >30% Höhe: ${JSON.stringify(graphMetrics)}`,
+    ).toBeGreaterThan(0.3)
+    expect(graphMetrics.stickyVisible || graphMetrics.composerVisible, 'keine Frage-Leiste in Graph-Ansicht').toBe(
+      false,
+    )
+
+    // Zurück Arbeitsbereich: genau ein Eingabefeld über Fußmenü
+    await page.locator('.view-switcher .switch-btn[data-mode="workbench"]').click()
+    await settle(page)
+
+    const inputCheck = await page.evaluate(() => {
+      const nav = document.querySelector('.mobile-nav') as HTMLElement | null
+      const navTop = nav?.getBoundingClientRect().top ?? window.innerHeight
+      const inputs = Array.from(
+        document.querySelectorAll('textarea.mobile-chat-composer__input, textarea.chat-input'),
+      ) as HTMLTextAreaElement[]
+      const visible = inputs.filter((el) => {
+        const st = getComputedStyle(el)
+        if (st.display === 'none' || st.visibility === 'hidden') return false
+        const r = el.getBoundingClientRect()
+        return r.width > 2 && r.height > 2
+      })
+      const aboveNav = visible.filter((el) => el.getBoundingClientRect().bottom <= navTop + 2)
+      return { visible: visible.length, aboveNav: aboveNav.length }
+    })
+    expect(inputCheck.visible, `genau ein Eingabefeld: ${JSON.stringify(inputCheck)}`).toBe(1)
+    expect(inputCheck.aboveNav, `Eingabefeld über Fußmenü: ${JSON.stringify(inputCheck)}`).toBe(1)
   })
 })
 

@@ -186,10 +186,102 @@ function resolveFixture(pathname: string): unknown | null {
     return defaultOk({ task_id: task[1], status: 'completed', progress: 100 })
   }
 
+  if (pathname === '/api/ensemble/list') {
+    return defaultOk([ensembleListItem(ENSEMBLE_MOCK)])
+  }
+  const ens = pathname.match(/^\/api\/ensemble\/(ens_[^/]+)$/)
+  if (ens) {
+    const id = ens[1]
+    if (id === ENSEMBLE_TEST_ID || id === 'ens_e2e_started') {
+      return defaultOk({ ...ENSEMBLE_MOCK, ensemble_id: id, status: id === 'ens_e2e_started' ? 'running' : 'completed' })
+    }
+    return defaultOk({ ...ENSEMBLE_MOCK, ensemble_id: id })
+  }
+
   return null
 }
 
+const ENSEMBLE_TEST_ID = 'ens_test'
+const ENSEMBLE_MOCK = {
+  ensemble_id: ENSEMBLE_TEST_ID,
+  simulation_id: 'sim_2c3b36b2e33f',
+  question: 'Wie entwickelt sich die öffentliche Diskussion über MiroFish?',
+  status: 'completed',
+  created_at: '2026-10-13T08:00:00.000000',
+  finished_at: '2026-10-13T11:00:00.000000',
+  runs: 10,
+  hours: 24,
+  variants: [
+    { key: 'baseline', label_de: 'Basis', label_en: 'Baseline', status: 'completed', done: 10, total: 10 },
+    { key: 'isolated', label_de: 'Ohne Vernetzung', label_en: 'No networking', status: 'completed', done: 10, total: 10 },
+    { key: 'null_model', label_de: 'Nullmodell', label_en: 'Null model', status: 'completed', done: 10, total: 10 },
+  ],
+  checklist: [
+    { id: 'o1', text_de: 'Dominanz-Narrativ', text_en: 'Dominance narrative', definition: '', in_material: true, material_snippet: 'technologische Dominanz von MiroFish' },
+    { id: 'o2', text_de: 'Polarisierung', text_en: 'Polarisation', definition: '', in_material: false, material_snippet: null },
+    { id: 'o3', text_de: 'Sicherheitsdebatte', text_en: 'Safety debate', definition: '', in_material: false, material_snippet: null },
+    { id: 'o4', text_de: 'Echokammern', text_en: 'Echo chambers', definition: '', in_material: false, material_snippet: null },
+    { id: 'o5', text_de: 'Regulierungsdruck', text_en: 'Regulatory pressure', definition: '', in_material: false, material_snippet: null },
+    { id: 'o6', text_de: 'Abhängigkeit', text_en: 'Dependence', definition: '', in_material: false, material_snippet: null },
+  ],
+  results: {
+    baseline: {
+      o1: { yes: 7, n: 10, rate: 0.7, ci_low: 0.4, ci_high: 0.89, evidence: [{ run: 1, platform: 'twitter', post_id: 'p1', agent: 'MediaOutlet', text: 'MiroFish dominiert die Debatte.' }] },
+      o2: { yes: 6, n: 10, rate: 0.6, ci_low: 0.31, ci_high: 0.83, evidence: [] },
+      o3: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76, evidence: [] },
+      o4: { yes: 4, n: 10, rate: 0.4, ci_low: 0.17, ci_high: 0.69, evidence: [] },
+      o5: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, evidence: [] },
+      o6: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76, evidence: [] },
+    },
+    isolated: {
+      o1: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76, evidence: [] },
+      o2: { yes: 4, n: 10, rate: 0.4, ci_low: 0.17, ci_high: 0.69, evidence: [] },
+      o3: { yes: 4, n: 10, rate: 0.4, ci_low: 0.17, ci_high: 0.69, evidence: [] },
+      o4: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, evidence: [] },
+      o5: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, evidence: [] },
+      o6: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, evidence: [] },
+    },
+    null_model: {
+      o1: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, evidence: [] },
+      o2: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, evidence: [] },
+      o3: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, evidence: [] },
+      o4: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, evidence: [] },
+      o5: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, evidence: [] },
+      o6: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, evidence: [] },
+    },
+  },
+  comparisons: [
+    { variant: 'isolated', outcome_id: 'o1', diff: -0.2, ci_low: -0.5, ci_high: 0.1 },
+    { variant: 'null_model', outcome_id: 'o1', diff: -0.5, ci_low: -0.75, ci_high: -0.15 },
+  ],
+  current: null,
+  eta_seconds: null,
+  error: null,
+}
+
+function ensembleListItem(full: typeof ENSEMBLE_MOCK) {
+  const { results: _r, ...rest } = full
+  // Kurzform ohne results/evidence
+  return {
+    ...rest,
+    checklist: full.checklist.map(({ material_snippet: _s, ...c }) => c),
+  }
+}
+
 function writeDefaults(method: string, pathname: string, body: unknown): unknown {
+  if (method === 'POST' && pathname === '/api/ensemble/start') {
+    const b = (body || {}) as { runs?: number; hours?: number; variants?: string[] }
+    return defaultOk({
+      ensemble_id: 'ens_e2e_started',
+      estimate_seconds: Math.max(60, (b.runs || 10) * (b.hours || 24) * (b.variants?.length || 1) * 12),
+    })
+  }
+  if (method === 'POST' && pathname.match(/^\/api\/ensemble\/[^/]+\/cancel$/)) {
+    return defaultOk({})
+  }
+  if (method === 'DELETE' && pathname.match(/^\/api\/ensemble\/[^/]+$/)) {
+    return defaultOk({})
+  }
   if (method === 'POST' && pathname === '/api/pipeline/start') {
     return defaultOk({ pipeline_id: 'run_e2e_mock_001', status: 'running' })
   }
@@ -380,6 +472,7 @@ export const ROUTES = [
   '/simulation/sim_2c3b36b2e33f/start',
   '/report/report_6587bcd7e3fa',
   '/interaction/report_6587bcd7e3fa',
+  '/ensemble/ens_test',
 ] as const
 
 export const FIXED_NOW = '2026-10-13T12:00:00+02:00'

@@ -135,6 +135,34 @@ test.describe('Flows', () => {
     await expect(post.locator('strong')).toHaveText('Fakten')
   })
 
+  test('Mehrfachlauf starten: Optionen → POST → Navigation', async ({ page }) => {
+    const { api } = await preparePage(page)
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('.methodology-card, .report-actions', { timeout: 15000 })
+
+    await page.getByRole('button', { name: /Mehrfachlauf starten/i }).first().click()
+    const sheet = page.locator('[role="alertdialog"]')
+    await expect(sheet).toBeVisible()
+
+    await sheet.getByRole('button', { name: /^10$/ }).click()
+    await sheet.locator('input[type="number"]').fill('24')
+    await expect(sheet.locator('input[type="checkbox"][disabled]')).toBeChecked()
+
+    api!.reset()
+    await sheet.getByRole('button', { name: /^Starten$/i }).click()
+    await expect(page).toHaveURL(/\/ensemble\/ens_e2e_started/)
+
+    const posts = api!.writes.filter((c) => c.method === 'POST' && c.pathname === '/api/ensemble/start')
+    expect(posts.length).toBe(1)
+    const body = posts[0].body as { simulation_id: string; runs: number; hours: number; variants: string[] }
+    expect(body.simulation_id).toBe('sim_2c3b36b2e33f')
+    expect(body.runs).toBe(10)
+    expect(body.hours).toBe(24)
+    expect(body.variants).toContain('baseline')
+    expect(body.variants.length).toBeGreaterThanOrEqual(2)
+  })
+
   test('Einstellungen: Farbwähler Voll und Reset', async ({ page }) => {
 
     await preparePage(page)

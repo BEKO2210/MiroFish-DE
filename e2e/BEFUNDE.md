@@ -22,9 +22,7 @@ Hinweis: `/`, `/history`, `/settings` (Kontrast Marken-/Meta-Text, Labels/Select
 
 ## 3. iPhone (WebKit): seitliche Scrollleiste
 
-| Test | Gerät | Route | Was passiert |
-|------|-------|-------|--------------|
-| `smoke.spec.ts` – lädt sauber | iphone | `/interaction/report_6587bcd7e3fa` | `scrollWidth > innerWidth` – die Nachfragen-Seite scrollt in Safari seitlich (in Chromium nicht). Gefunden im Playwright-Container (e2e/docker-test.sh). |
+Behoben: `min-width: 450px` am Interaction-Left-Panel entfernt; Action-Bar mobil als Spalte; `overflow-x: hidden` / `max-width: 100%` in InteractionView und Step5Interaction.
 
 ## Nicht als App-Bug gewertet (Tests angepasst)
 

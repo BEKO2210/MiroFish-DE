@@ -286,21 +286,23 @@
             </div>
           </div>
 
-          <!-- Chat Input -->
-          <div class="chat-input-area">
+          <!-- Chat Input (Desktop); mobil: .mobile-chat-composer -->
+          <div class="chat-input-area chat-input-area--desktop">
             <textarea 
               v-model="chatInput"
               class="chat-input"
-              :placeholder="$t('step5.gebenSieIhreFrageEin')"
+              :placeholder="$t('step5.frageAnBerichtOderAgenten')"
               @keydown.enter.exact.prevent="sendMessage"
               :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
               rows="1"
               ref="chatInputRef"
+              @input="autoGrowChatInput"
             ></textarea>
             <button 
               class="send-btn"
               @click="sendMessage"
               :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
+              :aria-label="$t('step5.senden')"
             >
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -406,15 +408,40 @@
         </div>
       </div>
     </div>
+    <!-- Mobil Chat: eine Leiste Eingabe + Senden über dem Fußmenü (nicht in Graph-Ansicht) -->
+    <Teleport to="body">
+      <aside
+        v-if="showMobileActions && activeTab === 'chat'"
+        class="mobile-chat-composer"
+        role="region"
+        :aria-label="$t('step5.senden')"
+      >
+        <textarea
+          v-model="chatInput"
+          class="mobile-chat-composer__input"
+          :placeholder="$t('step5.frageAnBerichtOderAgenten')"
+          @keydown.enter.exact.prevent="sendMessage"
+          :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
+          rows="1"
+          ref="mobileChatInputRef"
+          @input="autoGrowMobileChatInput"
+        ></textarea>
+        <button
+          type="button"
+          class="mobile-chat-composer__send"
+          @click="sendMessage"
+          :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
+          :aria-label="$t('step5.senden')"
+        >
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </aside>
+    </Teleport>
     <MobileStickyBar
-      v-if="activeTab === 'chat'"
-      :primary-label="$t('step5.senden')"
-      :primary-disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
-      :primary-loading="isSending"
-      @primary-click="sendMessage"
-    />
-    <MobileStickyBar
-      v-else
+      v-if="showMobileActions && activeTab !== 'chat'"
       :primary-label="$t('step5.umfrageSenden')"
       :primary-disabled="!surveyQuestion.trim() || selectedAgents.size === 0 || isSurveying"
       :primary-loading="isSurveying"
@@ -434,7 +461,9 @@ const { t } = useI18n()
 
 const props = defineProps({
   reportId: String,
-  simulationId: String
+  simulationId: String,
+  /** false in Graph-Ansicht: keine Frage-senden-Leiste */
+  showMobileActions: { type: Boolean, default: true },
 })
 
 const emit = defineEmits(['add-log', 'update-status'])
@@ -455,6 +484,17 @@ const chatHistoryCache = ref({}) // Alle Gesprächsverläufe zwischenspeichern: 
 const isSending = ref(false)
 const chatMessages = ref(null)
 const chatInputRef = ref(null)
+const mobileChatInputRef = ref(null)
+
+const growTextarea = (el, maxLines = 4) => {
+  if (!el) return
+  el.style.height = 'auto'
+  const lineHeight = Number.parseFloat(getComputedStyle(el).lineHeight) || 21
+  const maxH = lineHeight * maxLines + 24
+  el.style.height = `${Math.min(el.scrollHeight, maxH)}px`
+}
+const autoGrowChatInput = () => growTextarea(chatInputRef.value)
+const autoGrowMobileChatInput = () => growTextarea(mobileChatInputRef.value)
 
 // Survey State
 const selectedAgents = ref(new Set())
@@ -970,6 +1010,8 @@ watch(() => props.simulationId, (newId) => {
   background: var(--color-bg-surface-subtle);
   font-family: var(--font-body);
   overflow: hidden;
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* Utility Classes */
@@ -987,10 +1029,12 @@ watch(() => props.simulationId, (newId) => {
 /* Left Panel - Report Style (identisch mit Step4Report.vue) */
 .left-panel.report-style {
   width: 45%;
-  min-width: 450px;
+  min-width: 0;
+  max-width: 100%;
   background: var(--color-bg-surface-raised);
   border-right: 1px solid var(--color-border-default);
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
   padding: 30px 50px 60px 50px;
@@ -2586,34 +2630,121 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-fa
 }
 @media (max-width: 768px) {
   .interaction-container { padding-bottom: calc(64px + 58px + env(safe-area-inset-bottom, 0px)); }
-  .chat-input-area .send-btn, .survey-submit-btn { display: none; }
-  .chat-input-area {
-    position: fixed;
-    left: 16px;
-    right: 16px;
-    bottom: calc(122px + env(safe-area-inset-bottom, 0px));
-    z-index: 44;
-    padding: 8px;
-    background: var(--color-bg-surface-raised);
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-md);
-  }
+  .survey-submit-btn { display: none; }
+  /* Desktop-Chat-Eingabe aus; mobil nur .mobile-chat-composer */
+  .chat-input-area--desktop { display: none !important; }
   .interaction-panel,
   .main-split-layout {
     height: auto;
     overflow: visible;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    width: 100% !important;
   }
-  .main-split-layout { display: block; }
-  .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }
-  .left-panel.report-style { padding: 24px 16px; border-bottom: 1px solid var(--color-border-subtle); }
-  .right-panel { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  .main-split-layout { display: block !important; }
+  .left-panel.report-style, .right-panel {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto;
+    overflow-x: hidden;
+    overflow-y: visible;
+    border-right: 0;
+    box-sizing: border-box;
+  }
+  .left-panel.report-style {
+    padding: 24px 16px !important;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .report-content-wrapper {
+    max-width: none;
+    width: 100%;
+    margin: 0;
+  }
+  .right-panel { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   .main-title { font-size: var(--font-size-h1); }
-  .action-bar { padding: 16px; }
-  .action-bar-tabs, .tools-grid { flex-wrap: wrap; }
-  .tab-pill, .agent-dropdown, .agent-pill { width: 100%; }
+  .action-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    max-width: 100%;
+  }
+  .action-bar-header { min-width: 0; }
+  .action-bar-tabs, .tools-grid { flex-wrap: wrap; width: 100%; min-width: 0; }
+  .tab-pill, .agent-dropdown, .agent-pill {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
   .dropdown-menu { left: 0; right: 0; min-width: 0; max-width: 100%; }
-  .chat-container, .survey-container { min-width: 0; }
+  .chat-container, .survey-container { min-width: 0; max-width: 100%; }
+}
+
+/* Mobile Composer (Teleport behält scoped-Attribute wie MobileStickyBar) */
+.mobile-chat-composer {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobile-chat-composer {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+    padding: 8px 12px;
+    background: color-mix(in srgb, var(--color-bg-canvas) 92%, transparent);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+    border-top: 1px solid var(--color-border-subtle);
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .mobile-chat-composer__input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    max-height: calc(1.5em * 4 + 24px);
+    padding: 10px 14px;
+    font-size: 15px;
+    line-height: 1.5;
+    font-family: var(--font-body);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg, 12px);
+    background: var(--color-bg-surface-raised);
+    color: var(--color-text-primary);
+    resize: none;
+    overflow-y: auto;
+  }
+  .mobile-chat-composer__input:focus {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+  .mobile-chat-composer__send {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    border: none;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-brand-primary);
+    color: var(--color-brand-on-primary);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .mobile-chat-composer__send:disabled {
+    background: var(--color-bg-surface-subtle);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
