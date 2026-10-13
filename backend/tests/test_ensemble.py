@@ -14,16 +14,25 @@ from app.config import Config
 from app.services.ensemble import (
     EnsembleService,
     apply_without_variant,
+    build_null_arm_prompt,
     build_post_batches,
+    canonical_outcome_rows,
     cohens_kappa,
     combine_rater_results,
+    exact_mcnemar_p,
+    execution_variant_keys,
     filter_checklist_material_numbers,
+    holm_adjust,
     infer_kind,
     load_simulation_posts,
     mark_checklist_material,
+    median_character_count,
     newcombe_difference_interval,
+    paired_difference_interval,
+    paired_outcome_table,
     parse_checklist,
     reliability_label,
+    resolve_primary_outcome_id,
     validate_custom_outcomes,
     verified_material_quote,
     verify_classification_evidence,
@@ -219,18 +228,34 @@ def test_simulation_clock_starts_at_configured_hour_and_crosses_midnight():
     assert simulation_clock(34, 30, 7) == (2, 0)
 
 
-def test_evidence_must_reference_existing_post():
-    checklist = [{"id": "o1"}, {"id": "o2"}]
-    posts = [{
-        "platform": "twitter",
-        "post_id": "twitter:7",
-        "agent": "Ada",
-        "text": "Eine Gruppe startet eine Unterschriftensammlung.",
-    }]
+def test_evidence_requires_id_and_literal_span_in_that_post():
+    checklist = [{"id": "o1"}, {"id": "o2"}, {"id": "o3"}]
+    posts = [
+        {
+            "platform": "twitter",
+            "post_id": "twitter:7",
+            "agent": "Ada",
+            "text": "Eine Gruppe startet eine Unterschriftensammlung.",
+        },
+        {
+            "platform": "reddit",
+            "post_id": "reddit:3",
+            "agent": "Bea",
+            "text": "Die Opposition fordert eine Kostenprüfung.",
+        },
+    ]
     result = verify_classification_evidence(
         {"results": [
-            {"outcome_id": "o1", "yes": True, "post_ids": ["twitter:7"]},
-            {"outcome_id": "o2", "yes": True, "post_ids": ["reddit:999"]},
+            {
+                "outcome_id": "o1", "yes": True, "post_ids": ["twitter:7"],
+                "snippet": "startet eine Unterschriftensammlung",
+            },
+            {"outcome_id": "o2", "yes": True, "post_ids": ["reddit:999"],
+             "snippet": "Kostenprüfung"},
+            {
+                "outcome_id": "o3", "yes": True, "post_ids": ["twitter:7"],
+                "snippet": "fordert eine Kostenprüfung",
+            },
         ]},
         posts,
         checklist,
@@ -238,7 +263,9 @@ def test_evidence_must_reference_existing_post():
     )
     assert result["o1"]["yes"] is True
     assert result["o1"]["evidence"][0]["run"] == 2
+    assert result["o1"]["evidence"][0]["span"] == "startet eine unterschriftensammlung"
     assert result["o2"] == {"yes": False, "evidence": []}
+    assert result["o3"] == {"yes": False, "evidence": []}
 
 
 def test_without_variant_removes_agents_profiles_and_initial_posts():
@@ -276,7 +303,12 @@ class FakeLLM:
                 for i in range(1, 6)
             ]}
         return {"results": [
-            {"outcome_id": f"o{i}", "yes": i == 1, "post_ids": ["twitter:1"]}
+            {
+                "outcome_id": f"o{i}",
+                "yes": i == 1,
+                "post_ids": ["twitter:1"],
+                "snippet": "Ein neuer Aufruf wird veröffentlicht.",
+            }
             for i in range(1, 6)
         ]}
 
@@ -436,6 +468,7 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
         time.sleep(0.01)
     assert state["status"] == "completed", state.get("error")
     assert state["variants"][0]["done"] == 2
+    assert state["primary_outcome_id"] == "c1"
     assert state["results"]["baseline"]["o1"]["yes"] == 2
     assert state["results"]["baseline"]["o1"]["n"] == 2
     assert state["checklist"][-1]["id"] == "c1"
@@ -462,6 +495,7 @@ class BatchLLM:
             "outcome_id": "o1",
             "yes": self.positive,
             "post_ids": ["twitter:1"] if self.positive else [],
+            "snippet": "Ereignis" if self.positive else "",
         }]}
 
 
@@ -551,7 +585,10 @@ def test_absence_is_yes_only_when_positive_event_is_not_found(tmp_path):
 class PairLLM:
     def chat_json(self, messages, **kwargs):
         return {"results": [
-            {"outcome_id": "o2", "yes": True, "post_ids": ["twitter:1"]},
+            {
+                "outcome_id": "o2", "yes": True, "post_ids": ["twitter:1"],
+                "snippet": "offizielle Stellungnahme",
+            },
             {"outcome_id": "o6", "yes": False, "post_ids": []},
         ]}
 
@@ -599,8 +636,15 @@ class InteractionLLM:
                 "side_a_label": "Stadtpolitik", "side_a_agent_ids": [1],
                 "side_b_label": "Elternvertretung", "side_b_agent_ids": [2],
             }
-        evidence_id = "reddit:comment:1" if "reddit:comment:1" in prompt else "reddit:2"
-        return {"results": [{"outcome_id": "o5", "yes": True, "post_ids": [evidence_id]}]}
+        if "reddit:comment:1" in prompt:
+            return {"results": [{
+                "outcome_id": "o5", "yes": True, "post_ids": ["reddit:comment:1"],
+                "snippet": "Wir antworten auf diese Position.",
+            }]}
+        return {"results": [{
+            "outcome_id": "o5", "yes": True, "post_ids": ["reddit:2"],
+            "snippet": "ihre Position in der öffentlichen Debatte",
+        }]}
 
 
 def _interaction_run_db(run_dir, with_comment):
@@ -626,8 +670,8 @@ def _interaction_run_db(run_dir, with_comment):
     db.close()
 
 
-@pytest.mark.parametrize("with_comment, expected", [(False, False), (True, True)])
-def test_interaction_requires_structural_cross_group_evidence(tmp_path, with_comment, expected):
+@pytest.mark.parametrize("with_comment", [False, True])
+def test_interaction_text_is_the_outcome_and_edges_stay_separate(tmp_path, with_comment):
     run_dir = tmp_path / ("baseline" if with_comment else "isolated")
     _interaction_run_db(run_dir, with_comment)
     posts = load_simulation_posts(run_dir)
@@ -646,12 +690,12 @@ def test_interaction_requires_structural_cross_group_evidence(tmp_path, with_com
         run_dir=run_dir,
     )
     audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
-    assert result["o5"]["yes"] is expected
+    assert result["o5"]["yes"] is True
+    assert bool(result["o5"]["mechanism_edges"]) is with_comment
     rater_a = audit["raters"]["a"]
     assert rater_a["interaction_groups"]["o5"]["side_a_agent_ids"] == [1]
-    assert rater_a["interaction_checks"]["o5"]["accepted"] is expected
-    if not expected:
-        assert rater_a["interaction_checks"]["o5"]["structural_evidence"] == []
+    assert rater_a["interaction_checks"]["o5"]["accepted"] is True
+    assert bool(rater_a["interaction_checks"]["o5"]["mechanism_edges"]) is with_comment
 
 
 def test_aggregate_reports_presence_absence_consistency_warning(tmp_path):
@@ -707,25 +751,31 @@ def test_aggregate_excludes_disputes_and_flags_unreliable_comparison(tmp_path):
     assert state["comparisons"][0]["unreliable"] is True
 
 
-def test_unparseable_batch_is_unclassified_not_no(tmp_path):
-    service = EnsembleService(
-        llm_factory=lambda: BatchLLM(fail=True), root=tmp_path / "ensembles"
-    )
+def test_failed_batch_retries_twice_then_stays_in_n(tmp_path):
+    llm = BatchLLM(fail=True)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
     checklist = [{
         "id": "o1", "text_de": "Ereignis", "definition": "sichtbar", "polarity": "presence",
     }]
+    run_dir = tmp_path / "run"
     classified = service._classify_posts(
         {"checklist": checklist},
         [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Text"}],
         seed=1,
         run_number=1,
+        run_dir=run_dir,
     )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert audit["raters"]["a"]["batches"][0]["attempts"] == 3
+    assert "error" in audit["raters"]["a"]["batches"][0]
+    assert llm.calls == 6
     state = {"variants": [{"key": "baseline"}], "checklist": checklist}
     service._aggregate(state, {"baseline": [classified]})
     outcome = state["results"]["baseline"]["o1"]
+    assert classified["o1"]["unclassified"] is False
     assert outcome["yes"] == 0
-    assert outcome["n"] == 0
-    assert outcome["unclassified"] == 1
+    assert outcome["n"] == 1
+    assert outcome["unclassified"] == 0
 
 
 class NeverRunner:
@@ -810,3 +860,317 @@ def test_positive_event_ignores_negated_definition():
     text = _positive_event_text(item)
     assert "nicht" not in text and "ohne" not in text and "unbedient" not in text
     assert "reagieren die Medien" in text
+
+
+def test_exact_mcnemar_matches_known_discordant_pairs():
+    assert exact_mcnemar_p(0, 5) == pytest.approx(0.0625)
+    assert exact_mcnemar_p(1, 6) == pytest.approx(0.125)
+    assert exact_mcnemar_p(7, 0) == pytest.approx(0.015625)
+    assert exact_mcnemar_p(3, 3) == 1.0
+    assert exact_mcnemar_p(0, 0) == 1.0
+
+
+def test_paired_wald_interval_known_value():
+    low, high = paired_difference_interval(1, 6, 10)
+    assert (6 - 1) / 10 == pytest.approx(0.5)
+    # Z_95 = 1,959963984540054, SE = sqrt(4,5) / 10.
+    assert low == pytest.approx(0.0842288527, abs=1e-9)
+    assert high == pytest.approx(0.9157711473, abs=1e-9)
+    assert paired_difference_interval(0, 0, 0) == (0.0, 0.0)
+
+
+def test_holm_known_stepdown():
+    # Sortiert 0,01 / 0,03 / 0,04; Faktoren 3, 2, 1; dann monoton.
+    assert holm_adjust([0.04, 0.01, 0.03]) == pytest.approx([0.06, 0.03, 0.06])
+    assert holm_adjust([0.2]) == pytest.approx([0.2])
+    assert holm_adjust([]) == []
+
+
+def test_pairs_follow_run_index_not_pooled_margins():
+    baseline = [
+        {"o1": {"yes": True}},
+        {"o1": {"yes": False}},
+        {"o1": {"yes": True, "unclassified": True}},
+    ]
+    variant = [
+        {"o1": {"yes": False, "unclassified": True}},
+        {"o1": {"yes": True}},
+        {"o1": {"yes": False}},
+    ]
+    table = paired_outcome_table(baseline, variant, "o1")
+    assert table == {
+        "both_yes": 0,
+        "baseline_only": 0,
+        "variant_only": 1,
+        "both_no": 0,
+        "n_pairs": 1,
+        "unpaired": 2,
+    }
+
+
+def test_aggregate_stores_paired_table_holm_and_collapses_counterparts(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+
+    def flag(yes):
+        return {"yes": yes, "evidence": []}
+
+    baseline = []
+    variant = []
+    for index in range(7):
+        baseline.append({"o1": flag(False), "o2": flag(False), "o3": flag(False), "o6": flag(True)})
+        variant.append({
+            "o1": flag(index == 0),
+            "o2": flag(index < 5),
+            "o3": flag(True),
+            "o6": flag(False),
+        })
+    state = {
+        "variants": [{"key": "baseline"}, {"key": "isolated"}, {"key": "null_document"}],
+        "primary_outcome_id": "o1",
+        "checklist": [
+            {"id": "o1", "source": "auto", "polarity": "presence", "text_de": "Eltern"},
+            {"id": "o2", "source": "auto", "polarity": "presence", "text_de": "Stellungnahme"},
+            {"id": "o3", "source": "auto", "polarity": "presence", "text_de": "Kosten"},
+            {
+                "id": "o6", "source": "auto", "polarity": "absence", "text_de": "Medien nicht",
+                "counter_outcome_id": "o2",
+            },
+        ],
+    }
+    service._aggregate(state, {
+        "baseline": baseline,
+        "isolated": variant,
+        "null_document": variant,
+    })
+    by_outcome = {}
+    for comparison in state["comparisons"]:
+        if comparison["variant"] == "isolated":
+            by_outcome[comparison["outcome_id"]] = comparison
+    assert set(by_outcome) == {"o1", "o2", "o3"}
+    assert "o6" not in {item["outcome_id"] for item in state["comparisons"]}
+    assert by_outcome["o2"]["collapsed_outcome_ids"] == ["o6"]
+    assert state["checklist"][3]["collapsed_into"] == "o2"
+    assert by_outcome["o2"]["table"]["variant_only"] == 5
+    assert by_outcome["o2"]["table"]["baseline_only"] == 0
+    assert by_outcome["o2"]["table"]["n_pairs"] == 7
+    assert by_outcome["o3"]["mcnemar_p"] == pytest.approx(0.015625)
+    assert by_outcome["o2"]["mcnemar_p"] == pytest.approx(0.0625)
+    assert by_outcome["o1"]["role"] == "confirmatory"
+    assert by_outcome["o1"]["holm_p"] is None
+    assert by_outcome["o2"]["role"] == "exploratory"
+    assert by_outcome["o3"]["role"] == "exploratory"
+    # Familie: o2 und o3 mal zwei Varianten. Die zwei p=0,015625 werden mit Faktor 4
+    # zu 0,0625; die zwei p=0,0625 danach monoton auf 0,125.
+    assert by_outcome["o3"]["holm_p"] == pytest.approx(0.0625)
+    assert by_outcome["o2"]["holm_p"] == pytest.approx(0.125)
+    assert state["analysis"]["exploratory_m"] == 4
+    assert "newcombe" in by_outcome["o1"]
+    assert canonical_outcome_rows(state["checklist"])[1]["collapsed_outcome_ids"] == ["o6"]
+
+
+def test_primary_outcome_defaults_to_first_user_then_first_auto():
+    checklist = [
+        {"id": "o1", "source": "auto"},
+        {"id": "c1", "source": "user"},
+        {"id": "c2", "source": "user"},
+    ]
+    assert resolve_primary_outcome_id(checklist, None) == "c1"
+    assert resolve_primary_outcome_id(checklist, "o1") == "o1"
+    assert resolve_primary_outcome_id(
+        [{"id": "o1", "source": "auto"}, {"id": "o2", "source": "auto"}], None
+    ) == "o1"
+    with pytest.raises(ValueError, match="nicht in der Checkliste"):
+        resolve_primary_outcome_id(checklist, "o9")
+
+
+def test_null_personas_prompt_contains_personas_posts_groups_and_length():
+    personas = [{
+        "name": "Ada",
+        "group": "Eltern",
+        "persona": "Ada setzt sich für das Hallenbad ein.",
+    }]
+    posts = ["Die Stadt erhöht die Gebühr."]
+    prompt = build_null_arm_prompt(
+        "null_personas",
+        document="Das Hallenbad soll schließen.",
+        question="Was geschieht?",
+        hours=24,
+        personas=personas,
+        initial_posts=posts,
+        target_characters=1200,
+    )
+    assert "Ada setzt sich für das Hallenbad ein." in prompt
+    assert "Eltern" in prompt
+    assert "Die Stadt erhöht die Gebühr." in prompt
+    assert "1200" in prompt
+    assert "Akteursgruppen" in prompt
+    document = build_null_arm_prompt(
+        "null_document",
+        document="Das Hallenbad soll schließen.",
+        question="Was geschieht?",
+        hours=24,
+        personas=personas,
+        initial_posts=posts,
+        target_characters=1200,
+    )
+    assert "Ada setzt sich" not in document
+    assert "Gebühr" not in document
+    alias = build_null_arm_prompt(
+        "null_model",
+        document="Das Hallenbad soll schließen.",
+        question="Was geschieht?",
+        hours=24,
+    )
+    assert alias == document
+    assert execution_variant_keys(
+        ["null_personas", "isolated", "baseline"]
+    ) == ["isolated", "baseline", "null_personas"]
+    assert median_character_count([100, 400]) == 250
+    assert median_character_count([100, 300, 200]) == 200
+
+
+def test_null_personas_narrative_prompt_uses_context_personas(tmp_path):
+    captured = {}
+
+    class CaptureLLM:
+        def chat(self, messages, **kwargs):
+            captured["content"] = messages[-1]["content"]
+            captured["max_tokens"] = kwargs["max_tokens"]
+            return "Erzählung mit Eltern."
+
+        def chat_json(self, messages, **kwargs):
+            return {"results": []}
+
+    service = EnsembleService(llm_factory=lambda: CaptureLLM(), root=tmp_path / "ensembles")
+    service._null_narrative(
+        {"question": "Was geschieht?", "hours": 24},
+        {
+            "extracted_text": "Dokument über das Bad.",
+            "config": {
+                "agent_configs": [{
+                    "agent_id": 0,
+                    "entity_name": "Ada",
+                    "entity_type": "Eltern",
+                    "persona": "Ada setzt sich für das Hallenbad ein.",
+                }],
+                "event_config": {"initial_posts": [{
+                    "poster_agent_id": 0,
+                    "content": "Startbeitrag der Eltern.",
+                }]},
+            },
+        },
+        seed=3,
+        arm="null_personas",
+        target_characters=900,
+    )
+    assert "Ada setzt sich für das Hallenbad ein." in captured["content"]
+    assert "Startbeitrag der Eltern." in captured["content"]
+    assert "Eltern" in captured["content"]
+    assert captured["max_tokens"] == 300
+
+
+class SpanMissLLM:
+    def chat_json(self, messages, **kwargs):
+        prompt = messages[-1]["content"]
+        if "Agentenkatalog" in prompt:
+            return {
+                "side_a_label": "Stadtpolitik", "side_a_agent_ids": [1],
+                "side_b_label": "Elternvertretung", "side_b_agent_ids": [2],
+            }
+        return {"results": [{
+            "outcome_id": "o5", "yes": True, "post_ids": ["reddit:comment:1"],
+            "snippet": "diese Spanne steht nicht im Beitrag",
+        }]}
+
+
+def test_db_edge_does_not_turn_a_missing_span_into_yes(tmp_path):
+    run_dir = tmp_path / "baseline"
+    _interaction_run_db(run_dir, True)
+    posts = load_simulation_posts(run_dir)
+    service = EnsembleService(llm_factory=SpanMissLLM, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o5",
+            "text_de": "Im simulierten Zeitraum findet eine öffentliche Debatte zwischen Stadtpolitik und Elternvertretern statt",
+            "definition": "Beide Seiten diskutieren miteinander",
+            "polarity": "presence",
+            "kind": "interaction",
+        }]},
+        posts,
+        seed=3,
+        run_number=1,
+        run_dir=run_dir,
+    )
+    assert result["o5"]["yes"] is False
+    assert result["o5"]["mechanism_edges"]
+
+
+class NarrativeLLM:
+    def chat_json(self, messages, **kwargs):
+        return {"results": [{
+            "outcome_id": "o1",
+            "yes": True,
+            "snippet": "Eltern antworten dem Stadtrat",
+        }]}
+
+
+def test_null_interaction_is_coded_from_text(tmp_path):
+    service = EnsembleService(llm_factory=NarrativeLLM, root=tmp_path / "ensembles")
+    result = service._classify_narrative(
+        {"checklist": [{
+            "id": "o1",
+            "text_de": "Eine Debatte zwischen Eltern und Stadtrat findet statt",
+            "definition": "direkte Antwort",
+            "polarity": "presence",
+            "kind": "interaction",
+        }]},
+        "Die Eltern antworten dem Stadtrat noch am selben Tag.",
+        seed=2,
+        run_number=1,
+        variant_key="null_personas",
+    )
+    assert result["o1"]["yes"] is True
+    assert result["o1"]["mechanism_edges"] == []
+    assert result["o1"]["evidence"][0]["platform"] == "null_personas"
+
+
+class RetryThenYes:
+    def __init__(self):
+        self.failures_left = 2
+        self.calls = 0
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        if self.failures_left:
+            self.failures_left -= 1
+            raise ValueError("Stapel unparsebar")
+        return {"results": [{
+            "outcome_id": "o1",
+            "yes": True,
+            "post_ids": ["twitter:1"],
+            "snippet": "Unterschriftensammlung",
+        }]}
+
+
+def test_batch_succeeds_on_third_attempt(tmp_path):
+    llm = RetryThenYes()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    run_dir = tmp_path / "run"
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o1", "text_de": "Sammlung", "definition": "sichtbar",
+            "polarity": "presence", "kind": "event",
+        }]},
+        [{
+            "platform": "twitter", "post_id": "twitter:1", "agent": "Ada",
+            "text": "Wir starten eine Unterschriftensammlung.",
+        }],
+        seed=4,
+        run_number=1,
+        run_dir=run_dir,
+    )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert audit["raters"]["a"]["batches"][0]["attempts"] == 3
+    assert "error" not in audit["raters"]["a"]["batches"][0]
+    assert result["o1"]["yes"] is True
+    assert llm.calls == 4

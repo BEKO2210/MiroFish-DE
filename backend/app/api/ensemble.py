@@ -25,6 +25,7 @@ def start_ensemble():
             variants=data.get("variants", ["baseline"]),
             start_hour=data.get("start_hour", 7),
             custom_outcomes=data.get("custom_outcomes"),
+            primary_outcome_id=data.get("primary_outcome_id"),
         )
         return jsonify({"success": True, "data": result})
     except FileNotFoundError as error:
