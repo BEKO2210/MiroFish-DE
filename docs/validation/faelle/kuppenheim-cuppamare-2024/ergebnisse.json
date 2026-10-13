@@ -1,38 +1,51 @@
 [
   {
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "polarity": "presence",
     "eingetreten": true,
     "primaer": true,
     "quelle": "3 und 4 (DLRG-Stellungnahmen vom 07.05.2024)"
   },
   {
     "text_de": "Innerhalb von 14 Tagen fordert eine benachbarte Kommune öffentlich eine interkommunale Lösung für Schul- und Vereinsschwimmen.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "2 (Rastatter Oberbürgermeisterin, 07.05.2024)"
   },
   {
     "text_de": "Innerhalb von 14 Tagen berichten betroffene Vereine, Gespräche über Ersatz-Wasserzeiten aufgenommen zu haben.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "3 (DLRG Rastatt, 07.05.2024)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten beschließen kommunale Gremien eine Übergangsnutzung des Hallenbads für Schulen, Vereine und Schwimmkurse.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "6 (Beschlüsse vom 22.07.2024)"
   },
   {
     "text_de": "Der Gemeinderat hebt den Beschluss zur Einstellung des öffentlichen Badebetriebs innerhalb von 3 Monaten auf.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "6 (Schließungsbeschluss bleibt bestehen)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten wird ein Ersatzneubau für ein öffentliches Hallen- und Freibad in Kuppenheim beschlossen.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "1, 2 und 6 (kein Ersatzneubau; nur Übergangsnutzung)"
   },
   {
     "text_de": "Die innerhalb von 3 Monaten beschlossene Übergangslösung umfasst weiterhin allgemeinen öffentlichen Badebetrieb.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "6 (ausdrücklich kein öffentlicher Badebetrieb)"
   }
 ]

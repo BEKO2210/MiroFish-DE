@@ -53,6 +53,29 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
    - Zweck: „steht das Hallenbad weiterhin Schulen und Vereinen für Schwimmkurse und Trainings zur Verfügung“.
    - Laufzeit: „bis zur Eröffnung des neuen Kombibads in Rastatt, voraussichtlich 2027“.
 
+## T0-Prüfung (T0 = 06.05.2024)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst
+samt den berichteten Gründen (Ereignis an T0; die Berichte [2] und [4] erschienen am 07.05.2024 – dokumentierte Ausnahme).
+Zahlen sind gerundet (Anonymisierung); die Originalwerte stehen hier.
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Einstimmiger Beschluss, den öffentlichen Betrieb des Hallenfreibads zum Saisonende einzustellen | [2], [4] (Ereignis an T0) | 07.05.2024 (Ausnahme) |
+| Bürgerbeteiligungsprozess zur Folgenutzung ab Herbst (Original: ab September) | [2] | 07.05.2024 (Ausnahme) |
+| Sanierungskosten Größenordnung > 20 Mio. € (Original: 26,4 Mio. €) | [2] | 07.05.2024 (Ausnahme) |
+| Jährliches Defizit rund 1 Mio. € (Original: „über einer Million Euro“) | [2] | 07.05.2024 (Ausnahme) |
+| Besucherrückgang mehr als ein Drittel (Original: über 40 %) | [1] | 06.05.2024 |
+| Mehr als zehn Schulen, mehrere Vereine (Original: 17 Schulen, sechs Vereine) | [2] | 07.05.2024 (Ausnahme) |
+| Beteiligte: Bürgermeister, Gemeinderat, Verwaltung, benachbarte Kommunen, Schulen, Schwimm- und Rettungsvereine | [2], [3], [4] | 07.05.2024 (Ausnahme) |
+
+Entfernt (nicht ≤ T0 belegt): Entscheidung gegen eine Sanierung im Bestand (nur [6]); Einwohnerzahl (rund 8.500) und Baujahr 1978 (nur [6], Landtags-Drucksache nach T0);
+Gutachtenlage und Gutachterempfehlung; Preisstand 2023; Verdopplung der Belastung nach Sanierung; Zuschuss der vier
+umliegenden Kommunen (rund 200.000 €); Brandschutzauflagen und Personalprobleme; „Ersatzneubau nicht beschlossen“ (nur [6]);
+Rechtsaufsicht; Arealalternativen; der Satz zum geplanten Kombibad der Nachbarstadt (Eröffnung Hallenbad Ende 2027, Freibad
+Frühjahr 2028). Für Letzteren trägt keine Quelle ≤ 06.05.2024: [7] nennt nur „voraussichtlich 2027“ und ist undatiert, [5] ist vom
+15.05.2024.
+
 ## Primärergebnis (einheitlich für alle 8 Fälle)
 
 Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder

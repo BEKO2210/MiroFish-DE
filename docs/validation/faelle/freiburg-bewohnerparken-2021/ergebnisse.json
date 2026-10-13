@@ -1,38 +1,51 @@
 [
   {
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "polarity": "presence",
     "eingetreten": true,
     "primaer": true,
     "quelle": "3 (CDU-Fraktionsbeitrag vom 17.12.2021)"
   },
   {
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens eine Ratsfraktion eine befürwortende Stellungnahme zur beschlossenen Gebührenhöhe.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "3 (Jupi-Fraktionsbeitrag vom 17.12.2021)"
   },
   {
     "text_de": "Der Gemeinderat hebt die beschlossene Gebührenstaffel bis zum 14.03.2022 auf oder ändert ihre Beträge.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "6 (unverändertes Inkrafttreten am 01.04.2022)"
   },
   {
     "text_de": "Die Stadt verschiebt das Inkrafttreten bis zum 14.03.2022 auf einen Termin nach dem 01.04.2022.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "6 (Inkrafttreten am 01.04.2022)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten wird ein Normenkontrollantrag oder anderer gerichtlicher Rechtsbehelf gegen die Satzung eingereicht.",
+    "polarity": "presence",
     "eingetreten": false,
+    "primaer": false,
     "quelle": "5 (Antrag erst am 01.04.2022)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten veröffentlicht die Stadt eine konkrete Einnahmenprognose für die neue Gebührenregelung.",
+    "polarity": "presence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "4 (ca. 3,5 Mio. Euro Mehreinnahmen, 04.02.2022)"
   },
   {
     "text_de": "Innerhalb von 3 Monaten wird öffentlich, dass die Stadt die genaue Zahl der Bewohnerparkplätze nicht beziffern kann.",
+    "polarity": "absence",
     "eingetreten": true,
+    "primaer": false,
     "quelle": "4 (Auskunft der Stadt vom 04.02.2022)"
   }
 ]

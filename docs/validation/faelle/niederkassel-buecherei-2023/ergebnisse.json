@@ -2,6 +2,7 @@
   {
     "id": "primaer",
     "primaer": true,
+    "polarity": "presence",
     "t0": "2023-02-14",
     "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
@@ -11,6 +12,7 @@
   {
     "id": "beschluss_aufgehoben",
     "primaer": false,
+    "polarity": "presence",
     "t0": "2023-02-14",
     "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",
     "text_de": "Innerhalb von 14 Tagen nach T0 nimmt der Stadtrat den Schließungsbeschluss förmlich zurück, setzt ihn aus oder ändert ihn inhaltlich.",
@@ -19,24 +21,29 @@
   },
   {
     "primaer": false,
+    "polarity": "presence",
     "text_de": "Fünf Wochen nach dem Beschluss ist eine Petition zum Erhalt der Einrichtung öffentlich bekannt und sammelt weiter Unterstützer.",
     "eingetreten": true,
     "quelle": "6"
   },
   {
     "primaer": false,
-    "text_de": "Nach dem Beschluss äußert sich ein Förderverein oder Verein erneut öffentlich enttäuscht oder ablehnend zur Schließung (eine erste Kritik vom 10.02.2023 liegt vor T0 und zählt nicht).",
+    "polarity": "presence",
+    "kodierhinweis": "Eine erste Kritik des Fördervereins vom 10.02.2023 liegt vor T0 und zählt nicht.",
+    "text_de": "Nach dem Beschluss äußert sich ein Förderverein oder Verein erneut öffentlich enttäuscht oder ablehnend zur Schließung.",
     "eingetreten": true,
     "quelle": "6, 7 (13. und 17.03.2023)"
   },
   {
     "primaer": false,
+    "polarity": "presence",
     "text_de": "Ein Verein oder Bürger bietet der Stadt öffentlich seine Unterstützung für eine Ersatzlösung an.",
     "eingetreten": true,
     "quelle": "6, 7"
   },
   {
     "primaer": false,
+    "polarity": "presence",
     "in_material": true,
     "text_de": "Die Stadt stellt den Ausleihbetrieb der Einrichtung wie beschlossen innerhalb von sechs Wochen ein.",
     "eingetreten": true,
