@@ -95,6 +95,9 @@ def create_app(config_class=Config):
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
+    from .api.ensemble import ensemble_bp, mark_stale_ensembles
+    app.register_blueprint(ensemble_bp, url_prefix='/api/ensemble')
+    mark_stale_ensembles()
     from .api.pipeline import pipeline_bp, mark_stale_runs
     app.register_blueprint(pipeline_bp, url_prefix='/api/pipeline')
     mark_stale_runs()
