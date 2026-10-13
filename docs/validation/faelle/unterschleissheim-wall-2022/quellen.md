@@ -98,19 +98,25 @@ nahm Frage 4 vorweg); Schulleitung für breiteren Gehweg; Kosten 74 Mio. €, Pl
 Sporthalle/Musikschule, Haupteingang, Turnunterricht in der FOS/BOS ([7] undatiert); Parteizugehörigkeit der Bürgermeister und
 Fraktionsliste ([6], 04.02.2023). Die Akteursliste nennt nur strukturelle Beteiligte ohne Sachaussage.
 
-## Kodierbuch-Eintrag Primärergebnis
+## Primärergebnis (einheitlich für alle 8 Fälle)
 
 | Feld | Inhalt |
 |---|---|
 | Ergebnis-ID | `primaer` |
 | Primär | ja |
-| Ergebnisfrage | Heben Stadtrat oder Ausschüsse den Rodungsbeschluss binnen 14 Tagen förmlich auf, setzen ihn aus oder ändern die Planung zugunsten des Baumerhalts? |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
 | Zeitfenster | 30.11.2022 bis 14.12.2022 |
-| Ja-Kriterium | Sitzungsprotokoll oder Pressebericht belegt Aufhebung, Aussetzung oder Planänderung im Fenster |
-| Nein-Kriterium | Keine solche Belegstelle; [1] (12.01.2023) und [6] (04.02.2023) zeigen, dass die Beschlusslage unverändert blieb |
+| Ja-Kriterium | Datierte Veröffentlichung (Pressemitteilung, Website, Zeitungsbericht mit wörtlicher Aussage) eines organisierten Akteurs im Fenster, die die Maßnahme ausdrücklich ablehnt oder kritisiert |
+| Nein-Kriterium | Dokumentierte Suche ohne datierten Beleg im Fenster |
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
-| Quellen | Sitzungsprotokolle, Bekanntmachungen der Stadt, Lokalpresse |
-| Beispiele | Ja: Ausschuss ändert die Planung auf Erhalt von 25 Bäumen. Nein: Wall wird weiter zur Rodung vorgesehen, Protest läuft. |
+| Quellen | Pressemitteilungen, Websites der Akteure, Lokalpresse, Amtsblätter |
 
-Ergebnis: Nein (`eingetreten: false`). Der Ausschusstermin ist unsicher (30.11. nach [1], [3]; 05.12. nach [2]); T0 = 30.11.2022 gilt
-als Konvention, das Ergebnis bleibt bei beiden Daten gleich.
+Ergebnis: **Ja** (`eingetreten: true`).
+
+Belegstelle: [2] BUND Naturschutz, Ortsgruppe Schleißheim, Offener Brief vom 06.12.2022 (Tag 6 nach T0 30.11.2022; auch bei
+Ausschusstermin 05.12.2022 im Fenster): „06.12.2022 Offener Brief. Sehr geehrter Herr Erster Bürgermeister, sehr geehrte Frau
+Stadträtin, sehr geehrter Herr Stadtrat, fassungslos haben wir der Presse entnommen …“. Der Brief wendet sich gegen die
+beschlossene Rodungsvariante; Akteur ist ein Umweltverband.
+
+Die frühere Primärfrage (förmliche Aufhebung/Änderung des Beschlusses binnen 14 Tagen) bleibt als explorative Frage
+`beschluss_aufgehoben` erhalten: Nein. Belege: [1] (12.01.2023), [6] (04.02.2023: Beschluss mit 21 zu 9 bestätigt).

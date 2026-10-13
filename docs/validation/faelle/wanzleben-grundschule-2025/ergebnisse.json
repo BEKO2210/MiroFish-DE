@@ -4,6 +4,15 @@
     "primaer": true,
     "t0": "2025-08-28",
     "zeitfenster": "T0 bis T0+14 Tage (bis 11.09.2025)",
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "eingetreten": false,
+    "quelle": "7 (18.09.2025) und 2 (undatiert); dokumentierte Negativsuche, kein datierter Beleg im Fenster bis 11.09.2025"
+  },
+  {
+    "id": "beschluss_aufgehoben",
+    "primaer": false,
+    "t0": "2025-08-28",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 11.09.2025)",
     "text_de": "Innerhalb von 14 Tagen nach T0 hebt der Stadtrat den Schließungsbeschluss förmlich auf, setzt ihn aus oder ändert ihn inhaltlich.",
     "eingetreten": false,
     "quelle": "1 (Beschluss „bleibt weiterhin gültig“), 6 (Stadtrat befasste sich erst am 04.12.2025 wieder, mit dem Bürgerentscheid)"

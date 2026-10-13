@@ -4,6 +4,15 @@
     "primaer": true,
     "t0": "2025-11-13",
     "zeitfenster": "T0 bis T0+14 Tage (bis 27.11.2025)",
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "eingetreten": true,
+    "quelle": "6 (AfD-Fraktion Neuwied, Pressemitteilung vom 16.11.2025)"
+  },
+  {
+    "id": "beschluss_aufgehoben",
+    "primaer": false,
+    "t0": "2025-11-13",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 27.11.2025)",
     "text_de": "Innerhalb von 14 Tagen nach T0 nimmt der Stadtrat die Gebührenerhöhung förmlich zurück, setzt sie aus oder ändert den Gebührensatz.",
     "eingetreten": false,
     "quelle": "3 (23.02.2026: Umsetzung des Beschlusses unverändert zu 1,20 Euro, keine Änderung erwähnt)"

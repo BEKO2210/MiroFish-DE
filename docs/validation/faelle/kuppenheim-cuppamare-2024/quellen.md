@@ -52,3 +52,13 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
    - Übernahme: „haben zum 1. Oktober 2024 den Betrieb des Cuppamare in Kuppenheim übernommen“.
    - Zweck: „steht das Hallenbad weiterhin Schulen und Vereinen für Schwimmkurse und Trainings zur Verfügung“.
    - Laufzeit: „bis zur Eröffnung des neuen Kombibads in Rastatt, voraussichtlich 2027“.
+
+## Primärergebnis (einheitlich für alle 8 Fälle)
+
+Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder
+Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. Fenster: 06.05.2024 bis 20.05.2024.
+
+Ergebnis: **Ja** (`eingetreten: true`).
+
+Belegstelle: [3] DLRG Ortsgruppe Rastatt, 07.05.2024 (Tag 1 nach T0): „Mit der Schließung bricht für uns eine der letzten
+Wasserflächen weg“; [4] DLRG Landesverband Baden, 07.05.2024: „Fiasko“, „Supergau“, „Eine Katastrophe für die Schwimmausbildung“.

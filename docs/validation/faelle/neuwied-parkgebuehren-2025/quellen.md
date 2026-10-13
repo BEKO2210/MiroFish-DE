@@ -85,18 +85,26 @@ in der Sitzung genannten Gründen (Ereignis an T0; Berichte [1] und [2] erschien
 Entfernt: rund 550 kostenlose Stellplätze und bewirtschaftete Zeiten (nur [3], 23.02.2026, und jetzt Gegenstand der Fragen 5 und 6);
 „Oberbürgermeister (CDU)“ und Fraktionsnamen jenseits der Beschlussberichte (nicht ≤ T0 belegt).
 
-## Kodierbuch-Eintrag Primärergebnis
+## Primärergebnis (einheitlich für alle 8 Fälle)
 
 | Feld | Inhalt |
 |---|---|
 | Ergebnis-ID | `primaer` |
 | Primär | ja |
-| Ergebnisfrage | Nimmt der Stadtrat die Gebührenerhöhung binnen 14 Tagen förmlich zurück, setzt sie aus oder ändert den Satz? |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
 | Zeitfenster | 13.11.2025 bis 27.11.2025 |
-| Ja-Kriterium | Ratsbeschluss oder Bekanntmachung der Stadt mit abweichendem Satz oder Aussetzung |
-| Nein-Kriterium | Keine solche Belegstelle; [3] (23.02.2026) bestätigt die unveränderte Umsetzung zu 1,20 € |
+| Ja-Kriterium | Datierte Veröffentlichung (Pressemitteilung, Website, Zeitungsbericht mit wörtlicher Aussage) eines organisierten Akteurs im Fenster, die die Maßnahme ausdrücklich ablehnt oder kritisiert |
+| Nein-Kriterium | Dokumentierte Suche ohne datierten Beleg im Fenster |
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
-| Quellen | Pressemitteilungen der Stadt, Ratsinformationssystem, Lokalpresse |
-| Beispiele | Ja: Rat beschließt in einer Sondersitzung 1,00 €. Nein: Satz bleibt bei 1,20 €. |
+| Quellen | Pressemitteilungen, Websites der Akteure, Lokalpresse, Amtsblätter |
 
-Ergebnis: Nein (`eingetreten: false`).
+Ergebnis: **Ja** (`eingetreten: true`).
+
+Belegstelle: [6] AfD-Fraktion Neuwied, Pressemitteilung vom 16.11.2025 (Tag 3 nach T0): „Der Stadtrat hat in seiner letzten
+Sitzung die Verdopplung der Parkgebühren in Neuwied von 0,60 € auf 1,20 € pro Stunde beschlossen. Unser Fraktionsvorsitzender
+Oliver Mogwitz sprach sich ausdrücklich gegen eine derartige Erhöhung aus“; „Neuwied wird unattraktiver für Besucher, aber auch
+für Arbeitnehmer in der Stadt.“ Eigendarstellung einer Ratsfraktion, daher zulässig. Nicht gezählt: die SPD-Kritik in der Sitzung
+am 13.11.2025 ([1], „nicht vermittelbar“; Debatte am Tag T0 selbst, nicht als eigene Veröffentlichung belegt).
+
+Die frühere Primärfrage (förmliche Rücknahme/Änderung des Satzes binnen 14 Tagen) bleibt als explorative Frage
+`beschluss_aufgehoben` erhalten: Nein. Beleg: [3] (23.02.2026) bestätigt die unveränderte Umsetzung zu 1,20 €.
