@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.llm_client import estimate_tokens
 from .report_validation import (
     CONTENT_OVERLAP_THRESHOLD,
     MIN_CONTENT_WORDS,
@@ -76,7 +77,27 @@ def _round(value: float) -> float:
     return round(float(value), 4)
 
 
-def parse_checklist(payload: Any) -> List[Dict[str, str]]:
+ABSENCE_RE = re.compile(r"\b(?:nicht|kein(?:e|en|er|es)?|bleibt\s+aus)\b", re.IGNORECASE)
+
+
+def infer_polarity(text: str) -> str:
+    """Alte Checklisten anhand eindeutig negativer Formulierungen migrieren."""
+    return "absence" if ABSENCE_RE.search(text or "") else "presence"
+
+
+def _positive_event_text(item: Dict[str, Any]) -> str:
+    explicit = str(item.get("presence_event") or "").strip()
+    if explicit:
+        return explicit
+    text = f"{item.get('text_de', '')} -- {item.get('definition', '')}".strip()
+    text = re.sub(r"\bbleibt\s+aus\b", "findet statt", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bkeine\b", "eine", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bkein\b", "ein", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bnicht\b", "", text, flags=re.IGNORECASE)
+    return " ".join(text.split())
+
+
+def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
     """Strikte, aber tolerante Normalisierung einer Modell-Checkliste."""
     if isinstance(payload, dict):
         items = payload.get("outcomes", payload.get("checklist", []))
@@ -100,9 +121,17 @@ def parse_checklist(payload: Any) -> List[Dict[str, str]]:
         if not text or key in seen:
             continue
         seen.add(key)
-        result.append(
-            {"id": f"o{len(result) + 1}", "text_de": text, "definition": definition}
-        )
+        supplied = str(raw.get("polarity") or "").strip().lower() if isinstance(raw, dict) else ""
+        polarity = supplied if supplied in {"presence", "absence"} else infer_polarity(f"{text} {definition}")
+        item: Dict[str, Any] = {
+            "id": f"o{len(result) + 1}",
+            "text_de": text,
+            "definition": definition,
+            "polarity": polarity,
+        }
+        if isinstance(raw, dict) and str(raw.get("presence_event") or "").strip():
+            item["presence_event"] = str(raw["presence_event"]).strip()
+        result.append(item)
     if not 5 <= len(result) <= 8:
         raise ValueError("Das Modell muss 5 bis 8 eindeutige Ergebnisse liefern")
     return result
@@ -417,7 +446,10 @@ def verify_classification_evidence(
     verified: Dict[str, Dict[str, Any]] = {}
     for item in checklist:
         outcome_id = str(item["id"])
-        raw = by_outcome.get(outcome_id, {})
+        raw = by_outcome.get(outcome_id)
+        if not isinstance(raw, dict):
+            verified[outcome_id] = {"yes": False, "evidence": [], "unclassified": True}
+            continue
         answer = raw.get("yes", raw.get("answer", False))
         yes = answer is True or str(answer).strip().casefold() in {"ja", "yes", "true", "1"}
         evidence_ids = raw.get("post_ids", raw.get("evidence", []))
@@ -430,6 +462,49 @@ def verify_classification_evidence(
                 evidence.append({"run": run_number, **found})
         verified[outcome_id] = {"yes": bool(yes and evidence), "evidence": evidence}
     return verified
+
+
+def _render_post(post: Dict[str, Any]) -> str:
+    return f"[{post['post_id']}] {post['agent']}: {post['text']}"
+
+
+def build_post_batches(
+    posts: Sequence[Dict[str, Any]], prompt_prefix: str, token_budget: int
+) -> List[List[Dict[str, Any]]]:
+    """Beiträge reihenfolgetreu auf Prompts unterhalb des Eingabebudgets verteilen."""
+    if token_budget <= estimate_tokens(prompt_prefix):
+        raise ValueError("Klassifikationsbudget reicht nicht für Anweisung und Checkliste")
+
+    fragments: List[Dict[str, Any]] = []
+    for original in posts:
+        post = dict(original)
+        if estimate_tokens(f"{prompt_prefix}{_render_post(post)}") <= token_budget:
+            fragments.append(post)
+            continue
+        empty = dict(post, text="")
+        available = (token_budget - estimate_tokens(f"{prompt_prefix}{_render_post(empty)}") - 1) * 3
+        if available <= 0:
+            raise ValueError("Klassifikationsbudget reicht nicht für Beitragsmetadaten")
+        text = str(post.get("text") or "")
+        for offset in range(0, len(text), available):
+            fragments.append(dict(post, text=text[offset:offset + available]))
+
+    if not fragments:
+        return [[]]
+    batches: List[List[Dict[str, Any]]] = []
+    current: List[Dict[str, Any]] = []
+    for post in fragments:
+        candidate = current + [post]
+        compact = "\n".join(_render_post(item) for item in candidate)
+        if current and estimate_tokens(prompt_prefix + compact) > token_budget:
+            batches.append(current)
+            current = [post]
+        else:
+            current = candidate
+        if estimate_tokens(prompt_prefix + "\n".join(_render_post(item) for item in current)) > token_budget:
+            raise ValueError("Ein Beitrag überschreitet trotz Aufteilung das Klassifikationsbudget")
+    batches.append(current)
+    return batches
 
 
 def _runner_status(state: Any) -> str:
@@ -594,6 +669,49 @@ class EnsembleService:
             state.pop("updated_at", None)
         return state
 
+    def reclassify(self, ensemble_id: str) -> Dict[str, Any]:
+        """Vorhandene DBs/Erzählungen erneut auswerten, ohne Simulationen zu starten."""
+        state = self._load(ensemble_id)
+        if not state:
+            raise FileNotFoundError(ensemble_id)
+        if state.get("status") in {"queued", "running"}:
+            raise RuntimeError("Ensemble wird bereits verarbeitet")
+        if not state.get("checklist") or not state.get("results"):
+            raise RuntimeError("Ensemble besitzt keine abgeschlossene Klassifikation")
+        for variant in state["variants"]:
+            for run_number in range(1, int(state["runs"]) + 1):
+                run_dir = self._path(ensemble_id) / variant["key"] / f"run_{run_number}"
+                if not run_dir.is_dir():
+                    raise FileNotFoundError(f"Gespeicherter Lauf fehlt: {run_dir}")
+
+        state["results_v1"] = json.loads(json.dumps(state["results"], ensure_ascii=False))
+        state["comparisons_v1"] = json.loads(
+            json.dumps(state.get("comparisons", []), ensure_ascii=False)
+        )
+        for item in state["checklist"]:
+            item["polarity"] = item.get("polarity") or infer_polarity(
+                f"{item.get('text_de', '')} {item.get('definition', '')}"
+            )
+        state["status"] = "queued"
+        state["error"] = None
+        state["finished_at"] = None
+        state["cancel_requested"] = False
+        state["current"] = None
+        state["current_runner_id"] = None
+        state["eta_seconds"] = None
+        for variant in state["variants"]:
+            variant["status"] = "queued"
+            variant["done"] = 0
+        self._save(state)
+
+        thread = threading.Thread(
+            target=self._run_reclassification, args=(ensemble_id,), daemon=True
+        )
+        with self._threads_lock:
+            self._threads[ensemble_id] = thread
+        thread.start()
+        return {"ensemble_id": ensemble_id, "status": "queued"}
+
     def list(self, simulation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         result = []
         for path in self.root.glob("ens_*/ensemble.json"):
@@ -687,8 +805,12 @@ class EnsembleService:
             "bereits beschriebenen bzw. angekündigten Ereignisse aus dem Eingabematerial. "
             "Mische mindestens zwei Eskalationen, mindestens zwei Deeskalationen oder "
             "Kompromisse und genau ein Ergebnis ‚keine nennenswerte Reaktion‘. Keine bloßen "
-            "Meinungen oder vagen Tendenzen. Antworte als JSON "
-            "{\"outcomes\":[{\"text_de\":...,\"definition\":...}]}.\n\n"
+            "Meinungen oder vagen Tendenzen. Setze polarity auf presence, wenn das Ereignis "
+            "eintreten muss, und auf absence, wenn sein Ausbleiben das Ergebnis ist. Gib bei "
+            "absence zusätzlich in presence_event das konkrete positive Gegenereignis an, nach "
+            "dem später gesucht werden soll. Antworte als JSON "
+            "{\"outcomes\":[{\"text_de\":...,\"definition\":...,"
+            "\"polarity\":\"presence|absence\",\"presence_event\":...}]}.\n\n"
             f"Frage: {state['question']}\nSimulierter Zeitraum: {state['hours']} Stunden\n"
             f"Eingabematerial:\n{material}"
         )
@@ -752,69 +874,197 @@ class EnsembleService:
         )
 
     def _classify_posts(
-        self, state: Dict[str, Any], posts: Sequence[Dict[str, Any]], seed: int, run_number: int
+        self,
+        state: Dict[str, Any],
+        posts: Sequence[Dict[str, Any]],
+        seed: int,
+        run_number: int,
+        run_dir: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
-        compact = "\n".join(
-            f"[{p['post_id']}] {p['agent']}: {p['text']}" for p in posts
-        )
+        checklist_items = [
+            dict(item, polarity=item.get("polarity") or infer_polarity(
+                f"{item.get('text_de', '')} {item.get('definition', '')}"
+            ))
+            for item in state["checklist"]
+        ]
         checklist = "\n".join(
-            f"{o['id']}: {o['text_de']} -- {o['definition']}" for o in state["checklist"]
+            f"{item['id']}: {_positive_event_text(item) if item['polarity'] == 'absence' else (str(item.get('text_de', '')) + ' -- ' + str(item.get('definition', '')))}"
+            for item in checklist_items
         )
-        payload = self._llm().chat_json(
-            [
-                {"role": "system", "content": "Klassifiziere streng nur anhand der gelieferten Beiträge."},
-                {"role": "user", "content": (
-                    "Für jedes Ergebnis: yes=true nur bei einem eindeutigen Beleg. Nenne ausschließlich "
-                    "vorhandene IDs. JSON: {\"results\":[{\"outcome_id\":\"o1\","
-                    "\"yes\":true,\"post_ids\":[\"twitter:1\"]}]}.\n\n"
-                    f"Ergebnisse:\n{checklist}\n\nBeiträge:\n{compact}"
-                )},
-            ],
-            temperature=0,
-            max_tokens=4000,
-            max_attempts=2,
-            seed=seed,
+        instruction = (
+            "Für jedes aufgeführte positive Ereignis: yes=true nur bei einem eindeutigen Beleg. "
+            "Nenne ausschließlich vorhandene IDs und liefere genau eine Zeile je outcome_id. "
+            "JSON: {\"results\":[{\"outcome_id\":\"o1\",\"yes\":true,"
+            "\"post_ids\":[\"twitter:1\"]}]}.\n\n"
+            f"Zu prüfende positive Ereignisse:\n{checklist}\n\nBeiträge:\n"
         )
-        return verify_classification_evidence(payload, posts, state["checklist"], run_number)
+        system = "Klassifiziere streng nur anhand der gelieferten Beiträge."
+        output_tokens = 3000
+        configured_budget = int(os.environ.get(
+            "ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET",
+            str(Config.ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET),
+        ))
+        context = int(os.environ.get("LOCAL_LLM_CONTEXT", str(Config.LOCAL_LLM_CONTEXT)))
+        token_budget = min(configured_budget, context - output_tokens - 256)
+        prefix = f"{system}\n{instruction}"
+        batches = build_post_batches(posts, prefix, token_budget)
+        llm = self._llm()
+        audits: List[Dict[str, Any]] = []
+        batch_results: List[Dict[str, Dict[str, Any]]] = []
+        for index, batch in enumerate(batches, 1):
+            compact = "\n".join(_render_post(post) for post in batch)
+            messages = [
+                {"role": "system", "content": system},
+                {"role": "user", "content": instruction + compact},
+            ]
+            audit: Dict[str, Any] = {
+                "batch": index,
+                "post_count": len({str(post.get('post_id')) for post in batch}),
+                "estimated_input_tokens": estimate_tokens(messages),
+            }
+            try:
+                if hasattr(llm, "last_raw_response"):
+                    llm.last_raw_response = None
+                payload = llm.chat_json(
+                    messages,
+                    temperature=0,
+                    max_tokens=output_tokens,
+                    max_attempts=2,
+                    seed=seed,
+                )
+                verified = verify_classification_evidence(
+                    payload, batch, checklist_items, run_number
+                )
+                audit["raw_response"] = getattr(llm, "last_raw_response", None) or payload
+                audit["parsed_response"] = payload
+                audit["verified"] = verified
+            except Exception as error:
+                verified = {
+                    str(item["id"]): {"yes": False, "evidence": [], "unclassified": True}
+                    for item in checklist_items
+                }
+                audit["raw_response"] = getattr(llm, "last_raw_response", None)
+                audit["error"] = str(error)
+                audit["verified"] = verified
+            audits.append(audit)
+            batch_results.append(verified)
+
+        combined: Dict[str, Dict[str, Any]] = {}
+        for item in checklist_items:
+            oid = str(item["id"])
+            values = [result[oid] for result in batch_results]
+            if any(value.get("unclassified") for value in values):
+                combined[oid] = {"yes": False, "evidence": [], "unclassified": True}
+                continue
+            positive_evidence: List[Dict[str, Any]] = []
+            seen_evidence = set()
+            for value in values:
+                for evidence in value.get("evidence", []):
+                    evidence_key = (evidence.get("platform"), evidence.get("post_id"))
+                    if evidence_key in seen_evidence:
+                        continue
+                    seen_evidence.add(evidence_key)
+                    positive_evidence.append(evidence)
+                    if len(positive_evidence) == 5:
+                        break
+                if len(positive_evidence) == 5:
+                    break
+            positive_found = bool(positive_evidence)
+            if item["polarity"] == "absence":
+                yes = not positive_found
+                evidence = ([{
+                    "run": run_number,
+                    "platform": "classification",
+                    "post_id": f"absence:{run_number}:{oid}",
+                    "agent": "Klassifikator",
+                    "text": f"kein passender Beitrag in {len(posts)} geprüften Beiträgen",
+                }] if yes else [])
+            else:
+                yes = positive_found
+                evidence = positive_evidence
+            combined[oid] = {"yes": yes, "evidence": evidence}
+
+        audit_document = {
+            "run": run_number,
+            "post_count": len(posts),
+            "token_budget": token_budget,
+            "batches": audits,
+            "result": combined,
+        }
+        if run_dir is not None:
+            _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
+        return combined
 
     def _classify_narrative(
-        self, state: Dict[str, Any], narrative: str, seed: int, run_number: int
+        self,
+        state: Dict[str, Any],
+        narrative: str,
+        seed: int,
+        run_number: int,
+        run_dir: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
         checklist = "\n".join(
-            f"{o['id']}: {o['text_de']} -- {o['definition']}" for o in state["checklist"]
+            f"{o['id']}: {_positive_event_text(o) if (o.get('polarity') or infer_polarity(str(o))) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
+            for o in state["checklist"]
         )
-        payload = self._llm().chat_json(
-            [
-                {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
-                {"role": "user", "content": (
-                    "JSON: {\"results\":[{\"outcome_id\":\"o1\",\"yes\":true,"
-                    "\"snippet\":\"wörtliche kurze Textstelle\"}]}. Ja erfordert eine echte Textstelle.\n\n"
-                    f"Ergebnisse:\n{checklist}\n\nErzählung:\n{narrative}"
-                )},
-            ],
-            temperature=0,
-            max_tokens=3000,
-            max_attempts=2,
-            seed=seed,
-        )
+        try:
+            payload = self._llm().chat_json(
+                [
+                    {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
+                    {"role": "user", "content": (
+                        "Prüfe die aufgeführten positiven Ereignisse. JSON: {\"results\":[{"
+                        "\"outcome_id\":\"o1\",\"yes\":true,\"snippet\":\"wörtliche kurze "
+                        "Textstelle\"}]}. Ja erfordert eine echte Textstelle.\n\n"
+                        f"Ereignisse:\n{checklist}\n\nErzählung:\n{narrative}"
+                    )},
+                ],
+                temperature=0,
+                max_tokens=3000,
+                max_attempts=2,
+                seed=seed,
+            )
+            parse_error = None
+        except Exception as error:
+            payload = {}
+            parse_error = str(error)
         rows = payload.get("results", []) if isinstance(payload, dict) else []
         by_id = {str(r.get("outcome_id")): r for r in rows if isinstance(r, dict)}
         result = {}
         for outcome in state["checklist"]:
-            raw = by_id.get(outcome["id"], {})
+            raw = by_id.get(outcome["id"])
+            if parse_error or not isinstance(raw, dict):
+                result[outcome["id"]] = {"yes": False, "evidence": [], "unclassified": True}
+                continue
             answer = raw.get("yes", False)
             snippet = " ".join(str(raw.get("snippet") or "").split())
             valid = bool(snippet and snippet.casefold() in " ".join(narrative.split()).casefold())
+            positive_found = bool(answer is True and valid)
+            absence = (outcome.get("polarity") or infer_polarity(
+                f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
+            )) == "absence"
+            yes = not positive_found if absence else positive_found
             result[outcome["id"]] = {
-                "yes": bool(answer is True and valid),
+                "yes": yes,
                 "evidence": ([{
                     "run": run_number,
                     "platform": "null_model",
                     "post_id": f"null:{run_number}",
                     "agent": "Hauptmodell",
-                    "text": snippet,
-                }] if answer is True and valid else []),
+                    "text": ("kein passendes Ereignis in der geprüften Erzählung" if absence else snippet),
+                }] if yes else []),
             }
+        if run_dir is not None:
+            _write_json_atomic(Path(run_dir) / "classification.json", {
+                "run": run_number,
+                "post_count": 1,
+                "batches": [{
+                    "batch": 1,
+                    "raw_response": payload if not parse_error else None,
+                    "error": parse_error,
+                    "verified": result,
+                }],
+                "result": result,
+            })
         return result
 
     def _aggregate(self, state: Dict[str, Any], per_run: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -825,17 +1075,24 @@ class EnsembleService:
             runs = per_run.get(key, [])
             for outcome in state["checklist"]:
                 oid = outcome["id"]
-                yes = sum(1 for row in runs if row.get(oid, {}).get("yes"))
-                n = len(runs)
+                unclassified = sum(
+                    1 for row in runs if row.get(oid, {}).get("unclassified")
+                )
+                classified_runs = [
+                    row for row in runs if not row.get(oid, {}).get("unclassified")
+                ]
+                yes = sum(1 for row in classified_runs if row.get(oid, {}).get("yes"))
+                n = len(classified_runs)
                 low, high = wilson_interval(yes, n)
                 evidence = [
                     item
-                    for row in runs
+                    for row in classified_runs
                     for item in row.get(oid, {}).get("evidence", [])
-                ]
+                ][:5]
                 results[key][oid] = {
                     "yes": yes,
                     "n": n,
+                    "unclassified": unclassified,
                     "rate": _round(yes / n if n else 0.0),
                     "ci_low": _round(low),
                     "ci_high": _round(high),
@@ -868,6 +1125,84 @@ class EnsembleService:
         if fresh and fresh.get("cancel_requested"):
             state["cancel_requested"] = True
         return bool(state.get("cancel_requested"))
+
+    def _run_reclassification(self, ensemble_id: str) -> None:
+        state = self._load(ensemble_id)
+        if not state:
+            return
+        try:
+            with self._gpu_lock:
+                state = self._load(ensemble_id) or state
+                if self._cancelled(state):
+                    raise InterruptedError
+                state["status"] = "running"
+                self._save(state)
+                per_run: Dict[str, List[Dict[str, Any]]] = {}
+                for variant in state["variants"]:
+                    key = variant["key"]
+                    variant["status"] = "running"
+                    per_run[key] = []
+                    self._save(state)
+                    for run_number in range(1, int(state["runs"]) + 1):
+                        if self._cancelled(state):
+                            raise InterruptedError
+                        seed = int(state["base_seed"]) + run_number
+                        run_dir = self._path(ensemble_id) / key / f"run_{run_number}"
+                        state["current"] = {"variant": key, "run": run_number, "round": 0}
+                        self._save(state)
+                        if key == "null_model":
+                            narrative_path = run_dir / "narrative.txt"
+                            if not narrative_path.is_file():
+                                raise FileNotFoundError(f"Gespeicherte Erzählung fehlt: {narrative_path}")
+                            classified = self._classify_narrative(
+                                state,
+                                narrative_path.read_text(encoding="utf-8"),
+                                seed,
+                                run_number,
+                                run_dir,
+                            )
+                        else:
+                            config = _read_json(run_dir / "simulation_config.json")
+                            initial = (config.get("event_config") or {}).get("initial_posts") or []
+                            posts = load_simulation_posts(run_dir, initial)
+                            classified = self._classify_posts(
+                                state, posts, seed, run_number, run_dir
+                            )
+                        per_run[key].append(classified)
+                        variant["done"] = run_number
+                        self._save(state)
+                    variant["status"] = "completed"
+                    self._save(state)
+
+                self._aggregate(state, per_run)
+                state["status"] = "completed"
+                state["finished_at"] = datetime.now().isoformat()
+                state["current"] = None
+                state["eta_seconds"] = 0
+                self._save(state)
+        except InterruptedError:
+            state = self._load(ensemble_id) or state
+            state["status"] = "cancelled"
+            state["finished_at"] = datetime.now().isoformat()
+            state["current"] = None
+            for variant in state["variants"]:
+                if variant["status"] in {"queued", "running"}:
+                    variant["status"] = "cancelled"
+            self._save(state)
+        except Exception as error:
+            logger.exception(f"Neuklassifikation {ensemble_id} fehlgeschlagen")
+            state = self._load(ensemble_id) or state
+            state["status"] = "failed"
+            state["error"] = str(error)
+            state["finished_at"] = datetime.now().isoformat()
+            state["current"] = None
+            for variant in state["variants"]:
+                if variant["status"] == "running":
+                    variant["status"] = "failed"
+            self._save(state)
+        finally:
+            with self._threads_lock:
+                self._threads.pop(ensemble_id, None)
 
     def _run_ensemble(self, ensemble_id: str) -> None:
         state = self._load(ensemble_id)
@@ -903,7 +1238,7 @@ class EnsembleService:
                             narrative = self._null_narrative(state, context, seed)
                             (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
                             classified = self._classify_narrative(
-                                state, narrative, seed, run_number
+                                state, narrative, seed, run_number, run_dir
                             )
                         else:
                             config = prepare_run_directory(
@@ -943,7 +1278,7 @@ class EnsembleService:
                             initial = (config.get("event_config") or {}).get("initial_posts") or []
                             posts = load_simulation_posts(run_dir, initial)
                             classified = self._classify_posts(
-                                state, posts, seed, run_number
+                                state, posts, seed, run_number, run_dir
                             )
                         per_run[key].append(classified)
                         variant["done"] = run_number
@@ -998,8 +1333,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         "",
         f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden.",
         "",
-        "| Variante | Ergebnis | Ja / N | Anteil (95-%-Wilson-Intervall) |",
-        "|---|---|---:|---:|",
+        "| Variante | Ergebnis | Ja / N | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
+        "|---|---|---:|---:|---:|",
     ]
     for variant in state["variants"]:
         key = variant["key"]
@@ -1008,6 +1343,7 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             marker = " †" if outcome.get("in_material") else ""
             lines.append(
                 f"| {labels[key]} | {outcome['text_de']}{marker} | {value['yes']} / {value['n']} | "
+                f"{value.get('unclassified', 0)} | "
                 f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%}) |"
             )
     if state.get("comparisons"):

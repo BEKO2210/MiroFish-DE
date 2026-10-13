@@ -8,11 +8,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import app.utils.llm_client as llm_module
 
 from app.config import Config
 from app.services.ensemble import (
     EnsembleService,
     apply_without_variant,
+    build_post_batches,
     filter_checklist_material_numbers,
     mark_checklist_material,
     newcombe_difference_interval,
@@ -21,6 +23,7 @@ from app.services.ensemble import (
     verify_classification_evidence,
     wilson_interval,
 )
+from app.utils.llm_client import LLMClient, estimate_tokens
 from app.utils.simulation_time import simulation_clock
 
 
@@ -51,6 +54,54 @@ def test_checklist_parsing_and_validation():
     assert [item["id"] for item in parsed] == ["o1", "o2", "o3", "o4", "o5"]
     with pytest.raises(ValueError):
         parse_checklist(["eins", "zwei"])
+
+
+def test_checklist_polarity_is_explicit_or_inferred():
+    parsed = parse_checklist({"outcomes": [
+        {"text_de": "Im Zeitraum geschieht etwas", "definition": "sichtbar", "polarity": "presence"},
+        {"text_de": "Im Zeitraum gibt es keine Reaktion", "definition": "bleibt aus"},
+    ] + [
+        {"text_de": f"Weiteres Ergebnis {i}", "definition": "sichtbar"}
+        for i in range(3)
+    ]})
+    assert parsed[0]["polarity"] == "presence"
+    assert parsed[1]["polarity"] == "absence"
+
+
+def test_post_batches_respect_budget_and_order():
+    posts = [
+        {"post_id": f"twitter:{i}", "agent": "Ada", "text": "x" * 120}
+        for i in range(12)
+    ]
+    prefix = "Anweisung und Checkliste\nBeiträge:\n"
+    batches = build_post_batches(posts, prefix, 180)
+    assert len(batches) > 1
+    assert [post["post_id"] for batch in batches for post in batch] == [
+        post["post_id"] for post in posts
+    ]
+    assert all(
+        estimate_tokens(prefix + "\n".join(
+            f"[{post['post_id']}] {post['agent']}: {post['text']}" for post in batch
+        )) <= 180
+        for batch in batches
+    )
+
+
+def test_local_llm_warns_when_estimated_context_is_exceeded(monkeypatch, caplog):
+    client = object.__new__(LLMClient)
+    client.provider = "ollama"
+    client.client = object()
+    client.model = "local-test"
+    monkeypatch.setenv("LOCAL_LLM_CONTEXT", "10")
+    monkeypatch.setattr(llm_module, "create_chat_completion", lambda *args, **kwargs: object())
+    with caplog.at_level("WARNING"):
+        client._create_completion(
+            messages=[{"role": "user", "content": "x" * 30}],
+            temperature=0,
+            max_tokens=5,
+            response_format=None,
+        )
+    assert "überschreitet das geschätzte Kontextbudget" in caplog.text
 
 
 def test_checklist_number_filter_normalizes_material_numbers():
@@ -296,3 +347,154 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
          "simulation_config.json").read_text(encoding="utf-8")
     )
     assert first_config["time_config"]["start_hour"] == 13
+
+
+class BatchLLM:
+    def __init__(self, fail=False, positive=False):
+        self.calls = 0
+        self.fail = fail
+        self.positive = positive
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        if self.fail:
+            raise ValueError("auch der zweite Versuch ist unparsebar")
+        return {"results": [{
+            "outcome_id": "o1",
+            "yes": self.positive,
+            "post_ids": ["twitter:1"] if self.positive else [],
+        }]}
+
+
+def test_100000_char_posts_are_classified_in_multiple_audited_batches(tmp_path):
+    llm = BatchLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    run_dir = tmp_path / "run"
+    posts = [{
+        "platform": "twitter",
+        "post_id": "twitter:1",
+        "agent": "Ada",
+        "text": "x" * 100_000,
+    }]
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o1", "text_de": "Ein Ereignis tritt ein",
+            "definition": "beobachtbar", "polarity": "presence",
+        }]},
+        posts,
+        seed=7,
+        run_number=1,
+        run_dir=run_dir,
+    )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert llm.calls == len(audit["batches"])
+    assert len(audit["batches"]) > 1
+    assert all(batch["estimated_input_tokens"] <= audit["token_budget"] for batch in audit["batches"])
+    assert result["o1"]["yes"] is False
+
+
+def test_absence_is_yes_only_when_positive_event_is_not_found(tmp_path):
+    llm = BatchLLM(positive=False)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o1",
+            "text_de": "Im simulierten Zeitraum gibt es keine Medienreaktion",
+            "definition": "Die Reaktion bleibt aus",
+        }]},
+        [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1,
+        run_number=3,
+    )
+    assert result["o1"]["yes"] is True
+    assert result["o1"]["evidence"][0]["text"] == "kein passender Beitrag in 1 geprüften Beiträgen"
+
+
+def test_unparseable_batch_is_unclassified_not_no(tmp_path):
+    service = EnsembleService(
+        llm_factory=lambda: BatchLLM(fail=True), root=tmp_path / "ensembles"
+    )
+    checklist = [{
+        "id": "o1", "text_de": "Ereignis", "definition": "sichtbar", "polarity": "presence",
+    }]
+    classified = service._classify_posts(
+        {"checklist": checklist},
+        [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Text"}],
+        seed=1,
+        run_number=1,
+    )
+    state = {"variants": [{"key": "baseline"}], "checklist": checklist}
+    service._aggregate(state, {"baseline": [classified]})
+    outcome = state["results"]["baseline"]["o1"]
+    assert outcome["yes"] == 0
+    assert outcome["n"] == 0
+    assert outcome["unclassified"] == 1
+
+
+class NeverRunner:
+    @classmethod
+    def start_simulation(cls, **kwargs):
+        raise AssertionError("Reclassify darf keine Simulation starten")
+
+
+def test_reclassify_uses_stored_database_and_preserves_results_v1(tmp_path):
+    root = tmp_path / "ensembles"
+    ensemble_id = "ens_aaaaaaaaaaaa"
+    run_dir = root / ensemble_id / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "simulation_config.json").write_text(
+        json.dumps({"event_config": {"initial_posts": []}}), encoding="utf-8"
+    )
+    db = sqlite3.connect(run_dir / "twitter_simulation.db")
+    db.execute("CREATE TABLE user (user_id INTEGER, agent_id INTEGER, name TEXT, user_name TEXT)")
+    db.execute("INSERT INTO user VALUES (0, 0, 'Ada', 'ada')")
+    db.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
+    db.execute("INSERT INTO post VALUES (1, 0, 'Ein neuer Aufruf wird veröffentlicht.')")
+    db.commit()
+    db.close()
+    checklist = [{
+        "id": f"o{i}", "text_de": f"Ergebnis {i}", "definition": "sichtbar",
+        "polarity": "presence", "in_material": False, "material_snippet": "",
+    } for i in range(1, 6)]
+    old_results = {"baseline": {
+        item["id"]: {"yes": 0, "n": 1, "rate": 0.0, "ci_low": 0.0, "ci_high": 0.7935,
+                      "unclassified": 0, "evidence": []}
+        for item in checklist
+    }}
+    state = {
+        "ensemble_id": ensemble_id,
+        "simulation_id": "sim_test",
+        "question": "Was geschieht?",
+        "status": "completed",
+        "created_at": "2026-01-01T00:00:00",
+        "finished_at": "2026-01-01T01:00:00",
+        "runs": 1,
+        "hours": 24,
+        "start_hour": 7,
+        "variants": [{"key": "baseline", "label_de": "Basislauf", "label_en": "Baseline",
+                      "status": "completed", "done": 1, "total": 1}],
+        "checklist": checklist,
+        "results": old_results,
+        "comparisons": [],
+        "current": None,
+        "eta_seconds": 0,
+        "error": None,
+        "base_seed": 11,
+        "cancel_requested": False,
+        "current_runner_id": None,
+    }
+    (root / ensemble_id / "ensemble.json").write_text(json.dumps(state), encoding="utf-8")
+    service = EnsembleService(
+        runner_cls=NeverRunner, llm_factory=FakeLLM, root=root, poll_interval=0.001
+    )
+    service.reclassify(ensemble_id)
+    deadline = time.time() + 3
+    while time.time() < deadline:
+        result = service.get(ensemble_id)
+        if result["status"] in {"completed", "failed"}:
+            break
+        time.sleep(0.01)
+    assert result["status"] == "completed", result.get("error")
+    assert result["results_v1"] == old_results
+    assert result["results"]["baseline"]["o1"]["yes"] == 1
+    assert (run_dir / "classification.json").is_file()

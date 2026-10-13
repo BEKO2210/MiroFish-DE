@@ -67,6 +67,21 @@ def cancel_ensemble(ensemble_id: str):
         return _error(str(error), 400)
 
 
+@ensemble_bp.route("/<ensemble_id>/reclassify", methods=["POST"])
+def reclassify_ensemble(ensemble_id: str):
+    try:
+        return jsonify({"success": True, "data": service.reclassify(ensemble_id)})
+    except FileNotFoundError as error:
+        return _error(str(error), 404)
+    except RuntimeError as error:
+        return _error(str(error), 409)
+    except ValueError as error:
+        return _error(str(error), 400)
+    except Exception as error:
+        logger.exception("Ensemble konnte nicht neu klassifiziert werden")
+        return _error(str(error), 500)
+
+
 @ensemble_bp.route("/<ensemble_id>", methods=["DELETE"])
 def delete_ensemble(ensemble_id: str):
     try:
