@@ -22,6 +22,18 @@ from ..utils.logger import get_logger
 pipeline_bp = Blueprint('pipeline', __name__)
 logger = get_logger('mirofish.pipeline')
 
+
+def mark_stale_runs():
+    """Beim Backend-Start: Durchläufe, die noch 'running' sind, haben ihren Thread verloren."""
+    for name in os.listdir(_dir()):
+        if name.endswith('.json'):
+            st = _load(name[:-5])
+            if st and st.get("status") == "running":
+                st["status"] = "failed"
+                st["error"] = "Backend wurde neu gestartet, Durchlauf abgebrochen"
+                _save(st)
+                logger.warning(f"Durchlauf {st['pipeline_id']} als abgebrochen markiert (Neustart)")
+
 STEPS = ["ontology", "graph", "create", "prepare", "simulate", "report"]
 STEP_LABELS = {
     "ontology": "Dokumente lesen und Ontologie ableiten",
@@ -123,9 +135,15 @@ def _run(pid, files, requirement, project_name):
         # 4 Vorbereiten (Profile + Konfiguration)
         _set(state, "prepare", "running")
         _ok(s.post(f"{base}/api/simulation/prepare", json={"simulation_id": sim_id, "parallel_profile_count": 1}, timeout=60))
+        idle_polls = 0
         while True:
             st = _ok(s.post(f"{base}/api/simulation/prepare/status", json={"simulation_id": sim_id}, timeout=30))
             status = st.get("status") or st.get("simulation_status")
+            if "nicht gestartet" in str(st.get("message", "")):
+                idle_polls += 1
+                if idle_polls >= 3:  # Vorbereitung hat nie angefangen: noch einmal anstoßen
+                    _ok(s.post(f"{base}/api/simulation/prepare", json={"simulation_id": sim_id, "parallel_profile_count": 1}, timeout=60))
+                    idle_polls = 0
             prog = st.get("progress") or st.get("progress_percent") or 0
             _set(state, "prepare", "running", st.get("message") or st.get("current_step") or "", progress=prog)
             if status in ("ready", "completed") or st.get("already_prepared") or st.get("is_ready"):

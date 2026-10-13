@@ -5,6 +5,7 @@ Schritt 2: Zep Entitäts-Lesen und Filtern, OASIS Simulations-Vorbereitung und A
 
 import os
 import traceback
+import json
 from flask import request, jsonify, send_file
 
 from . import simulation_bp
@@ -778,6 +779,42 @@ def get_simulation(simulation_id: str):
             "error": str(e),
             "traceback": traceback.format_exc()
         }), 500
+
+
+@simulation_bp.route('/<simulation_id>', methods=['DELETE'])
+def delete_simulation(simulation_id: str):
+    """Einen Lauf samt Daten löschen: laufenden Prozess stoppen, Simulationsordner und zugehörige Berichte entfernen."""
+    import shutil
+    from ..services.simulation_runner import SimulationRunner
+    from ..services.report_agent import ReportManager
+    try:
+        try:
+            SimulationRunner.stop_simulation(simulation_id)
+        except Exception as e:  # nicht laufend oder schon weg: egal, es wird gelöscht
+            logger.info(f"Stoppen vor dem Löschen übersprungen ({simulation_id}): {e}")
+        removed_reports = []
+        reports_dir = ReportManager.REPORTS_DIR
+        if os.path.isdir(reports_dir):
+            for name in os.listdir(reports_dir):
+                meta = os.path.join(reports_dir, name, 'metadata.json')
+                try:
+                    with open(meta, 'r', encoding='utf-8') as f:
+                        if json.load(f).get('simulation_id') == simulation_id:
+                            shutil.rmtree(os.path.join(reports_dir, name), ignore_errors=True)
+                            removed_reports.append(name)
+                except (OSError, ValueError):
+                    continue
+        sim_dir = os.path.join(Config.UPLOAD_FOLDER, 'simulations', simulation_id)
+        existed = os.path.isdir(sim_dir)
+        shutil.rmtree(sim_dir, ignore_errors=True)
+        if hasattr(SimulationManager, '_simulations') and isinstance(getattr(SimulationManager, '_simulations'), dict):
+            SimulationManager._simulations.pop(simulation_id, None)
+        logger.info(f"Simulation gelöscht: {simulation_id}, Berichte: {removed_reports}")
+        return jsonify({"success": True, "data": {"simulation_id": simulation_id, "deleted": existed,
+                                                  "reports_removed": removed_reports}})
+    except Exception as e:
+        logger.error(f"Löschen fehlgeschlagen ({simulation_id}): {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @simulation_bp.route('/list', methods=['GET'])

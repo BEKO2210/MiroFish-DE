@@ -185,3 +185,10 @@ export const getSimulationHistory = (limit = 20) => {
   return service.get('/api/simulation/history', { params: { limit } })
 }
 
+
+/**
+ * Lauf löschen (Simulation, Prozess, zugehörige Berichte)
+ */
+export function deleteSimulation(simulationId) {
+  return service.delete(`/api/simulation/${simulationId}`)
+}

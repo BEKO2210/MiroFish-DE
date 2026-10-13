@@ -1,9 +1,10 @@
 <template>
   <router-view />
+  <MobileNav />
 </template>
 
 <script setup>
-// Vue Router für Seitenverwaltung verwenden
+import MobileNav from './components/MobileNav.vue'
 </script>
 
 <style>
@@ -44,5 +45,8 @@
 /* Globaler Button-Stil */
 button {
   font-family: inherit;
+}
+@media (max-width: 768px) {
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 </style>

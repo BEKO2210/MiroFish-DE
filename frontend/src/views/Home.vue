@@ -37,7 +37,6 @@
             </p>
           </div>
            
-          <div class="decoration-square"></div>
         </div>
         
         <div class="hero-right">

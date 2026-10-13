@@ -1,5 +1,5 @@
 <template>
-  <div 
+  <div id="history" 
     class="history-database"
     :class="{ 'no-projects': projects.length === 0 && !loading }"
     ref="historyContainer"
@@ -32,6 +32,8 @@
         <!-- Kartenkopf: simulation_id und Funktionsverfügbarkeitsstatus -->
         <div class="card-header">
           <span class="card-id">{{ formatSimulationId(project.simulation_id) }}</span>
+          <button class="card-delete" type="button" title="Lauf löschen" aria-label="Lauf löschen"
+                  @click.stop="confirmDelete(project)">🗑</button>
           <div class="card-status-icons">
             <span 
               class="status-icon" 
@@ -193,7 +195,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { getSimulationHistory } from '../api/simulation'
+import { getSimulationHistory, deleteSimulation } from '../api/simulation'
 
 const router = useRouter()
 const route = useRoute()
@@ -435,6 +437,18 @@ const goToReport = () => {
 }
 
 // Projekthistorie laden
+const confirmDelete = async (project) => {
+  const label = project.simulation_name || project.simulation_requirement || project.simulation_id
+  if (!window.confirm(`Diesen Lauf endgültig löschen?\n\n${String(label).slice(0, 120)}\n\nSimulation, Agentendaten und Berichte werden entfernt.`)) return
+  try {
+    await deleteSimulation(project.simulation_id)
+    await loadHistory()
+  } catch (err) {
+    console.error('Löschen fehlgeschlagen:', err)
+    window.alert('Löschen fehlgeschlagen: ' + (err?.message || err))
+  }
+}
+
 const loadHistory = async () => {
   try {
     loading.value = true
@@ -686,6 +700,23 @@ onUnmounted(() => {
 }
 
 /* Kartenkopf */
+.card-delete {
+  margin-left: auto;
+  margin-right: 8px;
+  border: 0;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.card-delete:hover, .card-delete:focus-visible {
+  color: #dc2626;
+  background: #fef2f2;
+  outline: none;
+}
 .card-header {
   display: flex;
   justify-content: space-between;

@@ -67,8 +67,9 @@ def create_app(config_class=Config):
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
-    from .api.pipeline import pipeline_bp
+    from .api.pipeline import pipeline_bp, mark_stale_runs
     app.register_blueprint(pipeline_bp, url_prefix='/api/pipeline')
+    mark_stale_runs()
     
     # Gesundheitscheck
     @app.route('/health')
