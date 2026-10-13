@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // Axios-Instanz erstellen
 const service = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5002',
+  baseURL: import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:5002' : ''),  // Produktion: gleicher Ursprung wie das Frontend
   timeout: 300000, // 5 Minuten Timeout (die Generierung des Körpers kann länger dauern)
   headers: {
     'Content-Type': 'application/json'
