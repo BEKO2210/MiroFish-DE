@@ -51,4 +51,5 @@ button {
 }
 h1, h2, h3, .main-title { font-family: var(--font-heading, 'Space Grotesk', system-ui, sans-serif); }
 code, pre, .card-id, .mono { font-family: var(--font-mono, 'JetBrains Mono', monospace); }
+.api-note { display: none; } /* interne API-Pfade gehören nicht in die Nutzeroberfläche */
 </style>
