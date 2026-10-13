@@ -13,11 +13,15 @@ from app.config import Config
 from app.services.ensemble import (
     EnsembleService,
     apply_without_variant,
+    filter_checklist_material_numbers,
+    mark_checklist_material,
     newcombe_difference_interval,
     parse_checklist,
+    verified_material_quote,
     verify_classification_evidence,
     wilson_interval,
 )
+from app.utils.simulation_time import simulation_clock
 
 
 def test_wilson_known_value():
@@ -47,6 +51,47 @@ def test_checklist_parsing_and_validation():
     assert [item["id"] for item in parsed] == ["o1", "o2", "o3", "o4", "o5"]
     with pytest.raises(ValueError):
         parse_checklist(["eins", "zwei"])
+
+
+def test_checklist_number_filter_normalizes_material_numbers():
+    checklist = [
+        {"text_de": "Es werden 3100 Unterstützende genannt", "definition": "Schwelle"},
+        {"text_de": "Akteursgruppen suchen einen Kompromiss", "definition": "Beobachtbar"},
+    ]
+    assert filter_checklist_material_numbers(
+        checklist, "Im Material stehen mehr als 3.100 Unterschriften."
+    ) == [checklist[1]]
+
+
+def test_material_quote_must_be_normalized_verbatim():
+    material = "Eine öffentliche   Informationsveranstaltung ist angekündigt."
+    valid = {"in_material": True, "zitat": "öffentliche Informationsveranstaltung ist angekündigt"}
+    invented = {"in_material": True, "zitat": "eine Bürgerversammlung findet statt"}
+    assert verified_material_quote(valid, material) == valid["zitat"]
+    assert verified_material_quote(invented, material) == ""
+
+    marked = mark_checklist_material(
+        [{"id": "o1", "text_de": "Neues Ereignis", "definition": "ohne Worttreffer"}],
+        material,
+        [],
+        [valid],
+    )
+    assert marked[0]["in_material"] is True
+    assert marked[0]["material_snippet"] == valid["zitat"]
+    rejected = mark_checklist_material(
+        [{"id": "o1", "text_de": "Neues Ereignis", "definition": "ohne Worttreffer"}],
+        material,
+        [],
+        [invented],
+    )[0]
+    assert rejected["in_material"] is False
+    assert rejected["material_snippet"] == ""
+
+
+def test_simulation_clock_starts_at_configured_hour_and_crosses_midnight():
+    assert simulation_clock(0, 30, 7) == (1, 7)
+    assert simulation_clock(1, 30, 7) == (1, 7)
+    assert simulation_clock(34, 30, 7) == (2, 0)
 
 
 def test_evidence_must_reference_existing_post():
@@ -114,6 +159,72 @@ class FakeLLM:
         return "Eine kurze Erzählung."
 
 
+class ChecklistRetryLLM:
+    def __init__(self, always_contaminated=False):
+        self.generation_prompts = []
+        self.generation_kwargs = []
+        self.always_contaminated = always_contaminated
+
+    def chat_json(self, messages, **kwargs):
+        prompt = messages[-1]["content"]
+        if "Erzeuge 5 bis 8" in prompt:
+            self.generation_prompts.append(prompt)
+            self.generation_kwargs.append(kwargs)
+            words = ["Eskalation", "Protest", "Dialog", "Kompromiss", "Ruhe"]
+            outcomes = [
+                {
+                    "text_de": f"Im simulierten Zeitraum wird {word} sichtbar",
+                    "definition": f"Beobachtbares Ereignis {word}",
+                }
+                for word in words
+            ]
+            if self.always_contaminated or len(self.generation_prompts) == 1:
+                outcomes[0]["text_de"] += " mit 3100 Beteiligten"
+            return {"outcomes": outcomes}
+        return {"in_material": False, "zitat": ""}
+
+
+def test_checklist_prompt_retries_after_material_number(tmp_path):
+    llm = ChecklistRetryLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    checklist = service._create_checklist(
+        {"question": "Was geschieht?", "hours": 2, "base_seed": 41},
+        {
+            "extracted_text": "Es wurden 3.100 Unterschriften genannt.",
+            "config": {"event_config": {"initial_posts": []}},
+        },
+    )
+    assert len(checklist) == 5
+    assert len(llm.generation_prompts) == 2
+    assert "simulierten 2 Stunden" in llm.generation_prompts[0]
+    assert "Im simulierten Zeitraum" in llm.generation_prompts[0]
+    assert llm.generation_kwargs[0]["temperature"] == 0
+    assert llm.generation_kwargs[0]["seed"] == 41
+    assert llm.generation_kwargs[0]["max_attempts"] == 1
+    assert all("3100" not in item["text_de"] for item in checklist)
+
+
+def test_checklist_number_retry_stops_after_two_attempts(tmp_path):
+    llm = ChecklistRetryLLM(always_contaminated=True)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    with pytest.raises(ValueError, match="nach zwei Versuchen"):
+        service._create_checklist(
+            {"question": "Was geschieht?", "hours": 2, "base_seed": 41},
+            {
+                "extracted_text": "Es wurden 3.100 Unterschriften genannt.",
+                "config": {"event_config": {"initial_posts": []}},
+            },
+        )
+    assert len(llm.generation_prompts) == 2
+
+
+def test_start_hour_validation_happens_before_start(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    for value in (-1, 24, True, "7"):
+        with pytest.raises(ValueError, match="start_hour"):
+            service.start("sim_test", 1, 2, ["baseline"], start_hour=value)
+
+
 class FakeRunner:
     states = {}
 
@@ -168,7 +279,7 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
         root=tmp_path / "ensembles",
         poll_interval=0.001,
     )
-    started = service.start("sim_test", 2, 12, ["baseline"])
+    started = service.start("sim_test", 2, 12, ["baseline"], start_hour=13)
     deadline = time.time() + 3
     while time.time() < deadline:
         state = service.get(started["ensemble_id"])
@@ -179,3 +290,9 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
     assert state["variants"][0]["done"] == 2
     assert state["results"]["baseline"]["o1"]["yes"] == 2
     assert state["results"]["baseline"]["o1"]["n"] == 2
+    assert state["start_hour"] == 13
+    first_config = json.loads(
+        (tmp_path / "ensembles" / started["ensemble_id"] / "baseline" / "run_1" /
+         "simulation_config.json").read_text(encoding="utf-8")
+    )
+    assert first_config["time_config"]["start_hour"] == 13

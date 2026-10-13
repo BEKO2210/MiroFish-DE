@@ -43,11 +43,24 @@ ausgeführt, damit nie zwei Läufe gleichzeitig die GPU bzw. das lokale Hauptmod
 ein zuvor laufendes oder wartendes Ensemble als fehlgeschlagen markiert, weil sein Hintergrundthread nicht fortgesetzt
 werden kann.
 
-Vor dem ersten Lauf erzeugt das Hauptmodell bei Temperatur 0 und festem Seed einmalig fünf bis acht konkrete
-Ja/Nein-Ergebnisse aus Frage und Eingabematerial. Jeder Punkt muss beobachtbar formuliert sein. Derselbe
-Inhaltswortabgleich wie in V1 markiert, ob ein Ergebnis bereits im Material oder in einem Startbeitrag enthalten ist;
-die Fundstelle bleibt sichtbar. Eine solche Markierung verhindert keine Auswertung, warnt aber vor einer scheinbaren
-Prognose, die nur die Vorgabe wiederholt.
+Vor dem ersten Lauf erzeugt das Hauptmodell bei Temperatur 0 und festem Seed fünf bis acht konkrete
+Ja/Nein-Ergebnisse aus Frage und Eingabematerial. Jeder Punkt beginnt mit „Im simulierten Zeitraum …“, muss innerhalb
+der eingestellten Stunden beobachtbar und allgemein über Akteursgruppen formuliert sein. Die Auswahl mischt Eskalation,
+Deeskalation/Kompromiss und genau einen Fall ohne nennenswerte Reaktion. Zahlen und Schwellen aus dem Material sind
+verboten; ein deterministischer, formatnormalisierter Zahlenabgleich verwirft entsprechende Entwürfe und lässt die
+vollständige Checkliste höchstens zweimal erzeugen.
+
+Zusätzlich zum Inhaltswortabgleich aus V1 fragt eine zweite Prüfung pro Ergebnis bei Temperatur 0 und festem Seed, ob
+das Ereignis im Material bereits als geschehen oder angekündigt beschrieben ist. Ein positives Modellurteil zählt nur,
+wenn das gelieferte Zitat nach Whitespace-Normalisierung wörtlich im Material vorkommt. `in_material` ist wahr, sobald
+Inhaltswortabgleich oder verifiziertes Zitat treffen; `material_snippet` enthält ausschließlich das verifizierte Zitat
+(bei einem reinen Inhaltsworttreffer bleibt es leer). Eine solche Markierung
+verhindert keine Auswertung, warnt aber vor einer scheinbaren Prognose, die nur die Vorgabe wiederholt.
+
+`POST /api/ensemble/start` akzeptiert außerdem `start_hour` (0–23, Standard 7). Der Wert wird im Ensemble-Zustand und
+damit in `GET /api/ensemble/<id>` ausgegeben sowie in jede Laufkonfiguration geschrieben. Runde null beginnt zu dieser
+Uhrzeit; weitere Runden addieren `minutes_per_round`, einschließlich des Tageswechsels nach Mitternacht. Dadurch nutzen
+Aktivitätsfenster und Aktionslogs dieselbe simulierte Uhrzeit.
 
 Nach jedem Lauf werden die Beiträge unmittelbar aus `twitter_simulation.db` und `reddit_simulation.db` gelesen. Der
 Klassifikator erhält keine Berichte. Ein Ja zählt nur, wenn das Modell mindestens eine vorhandene, plattformqualifizierte

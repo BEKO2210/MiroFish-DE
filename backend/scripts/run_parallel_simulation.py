@@ -76,7 +76,6 @@ import warnings
 from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 
-
 # Globale Variablen: Für die Signalverarbeitung
 _shutdown_event = None
 _cleanup_done = False
@@ -88,6 +87,8 @@ _backend_dir = os.path.abspath(os.path.join(_scripts_dir, '..'))
 _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
 sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
+
+from app.utils.simulation_time import simulation_clock
 
 # Laden der .env-Datei aus dem Projektwurzelverzeichnis (enthält Konfigurationen wie LLM_API_KEY)
 from dotenv import load_dotenv
@@ -1187,7 +1188,9 @@ async def run_twitter_simulation(
     
     # Protokolliere Start von Runde 0 (Initialereignis-Phase)
     if action_logger:
-        action_logger.log_round_start(0, 0)  # round 0, simulated_hour 0
+        action_logger.log_round_start(
+            0, config.get("time_config", {}).get("start_hour", 7)
+        )
     
     initial_action_count = 0
     if initial_posts:
@@ -1227,6 +1230,7 @@ async def run_twitter_simulation(
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
     minutes_per_round = time_config.get("minutes_per_round", 30)
+    start_hour = time_config.get("start_hour", 7)
     total_rounds = (total_hours * 60) // minutes_per_round
     
     # Abbruch, falls maximale Rundenanzahl angegeben ist
@@ -1245,9 +1249,9 @@ async def run_twitter_simulation(
                 main_logger.info(f"Beendesignal empfangen, Simulation wird in Runde {round_num + 1} gestoppt")
             break
         
-        simulated_minutes = round_num * minutes_per_round
-        simulated_hour = (simulated_minutes // 60) % 24
-        simulated_day = simulated_minutes // (60 * 24) + 1
+        simulated_day, simulated_hour = simulation_clock(
+            round_num, minutes_per_round, start_hour
+        )
         
         active_agents = get_active_agents_for_round(
             result.env, config, simulated_hour, round_num
@@ -1383,7 +1387,9 @@ async def run_reddit_simulation(
     
     # Protokolliere Start von Runde 0 (Phase der initialen Ereignisse)
     if action_logger:
-        action_logger.log_round_start(0, 0)  # round 0, simulated_hour 0
+        action_logger.log_round_start(
+            0, config.get("time_config", {}).get("start_hour", 7)
+        )
     
     initial_action_count = 0
     if initial_posts:
@@ -1431,6 +1437,7 @@ async def run_reddit_simulation(
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
     minutes_per_round = time_config.get("minutes_per_round", 30)
+    start_hour = time_config.get("start_hour", 7)
     total_rounds = (total_hours * 60) // minutes_per_round
     
     # Wenn eine maximale Anzahl an Runden angegeben ist, wird diese abgeschnitten
@@ -1449,9 +1456,9 @@ async def run_reddit_simulation(
                 main_logger.info(f"Beendigungssignal empfangen, Simulation in Runde {round_num + 1} gestoppt")
             break
         
-        simulated_minutes = round_num * minutes_per_round
-        simulated_hour = (simulated_minutes // 60) % 24
-        simulated_day = simulated_minutes // (60 * 24) + 1
+        simulated_day, simulated_hour = simulation_clock(
+            round_num, minutes_per_round, start_hour
+        )
         
         active_agents = get_active_agents_for_round(
             result.env, config, simulated_hour, round_num
