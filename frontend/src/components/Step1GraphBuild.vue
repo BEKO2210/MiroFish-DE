@@ -6,25 +6,25 @@
         <div class="card-header">
           <div class="step-info">
             <span class="step-num">01</span>
-            <span class="step-title">Ontologie-Generierung</span>
+            <span class="step-title">{{ $t('step1.ontologieGenerierung') }}</span>
           </div>
           <div class="step-status">
-            <span v-if="currentPhase > 0" class="badge success">Abgeschlossen</span>
-            <span v-else-if="currentPhase === 0" class="badge processing">Wird generiert</span>
-            <span v-else class="badge pending">Wartend</span>
+            <span v-if="currentPhase > 0" class="badge success">{{ $t('common.completed') }}</span>
+            <span v-else-if="currentPhase === 0" class="badge processing">{{ $t('common.generating') }}</span>
+            <span v-else class="badge pending">{{ $t('common.pending') }}</span>
           </div>
         </div>
         
         <div class="card-content">
           <p class="api-note">POST /api/graph/ontology/generate</p>
           <p class="description">
-            LLM analysiert Dokumenteninhalt und Simulationsanforderungen, extrahiert Realitäts-Samen und generiert automatisch eine geeignete Ontologie-Struktur
+            {{ $t('step1.llmAnalysiertDokumenteninhaltUndSimulationsanforderungenExtrahiertRealit') }}
           </p>
 
           <!-- Loading / Progress -->
           <div v-if="currentPhase === 0 && ontologyProgress" class="progress-section">
             <div class="spinner-sm"></div>
-            <span>{{ ontologyProgress.message || 'Dokument wird analysiert...' }}</span>
+            <span>{{ ontologyProgress.message || $t('step1.dokumentWirdAnalysiert') }}</span>
           </div>
 
           <!-- Detail Overlay -->
@@ -41,7 +41,7 @@
                
                <!-- Attributes -->
                <div class="detail-section" v-if="selectedOntologyItem.attributes?.length">
-                  <span class="section-label">ATTRIBUTE</span>
+                  <span class="section-label">{{ $t('step1.attribute') }}</span>
                   <div class="attr-list">
                      <div v-for="attr in selectedOntologyItem.attributes" :key="attr.name" class="attr-item">
                         <span class="attr-name">{{ attr.name }}</span>
@@ -53,7 +53,7 @@
 
                <!-- Examples (Entity) -->
                <div class="detail-section" v-if="selectedOntologyItem.examples?.length">
-                  <span class="section-label">BEISPIELE</span>
+                  <span class="section-label">{{ $t('step1.beispiele') }}</span>
                   <div class="example-list">
                      <span v-for="ex in selectedOntologyItem.examples" :key="ex" class="example-tag">{{ ex }}</span>
                   </div>
@@ -61,7 +61,7 @@
 
                <!-- Source/Target (Relation) -->
                <div class="detail-section" v-if="selectedOntologyItem.source_targets?.length">
-                  <span class="section-label">VERBINDUNGEN</span>
+                  <span class="section-label">{{ $t('step1.verbindungen') }}</span>
                   <div class="conn-list">
                      <div v-for="(conn, idx) in selectedOntologyItem.source_targets" :key="idx" class="conn-item">
                         <span class="conn-node">{{ conn.source }}</span>
@@ -75,7 +75,7 @@
 
           <!-- Generated Entity Tags -->
           <div v-if="projectData?.ontology?.entity_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERIERTE ENTITÄTSTYPEN</span>
+            <span class="tag-label">{{ $t('step1.generierteEntitatstypen') }}</span>
             <div class="tags-list">
               <span 
                 v-for="entity in projectData.ontology.entity_types" 
@@ -90,7 +90,7 @@
 
           <!-- Generated Relation Tags -->
           <div v-if="projectData?.ontology?.edge_types" class="tags-container" :class="{ 'dimmed': selectedOntologyItem }">
-            <span class="tag-label">GENERIERTE BEZIEHUNGSTYPEN</span>
+            <span class="tag-label">{{ $t('step1.generierteBeziehungstypen') }}</span>
             <div class="tags-list">
               <span 
                 v-for="rel in projectData.ontology.edge_types" 
@@ -110,34 +110,34 @@
         <div class="card-header">
           <div class="step-info">
             <span class="step-num">02</span>
-            <span class="step-title">GraphRAG-Aufbau</span>
+            <span class="step-title">{{ $t('step1.graphragAufbau') }}</span>
           </div>
           <div class="step-status">
-            <span v-if="currentPhase > 1" class="badge success">Abgeschlossen</span>
+            <span v-if="currentPhase > 1" class="badge success">{{ $t('common.completed') }}</span>
             <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
-            <span v-else class="badge pending">Wartend</span>
+            <span v-else class="badge pending">{{ $t('common.pending') }}</span>
           </div>
         </div>
 
         <div class="card-content">
           <p class="api-note">POST /api/graph/build</p>
           <p class="description">
-            Basierend auf der generierten Ontologie werden Dokumente automatisch in Blöcke unterteilt, Zep wird aufgerufen, um den Wissensgraphen aufzubauen, Entitäten und Beziehungen werden extrahiert und zeitliche Speicher sowie Community-Zusammenfassungen werden erstellt
+            {{ $t('step1.basierendAufDerGeneriertenOntologieWerdenDokumente') }}
           </p>
           
           <!-- Stats Cards -->
           <div class="stats-grid">
             <div class="stat-card">
               <span class="stat-value">{{ graphStats.nodes }}</span>
-              <span class="stat-label">Entitätsknoten</span>
+              <span class="stat-label">{{ $t('step1.entitatsknoten') }}</span>
             </div>
             <div class="stat-card">
               <span class="stat-value">{{ graphStats.edges }}</span>
-              <span class="stat-label">Beziehungskanten</span>
+              <span class="stat-label">{{ $t('step1.beziehungskanten') }}</span>
             </div>
             <div class="stat-card">
               <span class="stat-value">{{ graphStats.types }}</span>
-              <span class="stat-label">SCHEMA-TYPEN</span>
+              <span class="stat-label">{{ $t('step1.schemaTypen') }}</span>
             </div>
           </div>
         </div>
@@ -148,23 +148,23 @@
         <div class="card-header">
           <div class="step-info">
             <span class="step-num">03</span>
-            <span class="step-title">Erstellung abgeschlossen</span>
+            <span class="step-title">{{ $t('step1.erstellungAbgeschlossen') }}</span>
           </div>
           <div class="step-status">
-            <span v-if="currentPhase >= 2" class="badge accent">In Bearbeitung</span>
+            <span v-if="currentPhase >= 2" class="badge accent">{{ $t('common.processing') }}</span>
           </div>
         </div>
         
         <div class="card-content">
           <p class="api-note">POST /api/simulation/create</p>
-          <p class="description">Grapherstellung abgeschlossen, bitte fahren Sie mit dem nächsten Schritt zur Simulationsumgebung fort</p>
+          <p class="description">{{ $t('step1.grapherstellungAbgeschlossenBitteFahrenSieMitDem') }}</p>
           <button 
             class="action-btn" 
             :disabled="currentPhase < 2 || creatingSimulation"
             @click="handleEnterEnvSetup"
           >
             <span v-if="creatingSimulation" class="spinner-sm"></span>
-            {{ creatingSimulation ? 'Wird erstellt...' : 'Zur Umgebungseinrichtung ➝' }}
+            {{ creatingSimulation ? $t('step1.wirdErstellt') : $t('step1.toEnvironmentSetup') }}
           </button>
         </div>
       </div>
@@ -173,7 +173,7 @@
     <!-- Bottom Info / Logs -->
     <div class="system-logs">
       <div class="log-header">
-        <span class="log-title">SYSTEMÜBERSICHT</span>
+        <span class="log-title">{{ $t('step1.systemubersicht') }}</span>
         <span class="log-id">{{ projectData?.project_id || 'NO_PROJECT' }}</span>
       </div>
       <div class="log-content" ref="logContent">
@@ -188,8 +188,11 @@
 
 <script setup>
 import { computed, ref, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createSimulation } from '../api/simulation'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -211,7 +214,7 @@ const creatingSimulation = ref(false)
 // Umgebungseinrichtung betreten - Simulation erstellen und weiterleiten
 const handleEnterEnvSetup = async () => {
   if (!props.projectData?.project_id || !props.projectData?.graph_id) {
-    console.error('Projekt- oder Graphinformationen fehlen')
+    console.error(t('step1.projektOderGraphinformationenFehlen'))
     return
   }
   
@@ -232,12 +235,12 @@ const handleEnterEnvSetup = async () => {
         params: { simulationId: res.data.simulation_id }
       })
     } else {
-      console.error('Erstellung der Simulation fehlgeschlagen:', res.error)
-      alert('Erstellung der Simulation fehlgeschlagen: ' + (res.error || 'Unbekannter Fehler'))
+      console.error(t('step1.erstellungDerSimulationFehlgeschlagen'), res.error)
+      alert(t('step1.erstellungDerSimulationFehlgeschlagen2') + (res.error || t('common.unknownError')))
     }
   } catch (err) {
-    console.error('Ausnahme bei der Simulationserstellung:', err)
-    alert('Ausnahme bei der Simulationserstellung: ' + err.message)
+    console.error(t('step1.ausnahmeBeiDerSimulationserstellung'), err)
+    alert(t('step1.ausnahmeBeiDerSimulationserstellung2') + err.message)
   } finally {
     creatingSimulation.value = false
   }

@@ -4,8 +4,9 @@
     <nav class="navbar">
       <div class="nav-brand">MIROFISH</div>
       <div class="nav-links">
+        <LanguageSwitcher />
         <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" class="github-link">
-          GitHub besuchen <span class="arrow">↗</span>
+          {{ $t('home.githubBesuchen') }} <span class="arrow">↗</span>
         </a>
       </div>
     </nav>
@@ -15,25 +16,25 @@
       <section class="hero-section">
         <div class="hero-left">
           <div class="tag-row">
-            <span class="orange-tag">Elegante universelle Schwarm-Intelligenz-Engine</span>
-            <span class="version-text">/ v0.1-Preview</span>
+            <span class="orange-tag">{{ $t('home.eleganteUniverselleSchwarmIntelligenzEngine') }}</span>
+            <span class="version-text">{{ $t('home.v01Preview') }}</span>
           </div>
           
           <h1 class="main-title">
-            Lade beliebigen Bericht hoch<br>
-            <span class="gradient-text">Erkenne die Zukunft sofort</span>
+            {{ $t('home.ladeBeliebigenBerichtHoch') }}<br>
+            <span class="gradient-text">{{ $t('home.erkenneDieZukunftSofort') }}</span>
             <br>
-            <span class="gradient-text">MiroFish ist jetzt auf Deutsch verfügbar.</span>
+            <span class="gradient-text">{{ $t('home.mirofishIstJetztAufDeutschVerfugbar') }}</span>
             <br>
-            <span class="contributor-tag">Lokalisierung & Local LLM Integration von Belkis Aslani</span>
+            <span class="contributor-tag">{{ $t('home.lokalisierungLocalLlmIntegrationVonBelkisAslani') }}</span>
           </h1>
           
           <div class="hero-desc">
             <p>
-              Selbst mit nur einem Text kann <span class="highlight-bold">MiroFish</span> basierend auf den darin enthaltenen Realitäts-Samen automatisch eine parallele Welt mit bis zu <span class="highlight-orange">Millionen Agenten</span> generieren. Durch die Gott-Perspektive können Variablen injiziert werden, um in komplexen Gruppeninteraktionen <span class="highlight-code">"lokal optimale Lösungen"</span> in dynamischen Umgebungen zu finden.
+              {{ $t('home.selbstMitNurEinemTextKann') }} <span class="highlight-bold">MiroFish</span> {{ $t('home.basierendAufDenDarinEnthaltenenRealitatsSamen') }} <span class="highlight-orange">{{ $t('home.millionenAgenten') }}</span> {{ $t('home.generierenDurchDieGottPerspektiveKonnenVariablen') }} <span class="highlight-code">{{ $t('home.lokalOptimaleLosungen') }}</span> {{ $t('home.inDynamischenUmgebungenZuFinden') }}
             </p>
             <p class="slogan-text">
-              Lass die Zukunft in der Agenten-Gruppe vorausspielen, lass Entscheidungen nach hunderten Kämpfen triumphieren<span class="blinking-cursor">_</span>
+              {{ $t('home.lassDieZukunftInDerAgentenGruppe') }}<span class="blinking-cursor">_</span>
             </p>
           </div>
            
@@ -43,7 +44,7 @@
         <div class="hero-right">
           <!-- Logo Area -->
           <div class="logo-container">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="MiroFish Logo" class="hero-logo" />
+            <img src="../assets/logo/MiroFish_logo_left.jpeg" :alt="$t('home.mirofishLogo')" class="hero-logo" />
           </div>
           
           <button class="scroll-down-btn" @click="scrollToBottom">
@@ -57,25 +58,25 @@
         <!-- Left Panel: Status & Steps -->
         <div class="left-panel">
           <div class="panel-header">
-            <span class="status-dot" :class="{ 'status-red': !systemStatus.ready }">■</span> Systemstatus: {{ systemStatus.ready ? 'Bereit' : 'Konfiguration erforderlich' }}
+            <span class="status-dot" :class="{ 'status-red': !systemStatus.ready }">■</span> {{ $t('home.systemstatus') }} {{ systemStatus.ready ? $t('common.ready') : $t('home.configurationRequired') }}
           </div>
           
-          <h2 class="section-title">Status</h2>
+          <h2 class="section-title">{{ $t('home.status') }}</h2>
           <div class="system-details-card">
             <div class="detail-item">
-              <span class="detail-label">Provider:</span>
+              <span class="detail-label">{{ $t('home.provider') }}</span>
               <span class="detail-value">{{ systemStatus.llm_provider }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Modell:</span>
+              <span class="detail-label">{{ $t('home.modell') }}</span>
               <span class="detail-value">{{ systemStatus.llm_model }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Local Mode:</span>
-              <span class="detail-value">{{ systemStatus.is_local_llm ? 'Aktiv' : 'Deaktiviert' }}</span>
+              <span class="detail-label">{{ $t('home.localMode') }}</span>
+              <span class="detail-value">{{ systemStatus.is_local_llm ? $t('home.active') : $t('home.inactive') }}</span>
             </div>
             <div class="detail-item">
-              <span class="detail-label">Memory:</span>
+              <span class="detail-label">{{ $t('home.memory') }}</span>
               <span class="detail-value">{{ systemStatus.memory_provider }}</span>
             </div>
           </div>
@@ -83,7 +84,7 @@
           <!-- LLM Settings Panel -->
           <div class="settings-panel">
             <div class="settings-header" @click="showSettings = !showSettings">
-              <span class="settings-title">⚙️ LLM-Konfiguration (LM Studio / Ollama / OpenAI)</span>
+              <span class="settings-title">{{ $t('home.llmKonfigurationLmStudioOllamaOpenai') }}</span>
               <span class="toggle-icon">{{ showSettings ? '▲' : '▼' }}</span>
             </div>
             
@@ -92,78 +93,78 @@
               <div v-if="isConfigMasked" class="mask-warning-alert">
                 <span class="warning-icon">⚠️</span>
                 <div class="warning-text">
-                  <strong>Sicherheitshinweis:</strong> Einige API-Schlüssel sind maskiert. Bitte geben Sie Ihre Schlüssel erneut ein, um die Konfiguration zu aktualisieren.
+                  <strong>{{ $t('home.sicherheitshinweis') }}</strong> {{ $t('home.einigeApiSchlusselSindMaskiertBitteGeben') }}
                 </div>
               </div>
 
               <div class="form-group">
-                <label>Memory Provider (Knowledge Graph)</label>
+                <label>{{ $t('home.memoryProviderKnowledgeGraph') }}</label>
                 <select v-model="configData.memory_provider" class="settings-select">
-                  <option value="zep">Zep Cloud (GraphRAG)</option>
-                  <option value="obsidian">Obsidian / Markdown (Lokal)</option>
-                  <option value="hybrid">Hybrid (Markdown + Zep)</option>
+                  <option value="zep">{{ $t('home.zepCloudGraphrag') }}</option>
+                  <option value="obsidian">{{ $t('home.obsidianMarkdownLokal') }}</option>
+                  <option value="hybrid">{{ $t('home.hybridMarkdownZep') }}</option>
                 </select>
                 <p class="field-desc" v-if="configData.memory_provider === 'obsidian'">
-                  Speichert Wissen als Markdown in <code>uploads/simulations/.../vault</code>.
+                  {{ $t('home.speichertWissenAlsMarkdownIn') }} <code>{{ $t('home.uploadsSimulationsVault') }}</code>.
                 </p>
                 <p class="field-desc" v-if="configData.memory_provider === 'zep'">
-                  Erfordert einen gültigen Zep API Key.
+                  {{ $t('home.erfordertEinenGultigenZepApiKey') }}
                 </p>
               </div>
 
               <div class="form-group">
-                <label>LLM Provider</label>
+                <label>{{ $t('home.llmProvider') }}</label>
                 <select v-model="configData.llm_provider" class="settings-select">
-                  <option value="openai">OpenAI (Cloud)</option>
-                  <option value="lmstudio">LM Studio (Lokal)</option>
-                  <option value="ollama">Ollama (Lokal)</option>
-                  <option value="local">Generischer lokaler Endpunkt</option>
+                  <option value="openai">{{ $t('home.openaiCloud') }}</option>
+                  <option value="lmstudio">{{ $t('home.lmStudioLokal') }}</option>
+                  <option value="ollama">{{ $t('home.ollamaLokal') }}</option>
+                  <option value="local">{{ $t('home.generischerLokalerEndpunkt') }}</option>
                 </select>
               </div>
 
               <!-- Cloud Settings -->
               <div v-if="configData.llm_provider === 'openai'" class="provider-settings">
                 <div class="form-group">
-                  <label>API Key</label>
-                  <input type="password" v-model="configData.llm_api_key" placeholder="sk-..." class="settings-input">
+                  <label>{{ $t('home.apiKey') }}</label>
+                  <input type="password" v-model="configData.llm_api_key" :placeholder="$t('home.sk')" class="settings-input">
                 </div>
                 <div class="form-group">
-                  <label>Base URL</label>
-                  <input type="text" v-model="configData.llm_base_url" placeholder="https://api.openai.com/v1" class="settings-input">
+                  <label>{{ $t('home.baseUrl') }}</label>
+                  <input type="text" v-model="configData.llm_base_url" :placeholder="$t('home.httpsApiOpenaiComV1')" class="settings-input">
                 </div>
                 <div class="form-group">
-                  <label>Modell-Name</label>
-                  <input type="text" v-model="configData.llm_model_name" placeholder="gpt-4o-mini" class="settings-input">
+                  <label>{{ $t('home.modellName') }}</label>
+                  <input type="text" v-model="configData.llm_model_name" :placeholder="$t('home.gpt4oMini')" class="settings-input">
                 </div>
               </div>
 
               <!-- Local Settings -->
               <div v-else class="provider-settings">
                 <div class="form-group">
-                  <label>Local Base URL</label>
-                  <input type="text" v-model="configData.local_llm_base_url" placeholder="http://localhost:1234/v1" class="settings-input">
+                  <label>{{ $t('home.localBaseUrl') }}</label>
+                  <input type="text" v-model="configData.local_llm_base_url" :placeholder="$t('home.httpLocalhost1234V1')" class="settings-input">
                 </div>
                 <div class="form-group">
-                  <label>Local Modell-Name</label>
-                  <input type="text" v-model="configData.local_llm_model_name" placeholder="Modell-Name aus LM Studio / Ollama" class="settings-input">
+                  <label>{{ $t('home.localModellName') }}</label>
+                  <input type="text" v-model="configData.local_llm_model_name" :placeholder="$t('home.modellNameAusLmStudioOllama')" class="settings-input">
                 </div>
                 <div class="form-group">
-                  <label>Local API Key (Optional)</label>
-                  <input type="password" v-model="configData.local_llm_api_key" placeholder="Meist nicht nötig für lokal" class="settings-input">
+                  <label>{{ $t('home.localApiKeyOptional') }}</label>
+                  <input type="password" v-model="configData.local_llm_api_key" :placeholder="$t('home.meistNichtNotigFurLokal')" class="settings-input">
                 </div>
               </div>
 
               <div class="form-group">
-                <label>Zep API Key (Erforderlich)</label>
-                <input type="password" v-model="configData.zep_api_key" placeholder="Zep Cloud/Local API Key" class="settings-input">
+                <label>{{ $t('home.zepApiKeyErforderlich') }}</label>
+                <input type="password" v-model="configData.zep_api_key" :placeholder="$t('home.zepCloudLocalApiKey')" class="settings-input">
               </div>
 
               <div class="settings-actions">
                 <button @click="saveSettings" class="save-btn" :disabled="saving">
-                  {{ saving ? 'Speichere...' : 'Speichern' }}
+                  {{ saving ? $t('home.saving') : $t('home.save') }}
                 </button>
                 <button @click="testLlmConnection" class="test-btn" :disabled="testing">
-                  {{ testing ? 'Teste...' : 'Verbindung testen' }}
+                  {{ testing ? $t('home.testing') : $t('home.testConnection') }}
                 </button>
               </div>
 
@@ -174,60 +175,60 @@
           </div>
           
           <p class="section-desc">
-            Vorhersage-Engine im Standby. Lade unstrukturierte Daten hoch, um die Simulationssequenz zu initialisieren.
+            {{ $t('home.vorhersageEngineImStandbyLadeUnstrukturierteDaten') }}
           </p>
           
           <!-- Metrics Cards -->
           <div class="metrics-row">
             <div class="metric-card">
-              <div class="metric-value">Kostengünstig</div>
-              <div class="metric-label">Durchschnittlich 5$/Simulation</div>
+              <div class="metric-value">{{ $t('home.kostengunstig') }}</div>
+              <div class="metric-label">{{ $t('home.durchschnittlich5Simulation') }}</div>
             </div>
             <div class="metric-card">
-              <div class="metric-value">Hochverfügbar</div>
-              <div class="metric-label">Bis zu Millionen Agenten</div>
+              <div class="metric-value">{{ $t('home.hochverfugbar') }}</div>
+              <div class="metric-label">{{ $t('home.bisZuMillionenAgenten') }}</div>
             </div>
           </div>
 
           <!-- Workflow Steps -->
           <div class="steps-container">
             <div class="steps-header">
-               <span class="diamond-icon">◇</span> Workflow-Sequenz
+               <span class="diamond-icon">◇</span> {{ $t('home.workflowSequenz') }}
             </div>
             <div class="workflow-list">
               <div class="workflow-item">
                 <span class="step-num">01</span>
                 <div class="step-info">
-                  <div class="step-title">Graphen-Aufbau</div>
-                  <div class="step-desc">Realitäts-Samen-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau</div>
+                  <div class="step-title">{{ $t('home.graphenAufbau') }}</div>
+                  <div class="step-desc">{{ $t('home.realitatsSamenExtraktionIndividuenGruppenGedachtnisInjektion') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
                 <span class="step-num">02</span>
                 <div class="step-info">
-                  <div class="step-title">Umgebungsaufbau</div>
-                  <div class="step-desc">Entitätsbeziehungs-Extraktion & Charakter-Generierung & Umgebungskonfiguration</div>
+                  <div class="step-title">{{ $t('home.umgebungsaufbau') }}</div>
+                  <div class="step-desc">{{ $t('home.entitatsbeziehungsExtraktionCharakterGenerierungUmgebungskonfiguration') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
                 <span class="step-num">03</span>
                 <div class="step-info">
-                  <div class="step-title">Simulation starten</div>
-                  <div class="step-desc">Duale Plattform-Parallel-Simulation & automatische Vorhersagebedarfsanalyse</div>
+                  <div class="step-title">{{ $t('home.simulationStarten') }}</div>
+                  <div class="step-desc">{{ $t('home.dualePlattformParallelSimulationAutomatischeVorhersagebedarfsanalyse') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
                 <span class="step-num">04</span>
                 <div class="step-info">
-                  <div class="step-title">Berichtsgenerierung</div>
-                  <div class="step-desc">ReportAgent mit reichhaltigem Toolset für tiefe Interaktion</div>
+                  <div class="step-title">{{ $t('home.berichtsgenerierung') }}</div>
+                  <div class="step-desc">{{ $t('home.reportagentMitReichhaltigemToolsetFurTiefeInteraktion') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
                 <span class="step-num">05</span>
                 <div class="step-info">
-                  <div class="step-title">Tiefe Interaktion</div>
-                  <div class="step-desc">Gespräch mit beliebiger Person in der simulierten Welt & Dialog mit ReportAgent</div>
+                  <div class="step-title">{{ $t('home.tiefeInteraktion') }}</div>
+                  <div class="step-desc">{{ $t('home.gesprachMitBeliebigerPersonInDerSimulierten') }}</div>
                 </div>
               </div>
             </div>
@@ -240,8 +241,8 @@
             <!-- Upload Area -->
             <div class="console-section">
               <div class="console-header">
-                <span class="console-label">01 / Realitäts-Samen</span>
-                <span class="console-meta">Unterstützt: PDF, MD, TXT</span>
+                <span class="console-label">{{ $t('home.text01RealitatsSamen') }}</span>
+                <span class="console-meta">{{ $t('home.unterstutztPdfMdTxt') }}</span>
               </div>
               
               <div 
@@ -264,8 +265,8 @@
                 
                 <div v-if="files.length === 0" class="upload-placeholder">
                   <div class="upload-icon">↑</div>
-                  <div class="upload-title">Dateien hier ablegen</div>
-                  <div class="upload-hint">oder klicke zum Durchsuchen</div>
+                  <div class="upload-title">{{ $t('home.dateienHierAblegen') }}</div>
+                  <div class="upload-hint">{{ $t('home.oderKlickeZumDurchsuchen') }}</div>
                 </div>
                 
                 <div v-else class="file-list">
@@ -280,23 +281,23 @@
 
             <!-- Divider -->
             <div class="console-divider">
-              <span>Eingabeparameter</span>
+              <span>{{ $t('home.eingabeparameter') }}</span>
             </div>
 
             <!-- Input Area -->
             <div class="console-section">
               <div class="console-header">
-                <span class="console-label">>_ 02 / Simulations-Prompt</span>
+                <span class="console-label">{{ $t('home.text02SimulationsPrompt') }}</span>
               </div>
               <div class="input-wrapper">
                 <textarea
                   v-model="formData.simulationRequirement"
                   class="code-input"
-                  placeholder="// Beschreibe Simulations- oder Vorhersagebedarf in natürlicher Sprache (z.B.: Wie würde die Öffentlichkeit reagieren, wenn Universität X eine bestimmte Entscheidung trifft?)"
+                  :placeholder="$t('home.beschreibeSimulationsOderVorhersagebedarfInNaturlicherSprache')"
                   rows="6"
                   :disabled="loading"
                 ></textarea>
-                <div class="model-badge">Engine: MiroFish-V1.0</div>
+                <div class="model-badge">{{ $t('home.engineMirofishV10') }}</div>
               </div>
             </div>
 
@@ -307,8 +308,8 @@
                 @click="startSimulation"
                 :disabled="!canSubmit || loading"
               >
-                <span v-if="!loading">Engine starten</span>
-                <span v-else>Initialisiere...</span>
+                <span v-if="!loading">{{ $t('home.engineStarten') }}</span>
+                <span v-else>{{ $t('home.initialisiere') }}</span>
                 <span class="btn-arrow">→</span>
               </button>
             </div>
@@ -324,9 +325,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import service from '../api/index'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -403,11 +408,11 @@ const saveSettings = async () => {
   try {
     const res = await service.post('/api/graph/system/config', configData.value)
     if (res && res.success) {
-      alert('Konfiguration gespeichert!')
+      alert(t('home.configurationSaved'))
       await fetchStatus()
     }
   } catch (err) {
-    alert('Fehler beim Speichern: ' + (err.response?.data?.error || err.message))
+    alert(t('home.fehlerBeimSpeichern') + (err.response?.data?.error || err.message))
   } finally {
     saving.value = false
   }
@@ -428,7 +433,7 @@ const testLlmConnection = async () => {
   } catch (err) {
     testResult.value = {
       success: false,
-      message: 'Test fehlgeschlagen: ' + (err.response?.data?.error || err.message)
+      message: t('home.testFehlgeschlagen') + (err.response?.data?.error || err.message)
     }
   } finally {
     testing.value = false

@@ -6,10 +6,11 @@
       
       <!-- Mittlerer Schrittindikator -->
       <div class="nav-center">
-        <div class="step-badge">STEP 01</div>
-        <div class="step-name">Graph erstellen</div>
+        <div class="step-badge">{{ $t('process.step01') }}</div>
+        <div class="step-name">{{ $t('process.graphErstellen') }}</div>
       </div>
 
+      <LanguageSwitcher />
       <div class="nav-status">
         <span class="status-dot" :class="statusClass"></span>
         <span class="status-text">{{ statusText }}</span>
@@ -23,20 +24,20 @@
         <div class="panel-header">
           <div class="header-left">
             <span class="header-deco">◆</span>
-            <span class="header-title">Echtzeit-Wissensgraph</span>
+            <span class="header-title">{{ $t('process.echtzeitWissensgraph') }}</span>
           </div>
           <div class="header-right">
             <template v-if="graphData">
-              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} Knoten</span>
+              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} {{ $t('process.knoten') }}</span>
               <span class="stat-divider">|</span>
-              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} Beziehungen</span>
+              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} {{ $t('process.beziehungen') }}</span>
               <span class="stat-divider">|</span>
             </template>
             <div class="action-buttons">
-                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" title="Graph aktualisieren">
+                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" :title="$t('process.refreshGraph')">
                   <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
                 </button>
-                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? 'Vollbild beenden' : 'Vollbild anzeigen'">
+                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? $t('process.exitFullscreen') : $t('process.showFullscreen')">
                   <span class="icon-fullscreen">{{ isFullScreen ? '↙' : '↗' }}</span>
                 </button>
             </div>
@@ -50,13 +51,13 @@
             <!-- Aufbau-Hinweis -->
             <div v-if="currentPhase === 1" class="graph-building-hint">
               <span class="building-dot"></span>
-              Echtzeit-Aktualisierung...
+              {{ $t('process.liveUpdate') }}
             </div>
             
             <!-- Knoten-/Kanten-Detailbereich -->
             <div v-if="selectedItem" class="detail-panel">
               <div class="detail-panel-header">
-                <span class="detail-title">{{ selectedItem.type === 'node' ? 'Knotendetails' : 'Beziehung' }}</span>
+                <span class="detail-title">{{ selectedItem.type === 'node' ? $t('process.nodeDetails') : $t('process.relationship') }}</span>
                 <span v-if="selectedItem.type === 'node'" class="detail-badge" :style="{ background: selectedItem.color }">
                   {{ selectedItem.entityType }}
                 </span>
@@ -66,21 +67,21 @@
               <!-- Knotendetails -->
               <div v-if="selectedItem.type === 'node'" class="detail-content">
                 <div class="detail-row">
-                  <span class="detail-label">Name:</span>
+                  <span class="detail-label">{{ $t('process.name') }}</span>
                   <span class="detail-value highlight">{{ selectedItem.data.name }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">UUID:</span>
+                  <span class="detail-label">{{ $t('process.uuid') }}</span>
                   <span class="detail-value uuid">{{ selectedItem.data.uuid }}</span>
                 </div>
                 <div class="detail-row" v-if="selectedItem.data.created_at">
-                  <span class="detail-label">Erstellt:</span>
+                  <span class="detail-label">{{ $t('process.created') }}</span>
                   <span class="detail-value">{{ formatDate(selectedItem.data.created_at) }}</span>
                 </div>
 
                 <!-- Eigenschaften / Attribute -->
                 <div class="detail-section" v-if="selectedItem.data.attributes && Object.keys(selectedItem.data.attributes).length > 0">
-                  <span class="detail-label">Eigenschaften:</span>
+                  <span class="detail-label">{{ $t('process.properties') }}</span>
                   <div class="properties-list">
                     <div v-for="(value, key) in selectedItem.data.attributes" :key="key" class="property-item">
                       <span class="property-key">{{ key }}:</span>
@@ -91,13 +92,13 @@
                 
                 <!-- Zusammenfassung -->
                 <div class="detail-section" v-if="selectedItem.data.summary">
-                  <span class="detail-label">Zusammenfassung:</span>
+                  <span class="detail-label">{{ $t('process.summary') }}</span>
                   <p class="detail-summary">{{ selectedItem.data.summary }}</p>
                 </div>
                 
                 <!-- Bezeichnungen -->
                 <div class="detail-row" v-if="selectedItem.data.labels?.length">
-                  <span class="detail-label">Bezeichnungen:</span>
+                  <span class="detail-label">{{ $t('process.labels') }}</span>
                   <div class="detail-labels">
                     <span v-for="label in selectedItem.data.labels" :key="label" class="label-tag">{{ label }}</span>
                   </div>
@@ -115,49 +116,49 @@
                   <span class="edge-target">{{ selectedItem.data.target_name || selectedItem.data.target_node_name }}</span>
                 </div>
                 
-                <div class="detail-subtitle">Beziehung</div>
+                <div class="detail-subtitle">{{ $t('process.relationship') }}</div>
                 
                 <div class="detail-row">
-                  <span class="detail-label">UUID:</span>
+                  <span class="detail-label">{{ $t('process.uuid') }}</span>
                   <span class="detail-value uuid">{{ selectedItem.data.uuid }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Bezeichnung:</span>
+                  <span class="detail-label">{{ $t('process.label') }}</span>
                   <span class="detail-value">{{ selectedItem.data.name || selectedItem.data.fact_type || 'RELATED_TO' }}</span>
                 </div>
                 <div class="detail-row" v-if="selectedItem.data.fact_type">
-                  <span class="detail-label">Typ:</span>
+                  <span class="detail-label">{{ $t('process.type') }}</span>
                   <span class="detail-value">{{ selectedItem.data.fact_type }}</span>
                 </div>
                 
                 <!-- Fact -->
                 <div class="detail-section" v-if="selectedItem.data.fact">
-                  <span class="detail-label">Fakt:</span>
+                  <span class="detail-label">{{ $t('process.fact') }}</span>
                   <p class="detail-summary">{{ selectedItem.data.fact }}</p>
                 </div>
                 
                 <!-- Episodes -->
                 <div class="detail-section" v-if="selectedItem.data.episodes?.length">
-                  <span class="detail-label">Episoden:</span>
+                  <span class="detail-label">{{ $t('process.episodes') }}</span>
                   <div class="episodes-list">
                     <span v-for="ep in selectedItem.data.episodes" :key="ep" class="episode-tag">{{ ep }}</span>
                   </div>
                 </div>
                 
                 <div class="detail-row" v-if="selectedItem.data.created_at">
-                  <span class="detail-label">Erstellt:</span>
+                  <span class="detail-label">{{ $t('process.created') }}</span>
                   <span class="detail-value">{{ formatDate(selectedItem.data.created_at) }}</span>
                 </div>
                 <div class="detail-row" v-if="selectedItem.data.valid_at">
-                  <span class="detail-label">Gültig ab:</span>
+                  <span class="detail-label">{{ $t('process.validFrom') }}</span>
                   <span class="detail-value">{{ formatDate(selectedItem.data.valid_at) }}</span>
                 </div>
                 <div class="detail-row" v-if="selectedItem.data.invalid_at">
-                  <span class="detail-label">Ungültig ab:</span>
+                  <span class="detail-label">{{ $t('process.invalidFrom') }}</span>
                   <span class="detail-value">{{ formatDate(selectedItem.data.invalid_at) }}</span>
                 </div>
                 <div class="detail-row" v-if="selectedItem.data.expired_at">
-                  <span class="detail-label">Abgelaufen am:</span>
+                  <span class="detail-label">{{ $t('process.expiredAt') }}</span>
                   <span class="detail-value">{{ formatDate(selectedItem.data.expired_at) }}</span>
                 </div>
               </div>
@@ -171,7 +172,7 @@
               <div class="loading-ring"></div>
               <div class="loading-ring"></div>
             </div>
-            <p class="loading-text">Graphdaten werden geladen...</p>
+            <p class="loading-text">{{ $t('process.loadingGraphData') }}</p>
           </div>
           
           <!-- Warten auf Aufbau -->
@@ -189,8 +190,8 @@
                 <line x1="50" y1="72" x2="74" y2="66" stroke="#000" stroke-width="1"/>
               </svg>
             </div>
-            <p class="waiting-text">Warten auf Ontologie-Generierung</p>
-            <p class="waiting-hint">Nach Abschluss der Generierung wird der Graph automatisch aufgebaut</p>
+            <p class="waiting-text">{{ $t('process.waitingForOntology') }}</p>
+            <p class="waiting-hint">{{ $t('process.graphBuildsAfterGeneration') }}</p>
           </div>
           
           <!-- Wird aufgebaut, aber noch keine Daten -->
@@ -200,8 +201,8 @@
               <div class="loading-ring"></div>
               <div class="loading-ring"></div>
             </div>
-            <p class="waiting-text">Graph wird aufgebaut</p>
-            <p class="waiting-hint">Daten werden gleich angezeigt...</p>
+            <p class="waiting-text">{{ $t('process.graphWirdAufgebaut') }}</p>
+            <p class="waiting-hint">{{ $t('process.dataWillAppear') }}</p>
           </div>
           
           <!-- Fehlerzustand -->
@@ -225,7 +226,7 @@
       <div class="right-panel" :class="{ 'hidden': isFullScreen }">
         <div class="panel-header dark-header">
           <span class="header-icon">▣</span>
-          <span class="header-title">Aufbauprozess</span>
+          <span class="header-title">{{ $t('process.buildProcess') }}</span>
         </div>
 
         <div class="process-content">
@@ -234,7 +235,7 @@
             <div class="phase-header">
               <span class="phase-num">01</span>
               <div class="phase-info">
-                <div class="phase-title">Ontologie-Generierung</div>
+                <div class="phase-title">{{ $t('process.ontologyGeneration') }}</div>
                 <div class="phase-api">/api/graph/ontology/generate</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(0)">
@@ -244,15 +245,15 @@
             
             <div class="phase-detail">
               <div class="detail-section">
-                <div class="detail-label">Schnittstellenbeschreibung</div>
+                <div class="detail-label">{{ $t('process.interfaceDescription') }}</div>
                 <div class="detail-content">
-                  Nach dem Hochladen von Dokumenten analysiert LLM den Inhalt und generiert automatisch eine für Meinungssimulation geeignete Ontologie-Struktur (Entitätstypen + Beziehungstypen)
+                  {{ $t('process.ontologyDescription') }}
                 </div>
               </div>
               
               <!-- Ontologie-Generierungsfortschritt -->
               <div class="detail-section" v-if="ontologyProgress && currentPhase === 0">
-                <div class="detail-label">Generierungsfortschritt</div>
+                <div class="detail-label">{{ $t('process.generationProgress') }}</div>
                 <div class="ontology-progress">
                   <div class="progress-spinner"></div>
                   <span class="progress-text">{{ ontologyProgress.message }}</span>
@@ -261,7 +262,7 @@
               
               <!-- Generierte Ontologie-Informationen -->
               <div class="detail-section" v-if="projectData?.ontology">
-                <div class="detail-label">Generierte Entitätstypen ({{ projectData.ontology.entity_types?.length || 0 }})</div>
+                <div class="detail-label">{{ $t('process.generatedEntityTypes', { count: projectData.ontology.entity_types?.length || 0 }) }}</div>
                 <div class="entity-tags">
                   <span 
                     v-for="entity in projectData.ontology.entity_types" 
@@ -274,7 +275,7 @@
               </div>
               
               <div class="detail-section" v-if="projectData?.ontology">
-                <div class="detail-label">Generierte Beziehungstypen ({{ projectData.ontology.relation_types?.length || 0 }})</div>
+                <div class="detail-label">{{ $t('process.generatedRelationshipTypes', { count: projectData.ontology.relation_types?.length || 0 }) }}</div>
                 <div class="relation-list">
                   <div 
                     v-for="(rel, idx) in projectData.ontology.relation_types?.slice(0, 5) || []" 
@@ -288,14 +289,14 @@
                     <span class="rel-target">{{ rel.target_type }}</span>
                   </div>
                   <div v-if="(projectData.ontology.relation_types?.length || 0) > 5" class="relation-more">
-                    +{{ projectData.ontology.relation_types.length - 5 }} weitere Beziehungen...
+                    {{ $t('process.moreRelationships', { count: projectData.ontology.relation_types.length - 5 }) }}
                   </div>
                 </div>
               </div>
               
               <!-- Wartezustand -->
               <div class="detail-section waiting-state" v-if="!projectData?.ontology && currentPhase === 0 && !ontologyProgress">
-                <div class="waiting-hint">Warten auf Ontologie-Generierung...</div>
+                <div class="waiting-hint">{{ $t('process.waitingForOntologyEllipsis') }}</div>
               </div>
             </div>
           </div>
@@ -305,7 +306,7 @@
             <div class="phase-header">
               <span class="phase-num">02</span>
               <div class="phase-info">
-                <div class="phase-title">Graph-Aufbau</div>
+                <div class="phase-title">{{ $t('process.graphBuild') }}</div>
                 <div class="phase-api">/api/graph/build</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(1)">
@@ -315,20 +316,20 @@
             
             <div class="phase-detail">
               <div class="detail-section">
-                <div class="detail-label">Schnittstellenbeschreibung</div>
+                <div class="detail-label">{{ $t('process.interfaceDescription') }}</div>
                 <div class="detail-content">
-                  Basierend auf der generierten Ontologie werden Dokumente in Abschnitte unterteilt und über die Zep API ein Wissensgraph aufgebaut, wobei Entitäten und Beziehungen extrahiert werden
+                  {{ $t('process.graphBuildDescription') }}
                 </div>
               </div>
               
               <!-- Warten auf Ontologie-Abschluss -->
               <div class="detail-section waiting-state" v-if="currentPhase < 1">
-                <div class="waiting-hint">Warten auf Abschluss der Ontologie-Generierung...</div>
+                <div class="waiting-hint">{{ $t('process.waitingForOntologyCompletion') }}</div>
               </div>
               
               <!-- Aufbaufortschritt -->
               <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
-                <div class="detail-label">Aufbaufortschritt</div>
+                <div class="detail-label">{{ $t('process.buildProgress') }}</div>
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: buildProgress.progress + '%' }"></div>
                 </div>
@@ -339,19 +340,19 @@
               </div>
               
               <div class="detail-section" v-if="graphData">
-                <div class="detail-label">Aufbauergebnis</div>
+                <div class="detail-label">{{ $t('process.buildResult') }}</div>
                 <div class="build-result">
                   <div class="result-item">
                     <span class="result-value">{{ graphData.node_count }}</span>
-                    <span class="result-label">Entitätsknoten</span>
+                    <span class="result-label">{{ $t('process.entityNodes') }}</span>
                   </div>
                   <div class="result-item">
                     <span class="result-value">{{ graphData.edge_count }}</span>
-                    <span class="result-label">Beziehungskanten</span>
+                    <span class="result-label">{{ $t('process.relationshipEdges') }}</span>
                   </div>
                   <div class="result-item">
                     <span class="result-value">{{ entityTypes.length }}</span>
-                    <span class="result-label">Entitätstypen</span>
+                    <span class="result-label">{{ $t('process.entityTypes') }}</span>
                   </div>
                 </div>
               </div>
@@ -363,8 +364,8 @@
             <div class="phase-header">
               <span class="phase-num">03</span>
               <div class="phase-info">
-                <div class="phase-title">Aufbau abgeschlossen</div>
-                <div class="phase-api">Bereit für den nächsten Schritt</div>
+                <div class="phase-title">{{ $t('process.buildComplete') }}</div>
+                <div class="phase-api">{{ $t('process.readyForNextStep') }}</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(2)">
                 {{ getPhaseStatusText(2) }}
@@ -375,7 +376,7 @@
           <!-- Nächster-Schritt-Button -->
           <div class="next-step-section" v-if="currentPhase >= 2">
             <button class="next-step-btn" @click="goToNextStep" :disabled="currentPhase < 2">
-              Zur Umgebungseinrichtung
+              {{ $t('process.toEnvironmentSetup') }}
               <span class="btn-arrow">→</span>
             </button>
           </div>
@@ -385,23 +386,23 @@
         <div class="project-panel">
           <div class="project-header">
             <span class="project-icon">◇</span>
-            <span class="project-title">Projektinformation</span>
+            <span class="project-title">{{ $t('process.projectInformation') }}</span>
           </div>
           <div class="project-details" v-if="projectData">
             <div class="project-item">
-              <span class="item-label">Projektname</span>
+              <span class="item-label">{{ $t('process.projectName') }}</span>
               <span class="item-value">{{ projectData.name }}</span>
             </div>
             <div class="project-item">
-              <span class="item-label">Projekt-ID</span>
+              <span class="item-label">{{ $t('process.projectId') }}</span>
               <span class="item-value code">{{ projectData.project_id }}</span>
             </div>
             <div class="project-item" v-if="projectData.graph_id">
-              <span class="item-label">Graph-ID</span>
+              <span class="item-label">{{ $t('process.graphId') }}</span>
               <span class="item-value code">{{ projectData.graph_id }}</span>
             </div>
             <div class="project-item">
-              <span class="item-label">Simulationsanforderung</span>
+              <span class="item-label">{{ $t('process.simulationRequirement') }}</span>
               <span class="item-value">{{ projectData.simulation_requirement || '-' }}</span>
             </div>
           </div>
@@ -413,10 +414,14 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -451,10 +456,10 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (error.value) return 'Aufbau fehlgeschlagen'
-  if (currentPhase.value >= 2) return 'Aufbau abgeschlossen'
-  if (currentPhase.value === 1) return 'Graph wird aufgebaut'
-  if (currentPhase.value === 0) return 'Ontologie wird generiert'
+  if (error.value) return t('process.aufbauFehlgeschlagen')
+  if (currentPhase.value >= 2) return t('process.aufbauAbgeschlossen')
+  if (currentPhase.value === 1) return t('process.graphWirdAufgebaut')
+  if (currentPhase.value === 0) return t('process.ontologieWirdGeneriert')
   return 'Initialisierung'
 })
 
@@ -482,7 +487,7 @@ const goHome = () => {
 
 const goToNextStep = () => {
   // TODO: Zur Umgebungseinrichtung wechseln
-  alert('Umgebungseinrichtung in Entwicklung...')
+  alert(t('process.environmentSetupInDevelopment'))
 }
 
 const toggleFullScreen = () => {
@@ -540,14 +545,14 @@ const getPhaseStatusClass = (phase) => {
 }
 
 const getPhaseStatusText = (phase) => {
-  if (currentPhase.value > phase) return 'Abgeschlossen'
+  if (currentPhase.value > phase) return t('common.completed')
   if (currentPhase.value === phase) {
     if (phase === 1 && buildProgress.value) {
       return `${buildProgress.value.progress}%`
     }
-    return 'In Bearbeitung'
+    return t('common.processing')
   }
-  return 'Wartend'
+  return t('common.pending')
 }
 
 // Initialisierung - Neues Projekt erstellen oder bestehendes laden
@@ -569,7 +574,7 @@ const handleNewProject = async () => {
   const pending = getPendingUpload()
   
   if (!pending.isPending || pending.files.length === 0) {
-    error.value = 'Keine Dateien zum Hochladen vorhanden. Bitte zur Startseite zurückkehren.'
+    error.value = t('process.keineDateienZumHochladenVorhandenBitteZur')
     loading.value = false
     return
   }
@@ -577,7 +582,7 @@ const handleNewProject = async () => {
   try {
     loading.value = true
     currentPhase.value = 0 // Ontologie-Generierungsphase
-    ontologyProgress.value = { message: 'Dateien werden hochgeladen und Dokumente analysiert...' }
+    ontologyProgress.value = { message: t('process.dateienWerdenHochgeladenUndDokumenteAnalysiert') }
     
     // FormData erstellen
     const formDataObj = new FormData()
@@ -608,11 +613,11 @@ const handleNewProject = async () => {
       // Automatisch Graph-Aufbau starten
       await startBuildGraph()
     } else {
-      error.value = response.error || 'Ontologie-Generierung fehlgeschlagen'
+      error.value = response.error || t('process.ontologieGenerierungFehlgeschlagen')
     }
   } catch (err) {
     console.error('Handle new project error:', err)
-    error.value = 'Projektinitialisierung fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler')
+    error.value = t('process.projektinitialisierungFehlgeschlagen') + (err.message || t('common.unknownError'))
   } finally {
     loading.value = false
   }
@@ -645,11 +650,11 @@ const loadProject = async () => {
         await loadGraph(response.data.graph_id)
       }
     } else {
-      error.value = response.error || 'Projekt laden fehlgeschlagen'
+      error.value = response.error || t('process.projektLadenFehlgeschlagen')
     }
   } catch (err) {
     console.error('Load project error:', err)
-    error.value = 'Projekt laden fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler')
+    error.value = t('process.projektLadenFehlgeschlagen2') + (err.message || t('common.unknownError'))
   } finally {
     loading.value = false
   }
@@ -668,7 +673,7 @@ const updatePhaseByStatus = (status) => {
       currentPhase.value = 2
       break
     case 'failed':
-      error.value = projectData.value?.error || 'Verarbeitung fehlgeschlagen'
+      error.value = projectData.value?.error || t('process.verarbeitungFehlgeschlagen')
       break
   }
 }
@@ -680,13 +685,13 @@ const startBuildGraph = async () => {
     // Anfangsfortschritt setzen
     buildProgress.value = {
       progress: 0,
-      message: 'Graph-Aufbau wird gestartet...'
+      message: t('process.graphAufbauWirdGestartet')
     }
     
     const response = await buildGraph({ project_id: currentProjectId.value })
     
     if (response.success) {
-      buildProgress.value.message = 'Graph-Aufbau-Aufgabe wurde gestartet...'
+      buildProgress.value.message = t('process.graphAufbauAufgabeWurdeGestartet')
       
       // task_id für Polling speichern
       const taskId = response.data.task_id
@@ -697,12 +702,12 @@ const startBuildGraph = async () => {
       // Aufgabenstatus-Polling starten
       startPollingTask(taskId)
     } else {
-      error.value = response.error || 'Graph-Aufbau starten fehlgeschlagen'
+      error.value = response.error || t('process.graphAufbauStartenFehlgeschlagen')
       buildProgress.value = null
     }
   } catch (err) {
-    console.error('Build graph error:', err)
-    error.value = 'Graph-Aufbau starten fehlgeschlagen: ' + (err.message || 'Unbekannter Fehler')
+    console.error(t('process.buildGraphError'), err)
+    error.value = t('process.graphAufbauStartenFehlgeschlagen2') + (err.message || t('common.unknownError'))
     buildProgress.value = null
   }
 }
@@ -754,7 +759,7 @@ const fetchGraphData = async () => {
         const newNodeCount = newData.node_count || newData.nodes?.length || 0
         const oldNodeCount = graphData.value?.node_count || graphData.value?.nodes?.length || 0
         
-        console.log('Fetching graph data, nodes:', newNodeCount, 'edges:', newData.edge_count || newData.edges?.length || 0)
+        console.log(t('process.fetchingGraphDataNodes'), newNodeCount, 'edges:', newData.edge_count || newData.edges?.length || 0)
         
         // Bei Datenänderung Rendering aktualisieren
         if (newNodeCount !== oldNodeCount || !graphData.value) {
@@ -765,7 +770,7 @@ const fetchGraphData = async () => {
       }
     }
   } catch (err) {
-    console.log('Graph data fetch:', err.message || 'not ready')
+    console.log(t('process.graphDataFetch'), err.message || 'not ready')
   }
 }
 
@@ -791,13 +796,13 @@ const pollTaskStatus = async (taskId) => {
       // Fortschrittsanzeige aktualisieren
       buildProgress.value = {
         progress: task.progress || 0,
-        message: task.message || 'Wird verarbeitet...'
+        message: task.message || t('common.processingEllipsis')
       }
       
       console.log('Task status:', task.status, 'Progress:', task.progress)
       
       if (task.status === 'completed') {
-        console.log('Graph-Aufbau abgeschlossen, vollständige Daten werden geladen...')
+        console.log(t('process.graphAufbauAbgeschlossenVollstandigeDatenWerdenGeladen'))
         
         stopPolling()
         stopGraphPolling()
@@ -806,7 +811,7 @@ const pollTaskStatus = async (taskId) => {
         // Fortschrittsanzeige auf Abgeschlossen aktualisieren
         buildProgress.value = {
           progress: 100,
-          message: 'Aufbau abgeschlossen, Graph wird geladen...'
+          message: t('process.aufbauAbgeschlossenGraphWirdGeladen')
         }
         
         // Projektdaten neu laden um graph_id zu erhalten
@@ -816,9 +821,9 @@ const pollTaskStatus = async (taskId) => {
           
           // Endgültig vollständige Graph-Daten laden
           if (projectResponse.data.graph_id) {
-            console.log('Vollständigen Graph laden:', projectResponse.data.graph_id)
+            console.log(t('process.vollstandigenGraphLaden'), projectResponse.data.graph_id)
             await loadGraph(projectResponse.data.graph_id)
-            console.log('Graph erfolgreich geladen')
+            console.log(t('process.graphErfolgreichGeladen'))
           }
         }
         
@@ -827,7 +832,7 @@ const pollTaskStatus = async (taskId) => {
       } else if (task.status === 'failed') {
         stopPolling()
         stopGraphPolling()
-        error.value = 'Graph-Aufbau fehlgeschlagen: ' + (task.error || 'Unbekannter Fehler')
+        error.value = t('process.graphAufbauFehlgeschlagen') + (task.error || t('common.unknownError'))
         buildProgress.value = null
       }
     }
@@ -855,7 +860,7 @@ const loadGraph = async (graphId) => {
       renderGraph()
     }
   } catch (err) {
-    console.error('Load graph error:', err)
+    console.error(t('process.loadGraphError'), err)
   } finally {
     graphLoading.value = false
   }
@@ -884,7 +889,7 @@ const renderGraph = () => {
     return
   }
   
-  console.log('Rendering graph:', width, 'x', height)
+  console.log(t('process.renderingGraph'), width, 'x', height)
   
   const svg = d3.select(graphSvg.value)
     .attr('width', width)
@@ -905,7 +910,7 @@ const renderGraph = () => {
       .attr('y', height / 2)
       .attr('text-anchor', 'middle')
       .attr('fill', '#999')
-      .text('Warten auf Graph-Daten...')
+      .text(t('process.wartenAufGraphDaten'))
     return
   }
   
@@ -933,8 +938,8 @@ const renderGraph = () => {
       type: e.fact_type || e.name || 'RELATED_TO',
       rawData: {
         ...e,
-        source_name: nodeMap[e.source_node_uuid]?.name || 'Unbekannt',
-        target_name: nodeMap[e.target_node_uuid]?.name || 'Unbekannt'
+        source_name: nodeMap[e.source_node_uuid]?.name || t('process.unknown'),
+        target_name: nodeMap[e.target_node_uuid]?.name || t('process.unknown')
       }
     }))
   

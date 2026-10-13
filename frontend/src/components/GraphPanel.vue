@@ -1,14 +1,14 @@
 <template>
   <div class="graph-panel">
     <div class="panel-header">
-      <span class="panel-title">Graph-Beziehungsvisualisierung</span>
+      <span class="panel-title">{{ $t('graph.graphBeziehungsvisualisierung') }}</span>
       <!-- Obere Werkzeugleiste (Intern oben rechts) -->
       <div class="header-tools">
-        <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" title="Graph aktualisieren">
+        <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" :title="$t('graph.graphAktualisieren')">
           <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
-          <span class="btn-text">Aktualisieren</span>
+          <span class="btn-text">{{ $t('common.refresh') }}</span>
         </button>
-        <button class="tool-btn" @click="$emit('toggle-maximize')" title="Maximieren/Wiederherstellen">
+        <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.maximierenWiederherstellen')">
           <span class="icon-maximize">⛶</span>
         </button>
       </div>
@@ -27,7 +27,7 @@
               <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-4.04z" />
             </svg>
           </div>
-          {{ isSimulating ? 'GraphRAG Langzeit-/Kurzzeitgedächtnis wird aktualisiert' : 'Echtzeit-Aktualisierung...' }}
+          {{ isSimulating ? $t('graph.graphragLangzeitKurzzeitgedachtnisWirdAktualisiert') : $t('graph.liveUpdate') }}
         </div>
         
         <!-- Hinweis nach Simulationsende -->
@@ -39,8 +39,8 @@
               <line x1="12" y1="8" x2="12.01" y2="8"></line>
             </svg>
           </div>
-          <span class="hint-text">Es werden noch wenige Inhalte verarbeitet, bitte aktualisieren Sie den Graph später manuell</span>
-          <button class="hint-close-btn" @click="dismissFinishedHint" title="Hinweis schließen">
+          <span class="hint-text">{{ $t('graph.esWerdenNochWenigeInhalteVerarbeitetBitte') }}</span>
+          <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('graph.hinweisSchliessen')">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -51,7 +51,7 @@
         <!-- Knoten-/Kantendetail-Panel -->
         <div v-if="selectedItem" class="detail-panel">
           <div class="detail-panel-header">
-            <span class="detail-title">{{ selectedItem.type === 'node' ? 'Knotendetails' : 'Beziehung' }}</span>
+            <span class="detail-title">{{ selectedItem.type === 'node' ? $t('graph.nodeDetails') : $t('graph.relationship') }}</span>
             <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: '#fff' }">
               {{ selectedItem.entityType }}
             </span>
@@ -61,38 +61,38 @@
           <!-- Knotendetails -->
           <div v-if="selectedItem.type === 'node'" class="detail-content">
             <div class="detail-row">
-              <span class="detail-label">Name:</span>
+              <span class="detail-label">{{ $t('graph.name') }}</span>
               <span class="detail-value">{{ selectedItem.data.name }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">UUID:</span>
+              <span class="detail-label">{{ $t('graph.uuid') }}</span>
               <span class="detail-value uuid-text">{{ selectedItem.data.uuid }}</span>
             </div>
             <div class="detail-row" v-if="selectedItem.data.created_at">
-              <span class="detail-label">Erstellt:</span>
+              <span class="detail-label">{{ $t('graph.erstellt') }}</span>
               <span class="detail-value">{{ formatDateTime(selectedItem.data.created_at) }}</span>
             </div>
 
             <!-- Eigenschaften -->
             <div class="detail-section" v-if="selectedItem.data.attributes && Object.keys(selectedItem.data.attributes).length > 0">
-              <div class="section-title">Eigenschaften:</div>
+              <div class="section-title">{{ $t('graph.eigenschaften') }}</div>
               <div class="properties-list">
                 <div v-for="(value, key) in selectedItem.data.attributes" :key="key" class="property-item">
                   <span class="property-key">{{ key }}:</span>
-                  <span class="property-value">{{ value || 'Keine' }}</span>
+                  <span class="property-value">{{ value || $t('common.none') }}</span>
                 </div>
               </div>
             </div>
             
             <!-- Zusammenfassung -->
             <div class="detail-section" v-if="selectedItem.data.summary">
-              <div class="section-title">Zusammenfassung:</div>
+              <div class="section-title">{{ $t('graph.zusammenfassung') }}</div>
               <div class="summary-text">{{ selectedItem.data.summary }}</div>
             </div>
             
             <!-- Bezeichnungen -->
             <div class="detail-section" v-if="selectedItem.data.labels && selectedItem.data.labels.length > 0">
-              <div class="section-title">Bezeichnungen:</div>
+              <div class="section-title">{{ $t('graph.bezeichnungen') }}</div>
               <div class="labels-list">
                 <span v-for="label in selectedItem.data.labels" :key="label" class="label-tag">
                   {{ label }}
@@ -106,8 +106,8 @@
             <!-- Selbstschleifen-Gruppendetails -->
             <template v-if="selectedItem.data.isSelfLoopGroup">
               <div class="edge-relation-header self-loop-header">
-                {{ selectedItem.data.source_name }} - Selbstbeziehungen
-                <span class="self-loop-count">{{ selectedItem.data.selfLoopCount }} Einträge</span>
+                {{ selectedItem.data.source_name }} {{ $t('graph.selbstbeziehungen') }}
+                <span class="self-loop-count">{{ selectedItem.data.selfLoopCount }} {{ $t('graph.eintrage') }}</span>
               </div>
               
               <div class="self-loop-list">
@@ -128,23 +128,23 @@
                   
                   <div class="self-loop-item-content" v-show="expandedSelfLoops.has(loop.uuid || idx)">
                     <div class="detail-row" v-if="loop.uuid">
-                      <span class="detail-label">UUID:</span>
+                      <span class="detail-label">{{ $t('graph.uuid') }}</span>
                       <span class="detail-value uuid-text">{{ loop.uuid }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.fact">
-                      <span class="detail-label">Fakt:</span>
+                      <span class="detail-label">{{ $t('graph.fakt') }}</span>
                       <span class="detail-value fact-text">{{ loop.fact }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.fact_type">
-                      <span class="detail-label">Typ:</span>
+                      <span class="detail-label">{{ $t('graph.typ') }}</span>
                       <span class="detail-value">{{ loop.fact_type }}</span>
                     </div>
                     <div class="detail-row" v-if="loop.created_at">
-                      <span class="detail-label">Erstellt:</span>
+                      <span class="detail-label">{{ $t('graph.erstellt') }}</span>
                       <span class="detail-value">{{ formatDateTime(loop.created_at) }}</span>
                     </div>
                     <div v-if="loop.episodes && loop.episodes.length > 0" class="self-loop-episodes">
-                      <span class="detail-label">Episoden:</span>
+                      <span class="detail-label">{{ $t('graph.episoden') }}</span>
                       <div class="episodes-list compact">
                         <span v-for="ep in loop.episodes" :key="ep" class="episode-tag small">{{ ep }}</span>
                       </div>
@@ -161,25 +161,25 @@
               </div>
               
               <div class="detail-row">
-                <span class="detail-label">UUID:</span>
+                <span class="detail-label">{{ $t('graph.uuid') }}</span>
                 <span class="detail-value uuid-text">{{ selectedItem.data.uuid }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Bezeichnung:</span>
+                <span class="detail-label">{{ $t('graph.label') }}</span>
                 <span class="detail-value">{{ selectedItem.data.name || 'RELATED_TO' }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">Typ:</span>
-                <span class="detail-value">{{ selectedItem.data.fact_type || 'Unbekannt' }}</span>
+                <span class="detail-label">{{ $t('graph.type') }}</span>
+                <span class="detail-value">{{ selectedItem.data.fact_type || $t('graph.unknown') }}</span>
               </div>
               <div class="detail-row" v-if="selectedItem.data.fact">
-                <span class="detail-label">Fakt:</span>
+                <span class="detail-label">{{ $t('graph.fact') }}</span>
                 <span class="detail-value fact-text">{{ selectedItem.data.fact }}</span>
               </div>
               
               <!-- Episoden -->
               <div class="detail-section" v-if="selectedItem.data.episodes && selectedItem.data.episodes.length > 0">
-                <div class="section-title">Episoden:</div>
+                <div class="section-title">{{ $t('graph.episodes') }}</div>
                 <div class="episodes-list">
                   <span v-for="ep in selectedItem.data.episodes" :key="ep" class="episode-tag">
                     {{ ep }}
@@ -188,11 +188,11 @@
               </div>
               
               <div class="detail-row" v-if="selectedItem.data.created_at">
-                <span class="detail-label">Erstellt:</span>
+                <span class="detail-label">{{ $t('graph.created') }}</span>
                 <span class="detail-value">{{ formatDateTime(selectedItem.data.created_at) }}</span>
               </div>
               <div class="detail-row" v-if="selectedItem.data.valid_at">
-                <span class="detail-label">Gültig ab:</span>
+                <span class="detail-label">{{ $t('graph.validFrom') }}</span>
                 <span class="detail-value">{{ formatDateTime(selectedItem.data.valid_at) }}</span>
               </div>
             </template>
@@ -203,19 +203,19 @@
       <!-- Ladezustand -->
       <div v-else-if="loading" class="graph-state">
         <div class="loading-spinner"></div>
-        <p>Graphdaten werden geladen...</p>
+        <p>{{ $t('graph.loadingGraphData') }}</p>
       </div>
 
       <!-- Warte-/Leerzustand -->
       <div v-else class="graph-state">
         <div class="empty-icon">❖</div>
-        <p class="empty-text">Warten auf Ontologie-Generierung...</p>
+        <p class="empty-text">{{ $t('graph.waitingForOntology') }}</p>
       </div>
     </div>
 
     <!-- Legende unten (Bottom Left) -->
     <div v-if="graphData && entityTypes.length" class="graph-legend">
-      <span class="legend-title">Entitätstypen</span>
+      <span class="legend-title">{{ $t('graph.entityTypes') }}</span>
       <div class="legend-items">
         <div class="legend-item" v-for="type in entityTypes" :key="type.name">
           <span class="legend-dot" :style="{ background: type.color }"></span>
@@ -230,7 +230,7 @@
         <input type="checkbox" v-model="showEdgeLabels" />
         <span class="slider"></span>
       </label>
-      <span class="toggle-label">Kantenbezeichnungen anzeigen</span>
+      <span class="toggle-label">{{ $t('graph.showEdgeLabels') }}</span>
     </div>
   </div>
 </template>

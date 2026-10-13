@@ -15,15 +15,16 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: 'Graph', split: 'Zweispaltig', workbench: 'Arbeitsbereich' }[mode] }}
+            {{ { graph: $t('interactionView.graph'), split: $t('common.splitView'), workbench: $t('common.workspace') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
+        <LanguageSwitcher />
         <div class="workflow-step">
-          <span class="step-num">Schritt 5/5</span>
-          <span class="step-name">Tiefe Interaktion</span>
+          <span class="step-num">{{ $t('interactionView.schritt55') }}</span>
+          <span class="step-name">{{ $t('interactionView.tiefeInteraktion') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -63,12 +64,16 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
+import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
 import { getReport } from '../api/report'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -109,10 +114,10 @@ const statusClass = computed(() => {
 })
 
 const statusText = computed(() => {
-  if (currentStatus.value === 'error') return 'Fehler'
-  if (currentStatus.value === 'completed') return 'Abgeschlossen'
+  if (currentStatus.value === 'error') return t('common.error')
+  if (currentStatus.value === 'completed') return t('common.completed')
   if (currentStatus.value === 'processing') return 'Verarbeitung'
-  return 'Bereit'
+  return t('common.ready')
 })
 
 // --- Helpers ---
@@ -140,7 +145,7 @@ const toggleMaximize = (target) => {
 // --- Data Logic ---
 const loadReportData = async () => {
   try {
-    addLog(`Berichtsdaten werden geladen: ${currentReportId.value}`)
+    addLog(t('interactionView.berichtsdatenWerdenGeladen', { p0: currentReportId.value }))
 
     // Berichtsinformationen abrufen, um simulation_id zu erhalten
     const reportRes = await getReport(currentReportId.value)
@@ -159,7 +164,7 @@ const loadReportData = async () => {
             const projRes = await getProject(simData.project_id)
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
-              addLog(`Projekt erfolgreich geladen: ${projRes.data.project_id}`)
+              addLog(t('interactionView.projektErfolgreichGeladen', { p0: projRes.data.project_id }))
 
               // Graphdaten abrufen
               if (projRes.data.graph_id) {
@@ -170,10 +175,10 @@ const loadReportData = async () => {
         }
       }
     } else {
-      addLog(`Abrufen der Berichtsinformationen fehlgeschlagen: ${reportRes.error || 'Unbekannter Fehler'}`)
+      addLog(t('interactionView.abrufenDerBerichtsinformationenFehlgeschlagen', { p0: reportRes.error || t('common.unknownError') }))
     }
   } catch (err) {
-    addLog(`Ladeausnahme: ${err.message}`)
+    addLog(t('interactionView.loadException', { error: err.message }))
   }
 }
 
@@ -184,10 +189,10 @@ const loadGraph = async (graphId) => {
     const res = await getGraphData(graphId)
     if (res.success) {
       graphData.value = res.data
-      addLog('Graphdaten erfolgreich geladen')
+      addLog(t('interactionView.graphdatenErfolgreichGeladen'))
     }
   } catch (err) {
-    addLog(`Graph laden fehlgeschlagen: ${err.message}`)
+    addLog(t('interactionView.graphLadenFehlgeschlagen', { p0: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -208,7 +213,7 @@ watch(() => route.params.reportId, (newId) => {
 }, { immediate: true })
 
 onMounted(() => {
-  addLog('InteractionView initialisiert')
+  addLog(t('interactionView.initialized'))
   loadReportData()
 })
 </script>

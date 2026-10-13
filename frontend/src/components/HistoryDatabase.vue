@@ -13,7 +13,7 @@
     <!-- Titelbereich -->
     <div class="section-header">
       <div class="section-line"></div>
-      <span class="section-title">SIMULATIONSAUFZEICHNUNGEN</span>
+      <span class="section-title">{{ $t('history.simulationsaufzeichnungen') }}</span>
       <div class="section-line"></div>
     </div>
 
@@ -36,16 +36,16 @@
             <span 
               class="status-icon" 
               :class="{ available: project.project_id, unavailable: !project.project_id }"
-              title="Graph erstellen"
+              :title="$t('history.graphErstellen')"
             >◇</span>
             <span 
               class="status-icon available" 
-              title="Umgebung aufbauen"
+              :title="$t('history.umgebungAufbauen')"
             >◈</span>
             <span 
               class="status-icon" 
               :class="{ available: project.report_id, unavailable: !project.report_id }"
-              title="Analysebericht"
+              :title="$t('history.analysebericht')"
             >◆</span>
           </div>
         </div>
@@ -67,13 +67,13 @@
             </div>
             <!-- Wenn mehr Dateien vorhanden, Hinweis anzeigen -->
             <div v-if="project.files.length > 3" class="files-more">
-              +{{ project.files.length - 3 }} Dateien
+              +{{ project.files.length - 3 }} {{ $t('history.dateien') }}
             </div>
           </div>
           <!-- Platzhalter wenn keine Dateien vorhanden -->
           <div class="files-empty" v-else>
             <span class="empty-file-icon">◇</span>
-            <span class="empty-file-text">Keine Dateien</span>
+            <span class="empty-file-text">{{ $t('history.keineDateien') }}</span>
           </div>
         </div>
 
@@ -102,7 +102,7 @@
     <!-- Ladezustand -->
     <div v-if="loading" class="loading-state">
       <span class="loading-spinner"></span>
-      <span class="loading-text">Wird geladen...</span>
+      <span class="loading-text">{{ $t('common.loading') }}</span>
     </div>
 
     <!-- Dialogfenster für historische Wiedergabedetails -->
@@ -126,27 +126,27 @@
             <div class="modal-body">
               <!-- Simulationsanforderung -->
               <div class="modal-section">
-                <div class="modal-label">Simulationsbedarf</div>
-                <div class="modal-requirement">{{ selectedProject.simulation_requirement || 'Keine' }}</div>
+                <div class="modal-label">{{ $t('history.simulationsbedarf') }}</div>
+                <div class="modal-requirement">{{ selectedProject.simulation_requirement || $t('common.none') }}</div>
               </div>
 
               <!-- Dateiliste -->
               <div class="modal-section">
-                <div class="modal-label">Zugehörige Dateien</div>
+                <div class="modal-label">{{ $t('history.zugehorigeDateien') }}</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
                   <div v-for="(file, index) in selectedProject.files" :key="index" class="modal-file-item">
                     <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
                     <span class="modal-file-name">{{ file.filename }}</span>
                   </div>
                 </div>
-                <div class="modal-empty" v-else>Keine zugehörigen Dateien</div>
+                <div class="modal-empty" v-else>{{ $t('history.keineZugehorigenDateien') }}</div>
               </div>
             </div>
 
             <!-- Trennlinie für Simulationswiedergabe -->
             <div class="modal-divider">
               <span class="divider-line"></span>
-              <span class="divider-text">SIMULATIONSWIEDERGABE</span>
+              <span class="divider-text">{{ $t('history.simulationswiedergabe') }}</span>
               <span class="divider-line"></span>
             </div>
 
@@ -157,31 +157,31 @@
                 @click="goToProject"
                 :disabled="!selectedProject.project_id"
               >
-                <span class="btn-step">Step1</span>
+                <span class="btn-step">{{ $t('history.step1') }}</span>
                 <span class="btn-icon">◇</span>
-                <span class="btn-text">Graph erstellen</span>
+                <span class="btn-text">{{ $t('history.graphErstellen') }}</span>
               </button>
               <button 
                 class="modal-btn btn-simulation" 
                 @click="goToSimulation"
               >
-                <span class="btn-step">Step2</span>
+                <span class="btn-step">{{ $t('history.step2') }}</span>
                 <span class="btn-icon">◈</span>
-                <span class="btn-text">Umgebung aufbauen</span>
+                <span class="btn-text">{{ $t('history.umgebungAufbauen') }}</span>
               </button>
               <button 
                 class="modal-btn btn-report" 
                 @click="goToReport"
                 :disabled="!selectedProject.report_id"
               >
-                <span class="btn-step">Step4</span>
+                <span class="btn-step">{{ $t('history.step4') }}</span>
                 <span class="btn-icon">◆</span>
-                <span class="btn-text">Analysebericht</span>
+                <span class="btn-text">{{ $t('history.analysebericht') }}</span>
               </button>
             </div>
             <!-- Hinweis: Wiedergabe nicht möglich -->
             <div class="modal-playback-hint">
-              <span class="hint-text">Schritt 3 "Simulation starten" und Schritt 5 "Tiefe Interaktion" müssen während der Laufzeit gestartet werden und unterstützen keine historische Wiedergabe</span>
+              <span class="hint-text">{{ $t('history.schritt3SimulationStartenUndSchritt5') }}</span>
             </div>
           </div>
         </div>
@@ -192,8 +192,11 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { getSimulationHistory } from '../api/simulation'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
@@ -337,7 +340,7 @@ const truncateText = (text, maxLength) => {
 
 // Titel aus Simulationsanforderung generieren (erste 20 Zeichen)
 const getSimulationTitle = (requirement) => {
-  if (!requirement) return 'Unbenannte Simulation'
+  if (!requirement) return t('history.unbenannteSimulation')
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
@@ -353,7 +356,7 @@ const formatSimulationId = (simulationId) => {
 const formatRounds = (simulation) => {
   const current = simulation.current_round || 0
   const total = simulation.total_rounds || 0
-  if (total === 0) return 'Nicht gestartet'
+  if (total === 0) return t('history.nichtGestartet')
   return `${current}/${total} Runden`
 }
 
@@ -382,7 +385,7 @@ const getFileTypeLabel = (filename) => {
 
 // Dateinamen kürzen (Erweiterung beibehalten)
 const truncateFilename = (filename, maxLength) => {
-  if (!filename) return 'Unbekannte Datei'
+  if (!filename) return t('history.unknownFile')
   if (filename.length <= maxLength) return filename
   
   const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
@@ -443,7 +446,7 @@ const loadHistory = async () => {
       projects.value = response.data || []
     }
   } catch (error) {
-    console.error('Laden der Projekthistorie fehlgeschlagen:', error)
+    console.error(t('history.ladenDerProjekthistorieFehlgeschlagen'), error)
     projects.value = []
   } finally {
     loading.value = false
