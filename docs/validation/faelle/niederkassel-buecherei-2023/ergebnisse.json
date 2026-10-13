@@ -1,27 +1,36 @@
 [
   {
+    "id": "primaer",
+    "primaer": true,
+    "t0": "2023-02-14",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",
+    "text_de": "Innerhalb von 14 Tagen nach T0 nimmt der Stadtrat den Schließungsbeschluss förmlich zurück, setzt ihn aus oder ändert ihn inhaltlich.",
+    "eingetreten": false,
+    "quelle": "1, 6 (13./17.03.2023: Schließung weiter als beschlossen bzw. „jüngst gebilligt“; kein Rücknahmebeleg)"
+  },
+  {
+    "primaer": false,
     "text_de": "Fünf Wochen nach dem Beschluss ist eine Petition zum Erhalt der Einrichtung öffentlich bekannt und sammelt weiter Unterstützer.",
     "eingetreten": true,
     "quelle": "6"
   },
   {
-    "text_de": "Ein Förderverein oder Verein äußert sich öffentlich enttäuscht oder ablehnend zur Schließung.",
+    "primaer": false,
+    "text_de": "Nach dem Beschluss äußert sich ein Förderverein oder Verein erneut öffentlich enttäuscht oder ablehnend zur Schließung (eine erste Kritik vom 10.02.2023 liegt vor T0 und zählt nicht).",
     "eingetreten": true,
-    "quelle": "5, 6, 7"
+    "quelle": "6, 7 (13. und 17.03.2023)"
   },
   {
+    "primaer": false,
     "text_de": "Ein Verein oder Bürger bietet der Stadt öffentlich seine Unterstützung für eine Ersatzlösung an.",
     "eingetreten": true,
     "quelle": "6, 7"
   },
   {
+    "primaer": false,
+    "in_material": true,
     "text_de": "Die Stadt stellt den Ausleihbetrieb der Einrichtung wie beschlossen innerhalb von sechs Wochen ein.",
     "eingetreten": true,
-    "quelle": "1, 7"
-  },
-  {
-    "text_de": "Der Rat nimmt den Beschluss innerhalb von fünf Wochen zurück oder setzt ihn aus.",
-    "eingetreten": false,
-    "quelle": "1, 6"
+    "quelle": "1, 7 (Neuausleihen „ab sofort“ nicht mehr möglich; Teil der Beschlussmitteilung, daher in_material und nicht zu scoren)"
   }
 ]

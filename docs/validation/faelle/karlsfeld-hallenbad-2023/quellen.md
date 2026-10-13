@@ -87,3 +87,37 @@ neu vergeben werden‘“; Fördersumme „5 150 499 Euro“.
 
 Ergebnis der Nachprüfung: Alle acht Aussagen werden von den genannten Quellen getragen; keine Änderung nötig. Einschränkung:
 Quelle [4] (Grüne) ist Eigendarstellung einer Fraktion und wurde nur für den Beschluss, nicht für Ergebnisfragen verwendet.
+
+## T0-Prüfung (T0 = 02.03.2023)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt
+den in der Sitzung vorgetragenen Gründen (Ereignis an T0; die Berichte dazu erschienen erst ab 03.03.2023 – dokumentierte
+Ausnahme). Tatsachen, die nur aus Quellen nach T0 stammen, wurden entfernt.
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Bad 52 Jahre in Betrieb, seit Oktober 2022 wegen Statikproblemen am Dach zu | [1] | 29.01.2023 |
+| 10.000 Kinder lernten schwimmen; Nutzergruppen (Schulen, Verein, Wasserwacht, DLRG, Bepo, Kitas, Rheumaliga, Forum, VHS) | [1] | 29.01.2023 |
+| Verwaltungshaushalt-Defizit 2,3 Mio.; Betriebsdefizit 400.000–600.000 €, künftig rund 1 Mio.; Sanierung rund 14 Mio. (Kredit); Bund 5 Mio. zugesagt; Zweckverband-Vorschläge abgewiesen | [1] | 29.01.2023 |
+| Beschluss, eine Gegenstimme; Zahl 15 Mio.; Wegfall von Zuschüssen (Doppelförderverbot); keine Kommune/Sponsoren; Investition nicht vor 2030; Machbarkeitsstudie | [3], [4] (Ereignis an T0) | 05.03. / 04.03.2023 (Ausnahme) |
+| Fraktionen CSU, SPD, Grüne, Freie Wähler, Bündnis; Bürgermeister, Gebäudemanagement | [1], [3] | 29.01.2023 / 05.03.2023 (Ausnahme) |
+
+Entfernt als nicht ≤ T0 belegt: „Ob und wann abgerissen wird, ist offen“; „Rechtsaufsichtsbehörde“ und „Landratsamt“; „Kämmerer“;
+Bundestagsabgeordneter des Wahlkreises (hätte Frage 5 vorweggenommen); genaue Fördersumme 5,1 Mio. (erst [5], 12.04.2023;
+jetzt „rund 5 Mio.“ nach [1]); „Breitensport, Schwimmkurse“ (erst [2]).
+
+## Kodierbuch-Eintrag Primärergebnis
+
+| Feld | Inhalt |
+|---|---|
+| Ergebnis-ID | `primaer` |
+| Primär | ja |
+| Ergebnisfrage | Hebt der Gemeinderat den Schließungsbeschluss binnen 14 Tagen förmlich auf, setzt ihn aus oder ändert ihn inhaltlich (förmliche institutionelle Reaktion des Beschlussorgans)? |
+| Zeitfenster | 02.03.2023 bis 16.03.2023 |
+| Ja-Kriterium | Sitzungsprotokoll, Beschlussbekanntmachung oder Pressebericht belegt einen förmlichen Gegenbeschluss, eine Aussetzung oder inhaltliche Änderung im Fenster |
+| Nein-Kriterium | Keine solche Belegstelle; spätere Quellen ([8], [9], [12]) zeigen, dass der Beschluss unverändert fortgalt |
+| Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
+| Quellen | Protokolle, Bekanntmachungen, Lokalpresse, Mitteilungen der Gemeinde |
+| Beispiele | Ja: Gemeinderat setzt die Schließung in einer Sondersitzung aus. Nein: Beschluss bleibt bestehen, nur Proteste werden berichtet. |
+
+Ergebnis: Nein (`eingetreten: false`).

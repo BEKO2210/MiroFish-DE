@@ -6,7 +6,7 @@ Die Fiktivnamen in ausgangslage.md entsprechen: Rheinau = Neuwied.
 
 Hinweis zur Quellenlage: Die Bürgerproteste lagen überwiegend VOR dem Beschluss und sind nicht als Reaktion gewertet.
 Für Händler, Gewerbeverein oder Kundenreaktionen nach dem Beschluss liegen in den abgerufenen Quellen keine datierten
-Belege vor; dazu gibt es deshalb keine Fragen.
+Belege vor; dazu gibt es deshalb keine Fragen. Die AfD-Pressemitteilung [6] ist als Fraktionsreaktion belegt.
 
 ## Vorgeschichte (vor dem Beschluss, nur zur Einordnung)
 
@@ -19,6 +19,7 @@ Belege vor; dazu gibt es deshalb keine Fragen.
   vermittelbar“ und einen Euro „verträglicher“ (Debatte in der Sitzung) – Quellen [1], [2].
 - 13.11.2025 – Ratsmehrheit ändert den Antrag: kostenloser ÖPNV an einem Samstag im Monat, an allen Adventssamstagen und an
   Veranstaltungstagen; die Verwaltung soll die Ausweitung auf alle Samstage prüfen – Quelle [1].
+- 16.11.2025 – Die AfD-Fraktion veröffentlicht eine Pressemitteilung gegen die Gebührenerhöhung – Quelle [6].
 - Weitere datierte Ereignisse in diesem Zeitraum: keine belegten Ereignisse in den abgerufenen Quellen.
 
 ## Nach 3 Monaten (bis ca. 13.02.2026)

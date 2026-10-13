@@ -1,20 +1,27 @@
 [
   {
+    "id": "primaer",
+    "primaer": true,
+    "t0": "2025-08-28",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 11.09.2025)",
+    "text_de": "Innerhalb von 14 Tagen nach T0 hebt der Stadtrat den Schließungsbeschluss förmlich auf, setzt ihn aus oder ändert ihn inhaltlich.",
+    "eingetreten": false,
+    "quelle": "1 (Beschluss „bleibt weiterhin gültig“), 6 (Stadtrat befasste sich erst am 04.12.2025 wieder, mit dem Bürgerentscheid)"
+  },
+  {
+    "primaer": false,
     "text_de": "Innerhalb von 3 Monaten nach dem Beschluss organisieren sich Eltern und Einwohner öffentlich gegen die Schließung und streben ein Bürgerbegehren an.",
     "eingetreten": true,
     "quelle": "7"
   },
   {
-    "text_de": "Der Rat hebt den Schließungsbeschluss innerhalb von 3 Monaten auf oder ändert ihn inhaltlich.",
-    "eingetreten": false,
-    "quelle": "1, 6"
-  },
-  {
+    "primaer": false,
     "text_de": "Ein Bürgerentscheid über die Schließung findet innerhalb von 3 Monaten nach dem Beschluss statt.",
     "eingetreten": false,
     "quelle": "1, 6"
   },
   {
+    "primaer": false,
     "text_de": "Ratsmitglieder äußern sich öffentlich überrascht über die Reaktionen der Eltern.",
     "eingetreten": true,
     "quelle": "7"

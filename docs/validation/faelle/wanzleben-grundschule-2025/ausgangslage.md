@@ -1,33 +1,32 @@
 # Ausgangslage: Grundschule Ostdorf in der Einheitsgemeinde Neuland
 
-Stand: Tag der Ratsentscheidung.
+Stand (T0): 28.08.2025 (Tag der Ratsentscheidung)
 
 ## Entscheidung
 
-Der Stadtrat der Einheitsgemeinde Neuland (rund 12.000 Einwohner in elf Ortschaften, Sachsen-Anhalt) hat in öffentlicher
-Sitzung beschlossen, den Grundschulstandort in der Ortschaft Ostdorf zum 31. Juli des kommenden Jahres aufzugeben. Die
-Stadtverwaltung veröffentlicht den Beschluss.
+Der Stadtrat der Einheitsgemeinde Neuland (Sachsen-Anhalt) hat in öffentlicher Sitzung beschlossen, den
+Grundschulstandort in der Ortschaft Ostdorf zum 31. Juli des kommenden Jahres aufzugeben.
 
-Begründung laut Verwaltung:
-- Die Schülerzahlen sinken; die Einschulzahlen am Standort gelten seit der Schulentwicklungsplanung als gering.
+Begründung laut Verwaltung in der Sitzung:
+- Die Schülerzahlen sinken.
 - Für den weiteren Betrieb des Schulgebäudes geht die Verwaltung von rund 6 Millionen Euro an notwendigen
-  Investitionen aus (Investitionsstau).
+  Investitionen aus.
 - Die Prognosen zur Schülerentwicklung sind für Ostdorf und für die nächstgelegene Grundschule nicht günstig.
 - Rechtliche Rahmenbedingungen des Landesschulamts verlangen Mindestschülerzahlen.
 - Die Kinder sollen künftig die Grundschule in Westau besuchen (rund 8 Kilometer entfernt).
 
-## Wer die Grundschule Ostdorf heute nutzt
+## Hintergrund
 
-- Die Grundschule ist einer von fünf Grundschulstandorten der Einheitsgemeinde.
-- Die Kinder des Einzugsgebiets besuchen den Unterricht im bestehenden Schulgebäude.
-- Die Grundschule in Westau liegt in Trägerschaft derselben Einheitsgemeinde und hat einen Förderverein.
-- Der Schließungstermin ist der 31. Juli des kommenden Jahres.
+- Die Einheitsgemeinde Neuland betreibt fünf Grundschulstandorte. Schon die Schulentwicklungsplanung von 2021 hatte den
+  Standort Ostdorf wegen zu geringer Einschulzahlen als gefährdet eingestuft; der Stadtrat wollte damals alle fünf
+  Standorte erhalten.
+- Vor der Ratssitzung war bereits eine Online-Petition gegen die geplante Schließung gestartet und beim Stadtrat
+  eingereicht worden (259 Unterschriften).
 
 ## Weitere Beteiligte
 
-- Bürgermeisterin (CDU) und Stadtverwaltung.
-- Fraktionen im Stadtrat, unter anderem CDU, SPD, Linke und FDP.
+- Bürgermeisterin und Stadtverwaltung.
+- Fraktionen im Stadtrat.
 - Landesschulamt Sachsen-Anhalt als zuständige Schulbehörde.
-- Ortsbürgermeister und Ortschaftsräte der elf Ortschaften.
 - Lokalzeitung mit Onlineausgabe sowie regionaler öffentlich-rechtlicher Rundfunk.
 - Eltern der betroffenen Kinder.

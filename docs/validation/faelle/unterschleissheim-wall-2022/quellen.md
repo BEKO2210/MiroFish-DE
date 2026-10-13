@@ -80,3 +80,37 @@ sagt dazu nichts; Lücke 05.–28.02.2023). Ein Nicht-Eintreten ist daher nicht 
 
 Ergebnis der Nachprüfung: Die übrigen sechs Aussagen werden getragen. [4] ist Eigendarstellung einer Partei; die Zahl 1056 wird
 aber durch [5] und [6] unabhängig bestätigt.
+
+## T0-Prüfung (T0 = 30.11.2022)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt den
+in der Sitzung vorgetragenen Gründen (Ereignis an T0; Berichte erst ab 06.12.2022 – dokumentierte Ausnahme). Zum Beschluss selbst
+liegt kein Bericht ≤ T0 vor.
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Beschluss der Ausschüsse, Wall wird gerodet, 25 Bäume, 94 → 119 Fällungen, Gehweg 2,50 m, Radweg 2 m, 18 Bäume am Vorplatz, Rodung bis Ende Februar | [1], [2] (Ereignis an T0) | 12.01.2023 / 06.12.2022 (Ausnahme) |
+| Begründung: Wall nicht im Bebauungsplan, Baumgutachten (vital, geringer Zuwachs), Wall etwa 40 Jahre | [1], [7] (in der Sitzung vorgetragen) | 12.01.2023 / undatiert (Ausnahme) |
+| Neubau seit Jahren geplant; Stadtrat beschloss im Oktober 2022 Grundsätze zum Ausbau der Straße, Streit um Straßenbäume | Merkur, „Stadtrat einigt sich auf Verkehrskonzept am Münchner Ring – Gröbster Einschlag an Bäumen“ (neu abgerufen 14.10.2026, https://www.merkur.de/lokales/muenchen-lk/unterschleissheim-ort29622/stadtrat-einigt-sich-auf-verkehrskonzept-am-muenchner-ring-groebster-einschlag-an-baeumen-91861504.html) | 20.10.2022 |
+
+Entfernt als nicht ≤ T0 belegt: Artenschutzprüfungen 2019/2022 (erst in der Antwort der Verwaltung auf den Vorwurf, [3], 27.01.2023;
+nahm Frage 4 vorweg); Schulleitung für breiteren Gehweg; Kosten 74 Mio. €, Planung seit 2014, Baubeginn und Bezug 2026 ([1], [6]);
+Sporthalle/Musikschule, Haupteingang, Turnunterricht in der FOS/BOS ([7] undatiert); Parteizugehörigkeit der Bürgermeister und
+Fraktionsliste ([6], 04.02.2023). Die Akteursliste nennt nur strukturelle Beteiligte ohne Sachaussage.
+
+## Kodierbuch-Eintrag Primärergebnis
+
+| Feld | Inhalt |
+|---|---|
+| Ergebnis-ID | `primaer` |
+| Primär | ja |
+| Ergebnisfrage | Heben Stadtrat oder Ausschüsse den Rodungsbeschluss binnen 14 Tagen förmlich auf, setzen ihn aus oder ändern die Planung zugunsten des Baumerhalts? |
+| Zeitfenster | 30.11.2022 bis 14.12.2022 |
+| Ja-Kriterium | Sitzungsprotokoll oder Pressebericht belegt Aufhebung, Aussetzung oder Planänderung im Fenster |
+| Nein-Kriterium | Keine solche Belegstelle; [1] (12.01.2023) und [6] (04.02.2023) zeigen, dass die Beschlusslage unverändert blieb |
+| Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
+| Quellen | Sitzungsprotokolle, Bekanntmachungen der Stadt, Lokalpresse |
+| Beispiele | Ja: Ausschuss ändert die Planung auf Erhalt von 25 Bäumen. Nein: Wall wird weiter zur Rodung vorgesehen, Protest läuft. |
+
+Ergebnis: Nein (`eingetreten: false`). Der Ausschusstermin ist unsicher (30.11. nach [1], [3]; 05.12. nach [2]); T0 = 30.11.2022 gilt
+als Konvention, das Ergebnis bleibt bei beiden Daten gleich.

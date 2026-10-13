@@ -60,3 +60,36 @@ Entfernte Fragen (Begründung):
 
 Korrekturen an Nebenangaben: Entfernung nach Seehausen laut [2] „rund acht Kilometer“ (nicht 10 km); Einwohnerzahl laut [2]
 „etwa 12.000“ in elf Ortschaften (nicht 14.000). [8] enthält beide Angaben nicht. ausgangslage.md wurde angepasst.
+
+## T0-Prüfung (T0 = 28.08.2025)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt den
+in der Sitzung genannten Gründen (Ereignis an T0; Berichte erst ab 18.09.2025 bzw. 21.02.2026 – dokumentierte Ausnahme).
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Beschluss, Standort zum 31.07.2026 aufzugeben | [1] (Ereignis an T0) | 23.02.2026 (Ausnahme) |
+| Begründung: sinkende Schülerzahlen, rund 6 Mio. €, Prognosen, Landesschulamt, Kinder nach Seehausen (rund 8 km) | [2] (Ereignis an T0) | 21.02.2026 (Ausnahme) |
+| Fünf Grundschulstandorte; Klein Wanzleben wegen geringer Einschülerzahlen gefährdet; Stadtrat wollte 2021 alle fünf erhalten | [3] | 11.07.2021 |
+| Online-Petition gegen die geplante Schließung, eingereicht 25.08.2025, 259 Unterschriften | [5] | 07.–26.08.2025 |
+
+Entfernt als nicht ≤ T0 belegt: „rund 12.000 Einwohner in elf Ortschaften“, Ortsbürgermeister und Ortschaftsräte der elf Ortschaften,
+Parteizugehörigkeit der Bürgermeisterin und Fraktionsliste, Förderverein der Grundschule Seehausen, „Kinder des Einzugsgebiets
+besuchen den Unterricht im bestehenden Schulgebäude“ (alle nur aus Quellen nach T0 oder ohne Beleg). Die Petition [5] liegt vor T0
+und zählt weiterhin nicht als Reaktion auf den Beschluss.
+
+## Kodierbuch-Eintrag Primärergebnis
+
+| Feld | Inhalt |
+|---|---|
+| Ergebnis-ID | `primaer` |
+| Primär | ja |
+| Ergebnisfrage | Hebt der Stadtrat den Schließungsbeschluss binnen 14 Tagen förmlich auf, setzt ihn aus oder ändert ihn inhaltlich? |
+| Zeitfenster | 28.08.2025 bis 11.09.2025 |
+| Ja-Kriterium | Ratsbeschluss, Bekanntmachung der Stadt oder Pressebericht belegt Aufhebung, Aussetzung oder inhaltliche Änderung im Fenster |
+| Nein-Kriterium | Keine solche Belegstelle; [1] bestätigt, dass der Beschluss „weiterhin gültig“ blieb, [6] zeigt die nächste Ratsbefassung erst am 04.12.2025 |
+| Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
+| Quellen | Bekanntmachungen der Stadt, Ratsinformationssystem, Lokalpresse, Rundfunk |
+| Beispiele | Ja: Rat beschließt, die Schließung zu verschieben. Nein: Beschluss bleibt, Eltern protestieren. |
+
+Ergebnis: Nein (`eingetreten: false`).
