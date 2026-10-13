@@ -24,3 +24,19 @@ Erledigt (v2, 13.10.): 1 App-Gerüst, 2 Startseite, 3 Verlauf, 4 Einstellungen, 
 In Arbeit: 8 Expertenseiten (codex, Zweig `expert`).
 
 Erledigt (v1): Lesbarkeit, Design-Tokens, Durchlauf-API, Löschen/Export-API, Logo, Farbsystem-Grundlage, Startseite v2, Durchlauf-Ansicht.
+
+## Validierung (ab 13.10.2026) – vom Szenariogenerator zur prüfbaren Prognose
+
+Anlass: externe Bewertung des Musterstadt-Berichts (4,5/10; „plausibel, aber nicht validiert“). Befund im Code: der
+Bericht beschreibt Woche 1–4, simuliert wurden 24 Stunden in einem einzigen Lauf mit 13 Agenten; keine Seeds.
+
+| # | Stufe | Inhalt | Prüfung | Wer |
+|---|-------|--------|---------|-----|
+| V1 | Ehrlicher Bericht | Abschnitt „Methodik und Grenzen“ deterministisch aus den Daten (Agentenzahl, Profile, Runden, simulierte Stunden, Modelle, Läufe, Aktionen je Plattform); Berichtsagent darf nicht über den simulierten Zeitraum hinaus erzählen; kalibrierte Sprache („in diesem Lauf“, keine „Beweise“, Forderung ≠ Ereignis); Einzellauf heißt „Szenario“, nicht „Prognose“ | Bericht des Hallenbad-Laufs neu erzeugt, Methodik-Zahlen = Datenbank | codex/Cursor |
+| V2 | Reproduzierbarkeit | Seeds für Simulation (Python/NumPy/Empfehlung) und Sprachmodell (`seed`, Temperatur), Lauf-Manifest (Hash der Dokumente und Frage, Modelle, Seeds, Konfiguration, Code-Stand), Ereignis-Log als CSV/JSONL im Export | gleicher Seed → gleiche Aktionen (bis auf Modell-Nichtdeterminismus, gemessen) | codex/Cursor |
+| V3 | Mehrfachlauf | N Läufe (Standard 10) mit derselben Agentenvorbereitung und verschiedenen Seeds; Ergebnis-Checkliste aus der Frage (z. B. „Bürgerentscheid gefordert“, „Koalition A+B“) per festem Klassifikator je Lauf; Häufigkeiten mit 95-%-Wilson-Intervall im Bericht | 10 Läufe Hallenbad, Tabelle mit Intervallen | Cursor |
+| V4 | Gegenproben | Ablationen (ohne Vernetzung/Empfehlungen, ohne gewählte Akteursgruppe), Sensitivität (Eingriffsstärke als Variable), Nullmodell (ein einzelnes Modell schreibt die Geschichte aus denselben Dokumenten, gleiche Checkliste) | Unterschiede mit Intervallen; Nullmodell als Vergleichszeile | Cursor/codex |
+| V5 | Abgleich mit der Wirklichkeit | 3–5 dokumentierte reale Fälle (z. B. Parkgebühren, Bäderschließungen) mit Material VOR dem Ereignis blind simulieren, Ergebnis gegen den tatsächlichen Verlauf werten (Trefferquote, Kalibrierung) | Fallsammlung mit Quellen, Auswertung | codex (Recherche) + Claude |
+
+Rechenbudget auf pop-os (RTX 3070): ein 24-Stunden-Lauf mit ~14 Agenten ≈ 10–20 Min ohne Bericht (Vorbereitung wird
+im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über Nacht; 100 Läufe ≈ 1–2 Tage pro Szenario.
