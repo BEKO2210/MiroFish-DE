@@ -132,14 +132,20 @@ Other models work the same way; MiroFish lists every installed model under **Set
 ```bash
 git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
 cp .env.example .env
-# Adjust the models and LOCAL_LLM_BASE_URL in .env if needed.
+# Adjust the models, LOCAL_LLM_BASE_URL and API_TOKEN in .env if needed (before the first start).
 # localhost is changed to host.docker.internal automatically on the first Docker start.
 mkdir -p data
-docker compose up -d --build
+scripts/start.sh
 ```
 
+`scripts/start.sh` creates a missing `.env` and `data/` as your user (otherwise Docker creates a directory `./.env`
+or a root-owned `data/`) and then runs `docker compose up -d --build`. Without the script, first run
+`[ -f .env ] || cp .env.example .env; mkdir -p data`.
+
 Open **http://localhost:5001**. On first start MiroFish copies the settings from `.env` to `data/.env`, where
-subsequent setting changes persist. Uploads, simulations and reports also live in `data/`. Before starting, set
+subsequent setting changes persist. **Later edits to `./.env` are not picked up** – only `data/.env` (or the
+Settings page) applies afterwards; run `docker compose restart` after editing it. The container ignores
+`FLASK_PORT`/`FLASK_HOST` from `.env` (internal port 5001, external via `MIROFISH_PORT`). Uploads, simulations and reports also live in `data/`. Before starting, set
 `MIROFISH_PORT` in `.env` to use another local port. On Linux, if `id -u` or `id -g` is not `1000`, also enter
 those values as `MIROFISH_UID` and `MIROFISH_GID`. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
 listen on all interfaces for that (`Environment="OLLAMA_HOST=0.0.0.0"` in `systemctl edit ollama`).
@@ -171,7 +177,7 @@ week, longer for extensive material.
 ### Access from other devices and for agents
 
 The app has no login and therefore only listens on `localhost`. For your phone or other computers use a protected
-route such as [Tailscale](https://tailscale.com) (`tailscale serve 5001`). You can also set an `API_TOKEN` in `.env`.
+route such as [Tailscale](https://tailscale.com) (`tailscale serve 5001`). You can also set an `API_TOKEN` in `.env` (before the first Docker start) or in `data/.env` (afterwards, then `docker compose restart`).
 The HTTP interface for your own scripts and AI agents is described in [docs/API.md](docs/API.md) – one call runs a
 complete forecast up to the report.
 

@@ -93,8 +93,8 @@ from app.utils.simulation_time import (
     peak_multiplier_for_hours,
     simulation_clock,
 )
+from app.services.stimulus_delivery import deliver_opening_stimulus_checked
 from app.services.blind_feed import (
-    deliver_opening_stimulus,
     fetch_platform_posts,
     install_blind_feed,
     is_blind_feed,
@@ -1256,7 +1256,7 @@ async def run_twitter_simulation(
             log_info(f"Bereitgestellt: {len(initial_actions)} Initialposts")
 
     stimulus_posts = fetch_platform_posts(result.env.platform)
-    deliver_opening_stimulus(
+    deliver_opening_stimulus_checked(
         result.env.agent_graph,
         stimulus_posts,
         os.path.join(simulation_dir, "twitter", "stimulus_log.json"),
@@ -1271,7 +1271,7 @@ async def run_twitter_simulation(
     # Hauptsimulationsschleife
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
-    minutes_per_round = time_config.get("minutes_per_round", 30)
+    minutes_per_round = time_config.get("minutes_per_round", 60)
     start_hour = time_config.get("start_hour", 7)
     total_rounds = (total_hours * 60) // minutes_per_round
     
@@ -1486,7 +1486,7 @@ async def run_reddit_simulation(
             log_info(f"Veröffentlichte {len(initial_actions)} initiale Posts")
 
     stimulus_posts = fetch_platform_posts(result.env.platform)
-    deliver_opening_stimulus(
+    deliver_opening_stimulus_checked(
         result.env.agent_graph,
         stimulus_posts,
         os.path.join(simulation_dir, "reddit", "stimulus_log.json"),
@@ -1501,7 +1501,7 @@ async def run_reddit_simulation(
     # Hauptsimulationsschleife
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
-    minutes_per_round = time_config.get("minutes_per_round", 30)
+    minutes_per_round = time_config.get("minutes_per_round", 60)
     start_hour = time_config.get("start_hour", 7)
     total_rounds = (total_hours * 60) // minutes_per_round
     
@@ -1665,7 +1665,7 @@ async def main():
     
     time_config = config.get("time_config", {})
     total_hours = time_config.get('total_simulation_hours', 72)
-    minutes_per_round = time_config.get('minutes_per_round', 30)
+    minutes_per_round = time_config.get('minutes_per_round', 60)
     config_total_rounds = (total_hours * 60) // minutes_per_round
     
     log_manager.info(f"Simulationsparameter:")

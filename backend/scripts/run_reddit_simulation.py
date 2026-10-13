@@ -54,8 +54,8 @@ from app.utils.simulation_time import (
     peak_multiplier_for_hours,
     simulation_clock,
 )
+from app.services.stimulus_delivery import deliver_opening_stimulus_checked
 from app.services.blind_feed import (
-    deliver_opening_stimulus,
     fetch_platform_posts,
     install_blind_feed,
     is_blind_feed,
@@ -574,7 +574,7 @@ class RedditSimulationRunner:
         
         time_config = self.config.get("time_config", {})
         total_hours = time_config.get("total_simulation_hours", 72)
-        minutes_per_round = time_config.get("minutes_per_round", 30)
+        minutes_per_round = time_config.get("minutes_per_round", 60)
         start_hour = time_config.get("start_hour", 7)
         total_rounds = (total_hours * 60) // minutes_per_round
         
@@ -668,7 +668,7 @@ class RedditSimulationRunner:
                 await self.env.step(initial_actions)
                 print(f"  {len(initial_actions)} Initialposts veröffentlicht")
 
-        deliver_opening_stimulus(
+        deliver_opening_stimulus_checked(
             self.env.agent_graph,
             fetch_platform_posts(self.env.platform),
             os.path.join(self.simulation_dir, "stimulus_log.json"),
