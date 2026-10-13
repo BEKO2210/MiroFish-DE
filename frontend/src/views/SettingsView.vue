@@ -86,14 +86,12 @@
       </section>
     </main>
     <ThemePicker :open="showTheme" @close="showTheme = false" />
-    <MobileNav />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
-import MobileNav from '../components/MobileNav.vue'
 import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
 
@@ -133,7 +131,7 @@ onMounted(load)
 
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
-.main { max-width: 680px; margin: 0 auto; padding: 20px 16px 96px; }
+.main { max-width: 680px; margin: 0 auto; padding: 20px 16px 32px; }
 .page__title { font-family: var(--font-heading); font-size: 26px; margin: 0 0 14px; letter-spacing: -0.01em; }
 .card { background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 16px; padding: 18px; margin-bottom: 12px; }
 .card__title { font-family: var(--font-heading); font-size: 17px; margin: 0; }

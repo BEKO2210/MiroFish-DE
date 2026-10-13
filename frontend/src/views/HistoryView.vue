@@ -29,13 +29,13 @@
           </component>
           <div class="row__actions">
             <router-link v-if="it.reportHref" :to="it.reportHref" class="act" title="Bericht öffnen" aria-label="Bericht öffnen">
-              <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>Bericht</span>
             </router-link>
             <a v-if="it.exportHref" :href="it.exportHref" class="act" title="Exportieren (ZIP)" aria-label="Exportieren" download>
-              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>Export</span>
             </a>
             <button v-if="it.simulationId && it.state !== 'running'" type="button" class="act act--danger" title="Löschen" aria-label="Löschen" @click="askDelete(it)">
-              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>Löschen</span>
             </button>
           </div>
         </article>
@@ -45,14 +45,12 @@
 
     <ConfirmSheet :open="!!pending" title="Vorhersage löschen?" :text="pending ? `„${pending.title}“ wird samt Bericht und Daten dauerhaft entfernt.` : ''"
                   confirm-label="Löschen" :busy="deleting" danger @confirm="doDelete" @close="pending = null" />
-    <MobileNav />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import AppHeader from '../components/AppHeader.vue'
-import MobileNav from '../components/MobileNav.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
 import { getSimulationHistory, deleteSimulation } from '../api/simulation'
 import { listPipelines, STEP_LABELS } from '../api/pipeline'
@@ -127,13 +125,13 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
-.main { max-width: 760px; margin: 0 auto; padding: 20px 16px 96px; }
+.main { max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
 .page__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .page__title { font-family: var(--font-heading); font-size: 26px; margin: 0; letter-spacing: -0.01em; }
 .list { display: flex; flex-direction: column; gap: 10px; }
-.row { display: flex; align-items: stretch; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.row { display: flex; flex-direction: column; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow-sm); }
 .row--running { border-color: var(--color-brand-border); }
-.row__main { flex: 1; min-width: 0; padding: 14px 14px 14px 16px; text-decoration: none; color: inherit; display: block; }
+.row__main { display: block; padding: 14px 16px 12px; text-decoration: none; color: inherit; }
 .row__title { font-family: var(--font-body); font-size: 15px; font-weight: 600; line-height: 1.35; margin: 8px 0 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .row__meta { margin: 0; font-size: 12px; color: var(--color-text-muted); }
 .row__bar { height: 3px; background: var(--color-border-subtle); border-radius: 999px; margin-top: 10px; overflow: hidden; }
@@ -145,12 +143,14 @@ onUnmounted(() => clearInterval(timer))
 .chip--progress { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .chip__pulse { width: 7px; height: 7px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
-.row__actions { display: flex; flex-direction: column; justify-content: center; border-left: 1px solid var(--color-border-subtle); }
-.act { width: 48px; flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--color-text-secondary); cursor: pointer; text-decoration: none; }
-.act + .act { border-top: 1px solid var(--color-border-subtle); }
-.act svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.row__actions { display: flex; border-top: 1px solid var(--color-border-subtle); }
+.row__actions:empty { display: none; }
+.act { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; }
+.act + .act { border-left: 1px solid var(--color-border-subtle); }
+.act svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .act:hover { background: var(--color-bg-surface-subtle); }
-.act--danger:hover { color: var(--color-error-text); background: var(--color-error-bg); }
+.act--danger { color: var(--color-error-text); }
+.act--danger:hover { background: var(--color-error-bg); }
 .empty { text-align: center; padding: 48px 16px; color: var(--color-text-muted); display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; text-decoration: none; font-weight: 600; font-size: 15px; white-space: nowrap; }
 .btn--primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }
@@ -162,8 +162,5 @@ onUnmounted(() => clearInterval(timer))
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (min-width: 769px) {
   .main { padding: 32px 24px 64px; max-width: 880px; }
-  .row__actions { flex-direction: row; border-left: 0; padding-right: 8px; }
-  .act + .act { border-top: 0; }
-  .act { flex: none; border-radius: 10px; }
 }
 </style>

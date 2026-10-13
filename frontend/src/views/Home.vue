@@ -108,7 +108,6 @@
 
       <footer class="foot">MiroFish · Open Source · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">GitHub</a></footer>
     </main>
-    <MobileNav />
   </div>
 </template>
 
@@ -116,7 +115,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
-import MobileNav from '../components/MobileNav.vue'
 import SwarmCanvas from '../components/SwarmCanvas.vue'
 import service from '../api/index'
 import { getSimulationHistory } from '../api/simulation'
@@ -192,10 +190,11 @@ onUnmounted(() => clearInterval(timer))
   background: radial-gradient(120% 80% at 80% 0%, color-mix(in srgb, var(--color-brand-primary) 10%, transparent), transparent 60%), var(--color-bg-canvas); }
 .hero__swarm { position: absolute; inset: 0; }
 .hero__inner { position: relative; padding: 48px 16px 28px; max-width: 760px; margin: 0 auto; width: 100%; pointer-events: none; }
+.hero__title, .hero__lead { text-shadow: 0 0 18px var(--color-bg-canvas), 0 0 6px var(--color-bg-canvas), 0 0 2px var(--color-bg-canvas); }
 .hero__title { font-family: var(--font-heading); font-size: clamp(38px, 10vw, 72px); line-height: .98; letter-spacing: -0.03em; margin: 0 0 14px; font-weight: 700; }
 .hero__lead { font-size: 17px; line-height: 1.5; max-width: 34ch; margin: 0; color: var(--color-text-secondary); }
 
-.main { max-width: 760px; margin: 0 auto; padding: 16px 16px 96px; }
+.main { max-width: 760px; margin: 0 auto; padding: 16px 16px 32px; }
 .block { margin-top: 24px; }
 .block__head { display: flex; align-items: baseline; justify-content: space-between; }
 .block__title { font-family: var(--font-heading); font-size: 20px; margin: 0 0 12px; letter-spacing: -0.01em; }

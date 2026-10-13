@@ -22,7 +22,7 @@ function resize() {
   w = c.clientWidth; h = c.clientHeight
   c.width = w * dpr; c.height = h * dpr
   ctx = c.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  const n = Math.round(Math.min(260, (w * h) / 2600) * props.density)
+  const n = Math.round(Math.max(90, Math.min(260, (w * h) / 2600)) * props.density)
   while (agents.length < n) agents.push({ x: Math.random() * w, y: Math.random() * h, vx: (Math.random() - .5), vy: (Math.random() - .5), r: 1.2 + Math.random() * 1.8, k: Math.random() })
   agents.length = n
 }

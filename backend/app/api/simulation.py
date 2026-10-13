@@ -1051,6 +1051,11 @@ def get_simulation_history():
                 ]
             else:
                 sim_dict["files"] = []
+            # Vor der Vorbereitung gibt es noch keine Konfiguration: Frage und Name aus dem Projekt übernehmen
+            if project and not sim_dict.get("simulation_requirement"):
+                sim_dict["simulation_requirement"] = getattr(project, 'simulation_requirement', '') or ''
+            if project and not sim_dict.get("project_name"):
+                sim_dict["project_name"] = getattr(project, 'name', '') or ''
             
             # Zugehörige report_id abrufen (neuesten Report der Simulation finden)
             sim_dict["report_id"] = _get_report_id_for_simulation(sim.simulation_id)

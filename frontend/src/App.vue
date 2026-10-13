@@ -1,8 +1,10 @@
 <template>
   <router-view />
-  </template>
+  <MobileNav />
+</template>
 
 <script setup>
+import MobileNav from './components/MobileNav.vue'
 </script>
 
 <style>
@@ -17,8 +19,8 @@
   font-family: var(--font-body, 'Inter', system-ui, sans-serif); /* Fließtext lesbar; Monospace nur noch für Code/IDs */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #000000;
-  background-color: #ffffff;
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-canvas);
   min-height: 100vh;
 }
 
@@ -29,15 +31,16 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--color-bg-surface);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #000000;
+  background: var(--color-border-strong);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #333333;
+  background: var(--color-text-muted);
 }
 
 /* Globaler Button-Stil */
@@ -45,7 +48,8 @@ button {
   font-family: inherit;
 }
 @media (max-width: 768px) {
-  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  body { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  body { background: var(--color-bg-canvas); }
 }
 h1, h2, h3, .main-title { font-family: var(--font-heading, 'Space Grotesk', system-ui, sans-serif); }
 code, pre, .card-id, .mono { font-family: var(--font-mono, 'JetBrains Mono', monospace); }
