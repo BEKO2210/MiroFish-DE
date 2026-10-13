@@ -1034,6 +1034,9 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI,
         model_type=llm_model,
+        # Lokale Denk-Modelle (gemma4, qwen3.5) ohne Reasoning: sonst leere Antworten und ~10x langsamer
+        model_config_dict=({"reasoning_effort": "none"} if os.environ.get("LLM_PROVIDER", "openai").lower() in ("ollama", "lmstudio", "local")
+                           and os.environ.get("LOCAL_LLM_REASONING", "none").lower() != "on" else None),
     )
 
 
