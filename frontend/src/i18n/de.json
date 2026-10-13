@@ -676,7 +676,13 @@
     "wirdGeneriert": "wird generiert...",
     "world1": "Welt 1",
     "world2": "Welt 2",
-    "zurTiefeninteraktion": "Zur Tiefeninteraktion"
+    "zurTiefeninteraktion": "Zur Tiefeninteraktion",
+    "downloadMarkdown": "Als Markdown herunterladen",
+    "printPdf": "Drucken / PDF",
+    "howItWasMade": "So entstand der Bericht",
+    "contents": "Inhalt",
+    "expandSection": "Abschnitt aufklappen",
+    "collapseSection": "Abschnitt zuklappen"
   },
   "step5": {
     "unknownProfession": "Unbekannter Beruf",
