@@ -58,6 +58,26 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
    - Durchführung: „Noch bis Freitag werden die Bäume von einer Spezialfirma an drei verschiedene öffentliche Plätze
      in Kehl umgesetzt.“
 
+## T0-Prüfung (T0 = 22.02.2017)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0. Zahlen sind gerundet bzw. ohne
+Eigennamen (Anonymisierung); die Originalwerte stehen hier.
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Verlängerung einer Straßenbahnlinie, Tramtrasse in innerstädtischem Abschnitt | [1] | 22.02.2017 |
+| 86 Bäume, rund 35 Jahre alt, Spitzahorn; 73 gefällt innerhalb von drei Tagen (22.–24.02.) | [1] | 22.02.2017 |
+| 13 Bäume verpflanzt an drei öffentliche Orte (Original: Tulla-Realschule, Niedereich-Spielplatz, Spielplatz Kreuzmatt) | [1] | 22.02.2017 |
+| Straßenquerschnitt reicht nicht für Trasse und Bestand | [1] | 22.02.2017 |
+| Neupflanzungen 50 + 24 + 6 = rund 80 an mehreren Standorten | [1] | 22.02.2017 |
+| Stammholz für Bänke oder Spielgeräte | [1] | 22.02.2017 |
+| Beteiligte: Stadtverwaltung, Gemeinderat, Bau- und Spezialunternehmen, Anlieger (Rollenangaben ohne Tatsachenbehauptung) | [1] | 22.02.2017 |
+
+Entfernt (nicht ≤ T0 belegt): Kosten 21,2 Mio. € (nur [6], 2018), Länge von ungefähr einem Kilometer, Bahnhof–Rathaus,
+zwei Haltestellen und Busverknüpfung (nur [5], 12.05.2017), Verlauf entlang Bundesstraße, Baumgruppen an zwei Kreuzungen,
+grenzüberschreitende Strecke und Straßburger Verkehrsbetriebe (nur [4], 28.04.2017), Betriebshof, „Baubürgermeister“ als
+Auskunftgeber, Verwertung des übrigen Holzes (Häckseln).
+
 ## Primärergebnis (einheitlich für alle 8 Fälle)
 
 Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder

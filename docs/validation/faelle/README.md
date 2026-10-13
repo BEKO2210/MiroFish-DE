@@ -22,12 +22,18 @@ Einheitliches Primärergebnis für alle Fälle: „Innerhalb von 14 Tagen veröf
 | neuwied-parkgebuehren-2025 | Neuwied (Rheinland-Pfalz) | 13.11.2025 | 13.11.2025 | **Ja** (AfD-Fraktion, 16.11.2025) | Parkgebühren-Verdopplung | 8 | 7 (6 scorebar, 1 `in_material`) | 5/6 (83 %) |
 | **Summe / Basisrate** | | | | **5/8 Ja (62,5 %)** | | 64 | 55 | 34/53 scorebar (64 %) |
 
-T0 = Tag des Beschlusses; `ausgangslage.md` enthält nur Tatsachen aus Quellen mit Veröffentlichung ≤ T0 (Prüftabelle je Fall in
-`quellen.md`). Genau eine Frage je Fall trägt `"primaer": true`. Neuwied hat 6 scorebare belegte Fragen und gilt damit nicht als
+T0 = Tag des Beschlusses; `ausgangslage.md` enthält nur Tatsachen aus Quellen mit Veröffentlichung ≤ T0 (Prüftabelle „T0-Prüfung“
+je Fall in `quellen.md`, jetzt für alle acht Fälle; Ausnahme: Beschluss und in der Sitzung genannte Gründe als Ereignis an T0).
+Genau eine Frage je Fall trägt `"primaer": true`; jede Frage trägt `"polarity"` (`presence` oder `absence`, Ausbleiben bzw.
+Fortbestehen). Kodierhinweise stehen nicht im Fragetext. Neuwied hat 6 scorebare belegte Fragen und gilt damit nicht als
 „schwacher Fall“.
 
 **Basisrate:** 5 von 8 Fällen sind „Ja“ (62,5 %). Das Primärergebnis streut damit; ein Skill-Vergleich muss gegen die konstante
 Vorhersage 0,625 antreten. Mit 8 Fällen ist die Basisrate nur grob bestimmt (Wilson-95-%-Intervall etwa 31–86 %).
+
+Vorvereinbarte Auswertung (siehe Protokoll): primär alle 8 Fälle; Sensitivitätsanalyse nur über die 5 Fälle ohne Quellenlücke
+(ohne Kehl, Niederkassel, Wanzleben). Arme: S (`baseline`), D (`null_document`), P (`null_personas`); `isolated` und
+`blind_feed` nur explorativ, nicht als Vernetzungseffekt lesbar.
 
 ## Grenzen
 
@@ -48,4 +54,11 @@ Vorhersage 0,625 antreten. Mit 8 Fällen ist die Basisrate nur grob bestimmt (Wi
 - **Lesbarkeit:** Nicht jede Quelle war automatisch auswertbar (z. B. ein Bild-PDF in Wanzleben); solche Quellen tragen
   keine Belege.
 - **Suchergebnisse:** Antworten von Websuchen wurden nicht als Beleg übernommen; sie enthielten teils falsche Details.
-- **Einzelheiten:** Ortsnamen sind in `ausgangslage.md` zu Fiktivnamen anonymisiert, die Zuordnung steht in `verlauf.md`.
+- **Anonymisierung:** `ausgangslage.md` enthält keine Eigennamen und keine einmaligen Fingerabdrücke (exakte Zahlen, Ortsnamen,
+  Stimmverhältnisse); Zahlen sind auf Größenordnungen gerundet, Ortsnamen durch Fiktivnamen oder neutrale Umschreibungen
+  ersetzt. Die Originalwerte und die Zuordnung stehen in `quellen.md` bzw. `verlauf.md`. Anonymisierung ersetzt die
+  Kontaminationsprüfung nicht.
+- **Fallauswahl:** Die Autoren kannten die Ausgänge bei der Fallauswahl. Der Satz steht auch in `../PROTOKOLL-V5.md`;
+  der Pilot dient der Falsifikation, keine Kalibrierungsaussage unter 25 Fällen.
+- **Zweitkodierung:** `../zweitkodierung/` (KI-Zweitkodierer GitHub Copilot, blind; 8/8 Übereinstimmung, Kappa 1,0). Es gab
+  keine zweite menschliche Person.
