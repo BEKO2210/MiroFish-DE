@@ -75,7 +75,7 @@
           <div class="detail-panel-header">
             <span class="detail-title">{{ selectedItem.type === 'node' ? $t('graph.nodeDetails') : $t('graph.relationship') }}</span>
             <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: 'var(--color-bg-surface-raised)' }">
-              {{ selectedItem.entityType }}
+              {{ formatLabel(selectedItem.entityType) }}
             </span>
             <button class="detail-close" @click="closeDetailPanel">×</button>
           </div>
@@ -117,7 +117,7 @@
               <div class="section-title">{{ $t('graph.bezeichnungen') }}</div>
               <div class="labels-list">
                 <span v-for="label in selectedItem.data.labels" :key="label" class="label-tag">
-                  {{ label }}
+                  {{ formatLabel(label) }}
                 </span>
               </div>
             </div>
@@ -144,7 +144,7 @@
                     @click="toggleSelfLoop(loop.uuid || idx)"
                   >
                     <span class="self-loop-index">#{{ idx + 1 }}</span>
-                    <span class="self-loop-name">{{ loop.name || loop.fact_type || 'RELATED' }}</span>
+                    <span class="self-loop-name">{{ formatLabel(loop.name || loop.fact_type || 'RELATED', 'relation') }}</span>
                     <span class="self-loop-toggle">{{ expandedSelfLoops.has(loop.uuid || idx) ? '−' : '+' }}</span>
                   </div>
                   
@@ -179,7 +179,7 @@
             <!-- Normale Kantendetails -->
             <template v-else>
               <div class="edge-relation-header">
-                {{ selectedItem.data.source_name }} → {{ selectedItem.data.name || 'RELATED_TO' }} → {{ selectedItem.data.target_name }}
+                {{ selectedItem.data.source_name }} → {{ formatLabel(selectedItem.data.name || 'RELATED_TO', 'relation') }} → {{ selectedItem.data.target_name }}
               </div>
               
               <div class="detail-row">
@@ -188,7 +188,7 @@
               </div>
               <div class="detail-row">
                 <span class="detail-label">{{ $t('graph.label') }}</span>
-                <span class="detail-value">{{ selectedItem.data.name || 'RELATED_TO' }}</span>
+                <span class="detail-value">{{ formatLabel(selectedItem.data.name || 'RELATED_TO', 'relation') }}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">{{ $t('graph.type') }}</span>
@@ -244,7 +244,7 @@
       <div class="legend-items">
         <div class="legend-item" v-for="type in entityTypes" :key="type.name">
           <span class="legend-dot" :style="{ background: type.color }"></span>
-          <span class="legend-label">{{ type.name }}</span>
+          <span class="legend-label">{{ formatLabel(type.name) }}</span>
         </div>
       </div>
     </div>
@@ -256,6 +256,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import * as d3 from 'd3'
 import { useI18n } from 'vue-i18n'
+import { formatLabel } from '../utils/labels.js'
 
 const { t } = useI18n()
 
@@ -277,14 +278,46 @@ const showSimulationFinishedHint = ref(false) // Hinweis nach Simulationsende
 const wasSimulating = ref(false) // Verfolgt, ob vorher simuliert wurde
 const showLegend = ref(typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches)
 
+const nodeCountRef = ref(0)
+
 const updateNodeLabelVisibility = () => {
   if (!nodeLabelsRef) return
   const selectedUuid = selectedItem.value?.type === 'node' ? selectedItem.value.data?.uuid : null
-  nodeLabelsRef.style('opacity', d => {
-    if (currentZoomK >= 0.6) return 1
-    if (selectedUuid && d.rawData?.uuid === selectedUuid) return 1
-    return 0
-  })
+  const alwaysShow = nodeCountRef.value > 0 && nodeCountRef.value <= 60
+  const k = currentZoomK > 0 ? currentZoomK : 1
+  const basePx = typeof window !== 'undefined' && window.innerWidth <= 768 ? 12 : 11
+  // Bildschirmgröße = SVG-px * Zoom; mind. 11 px sichtbar halten
+  const screenPx = alwaysShow ? Math.max(basePx, 11 / k) : basePx
+  nodeLabelsRef
+    .style('opacity', d => {
+      if (alwaysShow) return 1
+      if (currentZoomK >= 0.6) return 1
+      if (selectedUuid && d.rawData?.uuid === selectedUuid) return 1
+      return 0
+    })
+    .attr('font-size', `${screenPx}px`)
+}
+
+const updateEdgeLabelVisibility = () => {
+  if (!linkLabelsRef) return
+  const hideAll = !showEdgeLabels.value
+  const selectedUuid = selectedItem.value?.type === 'node' ? selectedItem.value.data?.uuid : null
+  const selectedEdgeUuid = selectedItem.value?.type === 'edge' ? selectedItem.value.data?.uuid : null
+  const showFor = (d) => {
+    if (hideAll) return false
+    if (currentZoomK >= 0.8) return true
+    if (selectedEdgeUuid && d.rawData?.uuid === selectedEdgeUuid) return true
+    if (selectedUuid) {
+      const srcUuid = d.source?.rawData?.uuid
+      const tgtUuid = d.target?.rawData?.uuid
+      if (srcUuid === selectedUuid || tgtUuid === selectedUuid) return true
+    }
+    return false
+  }
+  linkLabelsRef.style('display', d => (showFor(d) ? 'block' : 'none'))
+  if (linkLabelBgRef) {
+    linkLabelBgRef.style('display', d => (showFor(d) ? 'block' : 'none'))
+  }
 }
 
 // Hinweis nach Simulationsende schließen
@@ -558,9 +591,11 @@ const renderGraph = () => {
     g.attr('transform', event.transform)
     currentZoomK = event.transform.k
     updateNodeLabelVisibility()
+    updateEdgeLabelVisibility()
   })
   svg.call(zoomBehavior).style('touch-action', 'none')
   currentZoomK = 1
+  nodeCountRef.value = nodes.length
 
   // Kanten - path-Element für Kurvenunterstützung verwenden
   const linkGroup = g.append('g').attr('class', 'links')
@@ -668,7 +703,7 @@ const renderGraph = () => {
     .attr('ry', 3)
     .style('cursor', 'pointer')
     .style('pointer-events', 'all')
-    .style('display', showEdgeLabels.value ? 'block' : 'none')
+    .style('display', 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
       linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
@@ -684,19 +719,22 @@ const renderGraph = () => {
       }
     })
 
-  // Link labels
+  // Link labels – Halo, Anzeige ab Zoom 0.8 oder ausgewähltem Knoten
   const linkLabels = linkGroup.selectAll('text')
     .data(edges)
     .enter().append('text')
-    .text(d => d.name)
+    .text(d => formatLabel(d.name, 'relation'))
     .attr('font-size', '11px')
     .attr('fill', 'var(--color-text-secondary)')
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
+    .attr('stroke', 'var(--color-bg-canvas)')
+    .attr('stroke-width', 3)
+    .attr('paint-order', 'stroke')
     .style('cursor', 'pointer')
     .style('pointer-events', 'all')
     .style('font-family', 'var(--font-body)')
-    .style('display', showEdgeLabels.value ? 'block' : 'none')
+    .style('display', 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
       linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
@@ -815,6 +853,7 @@ const renderGraph = () => {
     .style('font-family', 'var(--font-body)')
   nodeLabelsRef = nodeLabels
   updateNodeLabelVisibility()
+  updateEdgeLabelVisibility()
 
   let tickCount = 0
   simulation.on('tick', () => {
@@ -869,21 +908,16 @@ const renderGraph = () => {
   })
 }
 
-watch(selectedItem, () => updateNodeLabelVisibility())
+watch(selectedItem, () => {
+  updateNodeLabelVisibility()
+  updateEdgeLabelVisibility()
+})
 
 watch(() => props.graphData, () => {
   nextTick(renderGraph)
 }, { deep: true })
 
-// Kantenbezeichnungen-Anzeige überwachen
-watch(showEdgeLabels, (newVal) => {
-  if (linkLabelsRef) {
-    linkLabelsRef.style('display', newVal ? 'block' : 'none')
-  }
-  if (linkLabelBgRef) {
-    linkLabelBgRef.style('display', newVal ? 'block' : 'none')
-  }
-})
+watch(showEdgeLabels, () => updateEdgeLabelVisibility())
 
 onMounted(() => {
   resizeObserver = new ResizeObserver((entries) => {

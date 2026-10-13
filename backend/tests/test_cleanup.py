@@ -8,6 +8,7 @@ from app.config import Config
 from app.services.cleanup import (
     CleanupBusy,
     CleanupError,
+    delete_failed_pipelines,
     delete_pipeline_cascade,
     delete_project_cascade,
     delete_simulation_cascade,
@@ -142,6 +143,26 @@ def test_cascade_removes_only_the_finished_simulation(upload):
     assert (upload / "projects" / P2).is_dir()
     assert (upload / "simulations" / S2).is_dir()
     assert (upload / "simulations" / G2).is_dir()
+
+
+def test_delete_failed_pipelines_removes_failed_keeps_running_and_completed(upload):
+    now = datetime.now().isoformat()
+    make_project(upload, P1, G1, now)
+    make_project(upload, P2, G2, now)
+    make_sim(upload, S1, P1, G1)
+    make_sim(upload, S2, P2, G2)
+    # failed ohne Simulation – Cascade bleibt lokal am Durchlauf
+    make_run(upload, RUN1, status="failed", project_id=None, graph_id=None, simulation_id=None)
+    make_run(upload, RUN1B, status="completed", project_id=P1, graph_id=G1, simulation_id=S1)
+    make_run(upload, RUN2, status="running", project_id=P2, graph_id=G2, simulation_id=S2)
+
+    removed = delete_failed_pipelines()
+    assert f"pipeline:{RUN1}" in removed
+    assert not (upload / "pipelines" / f"{RUN1}.json").exists()
+    assert (upload / "pipelines" / f"{RUN1B}.json").is_file()
+    assert (upload / "pipelines" / f"{RUN2}.json").is_file()
+    assert (upload / "simulations" / S1 / "state.json").is_file()
+    assert (upload / "simulations" / S2 / "state.json").is_file()
 
 
 def test_pipeline_cascade_removes_its_project(upload):

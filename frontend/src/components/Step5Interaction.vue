@@ -571,14 +571,22 @@ const formatTime = (timestamp) => {
 const renderMarkdown = (content) => {
   if (!content) return ''
 
-  let processedContent = content.replace(/^##\s+.+\n+/, '')
+  // Escape-Reste + HTML escapen, bevor eigene Tags eingefügt werden
+  let processedContent = String(content)
+    .replace(/\\"/g, '"')
+    .replace(/\\n/g, '\n')
+    .replace(/\\t/g, '\t')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  processedContent = processedContent.replace(/^##\s+.+\n+/, '')
   let html = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
   html = html.replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  html = html.replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
     const level = Math.floor(indent.length / 2)
     return `<li class="md-li" data-level="${level}">${text}</li>`
@@ -2577,7 +2585,7 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-fa
   .right-panel { width: 100%; }
 }
 @media (max-width: 768px) {
-  .interaction-container { padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px)); }
+  .interaction-container { padding-bottom: calc(64px + 58px + env(safe-area-inset-bottom, 0px)); }
   .chat-input-area .send-btn, .survey-submit-btn { display: none; }
   .chat-input-area {
     position: fixed;
@@ -2591,8 +2599,12 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-fa
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
   }
-  .interaction-panel { overflow-y: auto; }
-  .main-split-layout { display: block; overflow: visible; }
+  .interaction-panel,
+  .main-split-layout {
+    height: auto;
+    overflow: visible;
+  }
+  .main-split-layout { display: block; }
   .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }
   .left-panel.report-style { padding: 24px 16px; border-bottom: 1px solid var(--color-border-subtle); }
   .right-panel { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }

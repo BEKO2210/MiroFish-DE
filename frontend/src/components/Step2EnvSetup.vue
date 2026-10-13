@@ -614,17 +614,15 @@
     </Transition>
 
     <!-- Bottom Info / Logs -->
-    <div class="system-logs">
-      <div class="log-header">
-        <span class="log-title">{{ $t('step2.systemubersicht') }}</span>
-      </div>
+    <details class="system-logs">
+      <summary>{{ $t('common.showProtocol') }}</summary>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in systemLogs" :key="idx">
           <span class="log-time">{{ log.time }}</span>
           <span class="log-msg">{{ log.msg }}</span>
         </div>
       </div>
-    </div>
+    </details>
     <MobileStickyBar
       :primary-label="$t('step2.paralleleDualweltSimulationStarten')"
       :primary-disabled="phase < 4"
@@ -2073,22 +2071,29 @@ onUnmounted(() => {
 
 /* System Logs */
 .system-logs {
-  background: var(--color-text-primary);
-  color: var(--color-border-default);
-  padding: 16px;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
   font-family: var(--font-body);
-  border-top: 1px solid var(--color-text-primary);
+  border-top: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
-
-.log-header {
+.system-logs > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  list-style: none;
+  min-height: 32px;
   display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-text-primary);
-  padding-bottom: 8px;
+  align-items: center;
+}
+.system-logs > summary::-webkit-details-marker { display: none; }
+.system-logs[open] { padding-bottom: 12px; }
+.system-logs[open] > summary {
   margin-bottom: 8px;
-  font-size: 10px;
-  color: var(--color-text-muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .log-content {
@@ -2628,9 +2633,13 @@ h1, h2, h3, h4, h5, h6, .step-title, .section-title { font-family: var(--font-he
 .env-setup-panel, .scroll-container, .step-card { min-width: 0; }
 .step-card, .description, .info-value, .config-value { overflow-wrap: anywhere; }
 @media (max-width: 768px) {
-  .scroll-container { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .env-setup-panel,
+  .scroll-container {
+    height: auto;
+    overflow: visible;
+  }
   .action-group.dual { display: none; }
-  .scroll-container { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 16px; }
+  .scroll-container { padding: 16px 16px calc(64px + 58px + env(safe-area-inset-bottom, 0px)); gap: 16px; }
   .step-card { width: 100%; padding: 16px; border-radius: var(--radius-lg); }
   .card-header, .step-info, .action-group { align-items: flex-start; }
   .card-header, .action-group { flex-wrap: wrap; gap: 12px; }

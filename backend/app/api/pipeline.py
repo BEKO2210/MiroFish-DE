@@ -27,12 +27,11 @@ logger = get_logger('mirofish.pipeline')
 def mark_stale_runs():
     """Beim Start: 'running' heißt, der Thread ist mit dem Prozess gestorben.
 
-    Solche Durchläufe werden als abgebrochen gespeichert und danach samt Daten entfernt.
-    Anschließend verwaiste Projekte und Graph-Ordner. Was wirklich noch läuft, gibt es
-    beim Start nicht — laufende Durchläufe fasst das Aufräumen sonst nie an.
+    Solche Durchläufe werden als abgebrochen gespeichert. Anschließend werden alle
+    Durchläufe mit Status 'failed' (inkl. der gerade markierten) samt Daten entfernt.
+    Laufende fasst das Aufräumen nie an. Danach verwaiste Projekte und Graph-Ordner.
     """
-    from ..services.cleanup import delete_pipeline_cascade, sweep_orphans
-    stale = []
+    from ..services.cleanup import delete_failed_pipelines, sweep_orphans
     try:
         names = list(os.listdir(_dir()))
     except OSError as exc:
@@ -49,16 +48,12 @@ def mark_stale_runs():
         st["error"] = "Backend wurde neu gestartet, Durchlauf abgebrochen"
         _save(st)
         logger.warning(f"Durchlauf {st.get('pipeline_id', pid)} als abgebrochen markiert (Neustart)")
-        stale.append(pid)
-    for pid in stale:
-        if not re.fullmatch(r"run_[0-9a-f]+", pid or ""):
-            logger.warning(f"Abgebrochener Durchlauf hat keine gültige Kennung und bleibt liegen: {pid}")
-            continue
-        try:
-            removed = delete_pipeline_cascade(pid)
-            logger.info(f"Abgebrochener Durchlauf aufgeräumt ({pid}): {removed}")
-        except Exception as exc:
-            logger.error(f"Aufräumen des abgebrochenen Durchlaufs {pid} fehlgeschlagen: {exc}")
+    try:
+        removed = delete_failed_pipelines()
+        if removed:
+            logger.info(f"Fehlgeschlagene/abgebrochene Durchläufe aufgeräumt: {removed}")
+    except Exception as exc:
+        logger.error(f"Aufräumen fehlgeschlagener Durchläufe fehlgeschlagen: {exc}")
     try:
         removed = sweep_orphans()
         if removed:
@@ -287,6 +282,8 @@ def delete_pipeline(pid):
     from ..services.cleanup import CleanupBusy, CleanupError, delete_pipeline_cascade
     if not re.fullmatch(r"run_[0-9a-f]+", pid or ""):
         return jsonify({"success": False, "error": "Ungültige Durchlauf-ID"}), 400
+    if not _load(pid):
+        return jsonify({"success": False, "error": "Durchlauf nicht gefunden"}), 404
     try:
         removed = delete_pipeline_cascade(pid)
     except CleanupBusy:

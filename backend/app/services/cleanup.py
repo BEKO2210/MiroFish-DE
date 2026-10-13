@@ -410,6 +410,21 @@ def delete_simulation_cascade(simulation_id: str) -> List[str]:
     return removed
 
 
+def delete_failed_pipelines() -> List[str]:
+    """Alle Durchläufe mit Status failed entfernen. Laufende bleiben unberührt."""
+    removed: List[str] = []
+    for run_id, data in list(_iter_pipelines()):
+        if data.get("status") != "failed":
+            continue
+        try:
+            removed.extend(delete_pipeline_cascade(run_id))
+        except CleanupBusy:
+            continue
+        except Exception as exc:
+            logger.error(f"Aufräumen des fehlgeschlagenen Durchlaufs {run_id} fehlgeschlagen: {exc}")
+    return removed
+
+
 def delete_pipeline_cascade(run_id: str) -> List[str]:
     """Protokoll und Upload-Ordner eines Durchlaufs löschen, danach Simulation und Projekt.
 

@@ -122,6 +122,19 @@ test.describe('Flows', () => {
     await expect(page.locator('h1.page__title')).toHaveText('Settings')
   })
 
+  test('Simulation-Feed: Escape-Reste und *kursiv* werden sauber gerendert', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/simulation/sim_2c3b36b2e33f/start', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    const post = page.locator('.content-text.main-text').first()
+    await expect(post).toBeVisible({ timeout: 15_000 })
+    await expect(post).toContainText('"Gemeinwohls"')
+    await expect(post).not.toContainText('\\"')
+    await expect(post.locator('em')).toHaveText('ganzheitlich')
+    await expect(post.locator('strong')).toHaveText('Fakten')
+  })
+
   test('Einstellungen: Farbwähler Voll und Reset', async ({ page }) => {
 
     await preparePage(page)

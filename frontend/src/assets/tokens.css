@@ -205,6 +205,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Nach dem Reset: am Handy Platz für Fußmenü + MobileStickyBar (App.vue allein würde von padding:0 überschrieben) */
+@media (max-width: 768px) {
+  body {
+    padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* App-Root überschreibt die problematische JetBrains-Mono-Vorgabe aus App.vue */
 #app {
   font-family: var(--font-body) !important;

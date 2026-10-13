@@ -1,29 +1,32 @@
 <!-- frontend/src/components/MobileStickyBar.vue -->
 <template>
-  <aside class="mobile-sticky-bar" role="region" :aria-label="ariaLabel || primaryLabel">
-    <div class="mobile-sticky-bar__container">
-      <button
-        v-if="secondaryLabel"
-        type="button"
-        class="sticky-btn sticky-btn--secondary"
-        :disabled="secondaryDisabled || primaryLoading"
-        @click="$emit('secondary-click')"
-      >
-        <span>{{ secondaryLabel }}</span>
-      </button>
+  <!-- Teleport: position:fixed darf nicht an transform/will-change der Schritt-Panels hängen -->
+  <Teleport to="body">
+    <aside class="mobile-sticky-bar" role="region" :aria-label="ariaLabel || primaryLabel">
+      <div class="mobile-sticky-bar__container">
+        <button
+          v-if="secondaryLabel"
+          type="button"
+          class="sticky-btn sticky-btn--secondary"
+          :disabled="secondaryDisabled || primaryLoading"
+          @click="$emit('secondary-click')"
+        >
+          <span>{{ secondaryLabel }}</span>
+        </button>
 
-      <button
-        type="button"
-        class="sticky-btn sticky-btn--primary"
-        :class="{ 'is-loading': primaryLoading }"
-        :disabled="primaryDisabled || primaryLoading"
-        @click="$emit('primary-click')"
-      >
-        <span v-if="primaryLoading" class="sticky-btn__spinner" aria-hidden="true"></span>
-        <span class="sticky-btn__label">{{ primaryLabel }}</span>
-      </button>
-    </div>
-  </aside>
+        <button
+          type="button"
+          class="sticky-btn sticky-btn--primary"
+          :class="{ 'is-loading': primaryLoading }"
+          :disabled="primaryDisabled || primaryLoading"
+          @click="$emit('primary-click')"
+        >
+          <span v-if="primaryLoading" class="sticky-btn__spinner" aria-hidden="true"></span>
+          <span class="sticky-btn__label">{{ primaryLabel }}</span>
+        </button>
+      </div>
+    </aside>
+  </Teleport>
 </template>
 
 <script setup>
