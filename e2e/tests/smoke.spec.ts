@@ -10,9 +10,6 @@ import { ROUTES, isLiveMode } from '../support/mockApi'
 
 /** Handy: Fußmenü verdeckt Inhalt – bekannter Fehler, siehe BEFUNDE.md (Schrittseiten: anderer Agent) */
 const MOBILE_NAV_COVER = new Set([
-  '/process/proj_6fde53d0e82a',
-  '/simulation/sim_2c3b36b2e33f',
-  '/interaction/report_6587bcd7e3fa',
 ])
 
 test.describe('Smoke', () => {

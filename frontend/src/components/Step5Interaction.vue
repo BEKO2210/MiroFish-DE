@@ -406,6 +406,20 @@
         </div>
       </div>
     </div>
+    <MobileStickyBar
+      v-if="activeTab === 'chat'"
+      :primary-label="$t('step5.senden')"
+      :primary-disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
+      :primary-loading="isSending"
+      @primary-click="sendMessage"
+    />
+    <MobileStickyBar
+      v-else
+      :primary-label="$t('step5.umfrageSenden')"
+      :primary-disabled="!surveyQuestion.trim() || selectedAgents.size === 0 || isSurveying"
+      :primary-loading="isSurveying"
+      @primary-click="submitSurvey"
+    />
   </div>
 </template>
 
@@ -414,6 +428,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { chatWithReport, getReport, getAgentLog } from '../api/report'
 import { interviewAgents, getSimulationProfilesRealtime } from '../api/simulation'
+import MobileStickyBar from './MobileStickyBar.vue'
 
 const { t } = useI18n()
 
@@ -2557,7 +2572,25 @@ button, [role="button"], input, select, textarea { min-height: var(--touch-targe
 h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-family: var(--font-heading); }
 .report-id { display: none; }
 .generated-content, .message-content, .tool-desc, .agent-name { overflow-wrap: anywhere; word-break: break-word; }
+@media (min-width: 1024px) {
+  .left-panel.report-style { display: none; }
+  .right-panel { width: 100%; }
+}
 @media (max-width: 768px) {
+  .interaction-container { padding-bottom: calc(144px + env(safe-area-inset-bottom, 0px)); }
+  .chat-input-area .send-btn, .survey-submit-btn { display: none; }
+  .chat-input-area {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(122px + env(safe-area-inset-bottom, 0px));
+    z-index: 44;
+    padding: 8px;
+    background: var(--color-bg-surface-raised);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+  }
   .interaction-panel { overflow-y: auto; }
   .main-split-layout { display: block; overflow: visible; }
   .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }

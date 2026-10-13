@@ -5,6 +5,7 @@
       <div class="header-left">
         <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
+      <StepHeaderCompact class="mobile-step-header" :current-step="3" :max-unlocked-step="3" :step-names="stepNames" @select-step="selectStep" />
       
       <div class="header-center">
         <div class="view-switcher">
@@ -74,6 +75,7 @@ import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step3Simulation from '../components/Step3Simulation.vue'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import StepHeaderCompact from '../components/StepHeaderCompact.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation, getSimulationConfig, stopSimulation, closeSimulationEnv, getEnvStatus } from '../api/simulation'
 
@@ -89,6 +91,7 @@ const props = defineProps({
 
 // Layout State
 const viewMode = ref(window.innerWidth <= 768 ? 'workbench' : 'split')
+const stepNames = computed(() => [t('main.graphErstellen'), t('main.umgebungAufbauen'), t('main.simulationStarten'), t('main.berichtGenerieren'), t('main.tiefeInteraktion')])
 
 // Data State
 const currentSimulationId = ref(route.params.simulationId)
@@ -195,6 +198,11 @@ const handleGoBack = async () => {
   
   // Zurück zu Schritt 2 (Umgebungsaufbau)
   router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
+}
+
+const selectStep = (step) => {
+  if (step === 2) handleGoBack()
+  if (step === 1 && projectData.value?.project_id) router.push({ name: 'Process', params: { projectId: projectData.value.project_id } })
 }
 
 const handleNextStep = () => {
@@ -461,6 +469,7 @@ onUnmounted(() => {
   .step-name { white-space: nowrap; }
   [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
+.mobile-step-header { display: none; }
 /* Ruhige, durchscheinende Kopfzeile wie in AppHeader. */
 .app-header {
   min-height: 60px;
@@ -492,6 +501,9 @@ onUnmounted(() => {
 .switch-btn:focus-visible, .brand:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 
 @media (max-width: 768px) {
+  .mobile-step-header { display: flex; order: 2; }
+  .header-right { display: none; }
+  .header-center { order: 3; }
   .main-view { height: calc(100dvh - 60px); min-width: 0; }
   .app-header { padding: 6px 16px; }
   .header-left, .header-right { min-width: 0; }

@@ -179,6 +179,12 @@
         </div>
       </div>
     </div>
+    <MobileStickyBar
+      :primary-label="$t('step1.toEnvironmentSetup')"
+      :primary-disabled="currentPhase < 2"
+      :primary-loading="creatingSimulation"
+      @primary-click="handleEnterEnvSetup"
+    />
   </div>
 </template>
 
@@ -187,6 +193,7 @@ import { computed, ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createSimulation } from '../api/simulation'
+import MobileStickyBar from './MobileStickyBar.vue'
 
 const { t } = useI18n()
 
@@ -700,6 +707,8 @@ h1, h2, h3, h4, h5, h6, .step-title { font-family: var(--font-heading); }
 .workbench-panel, .scroll-container, .step-card { min-width: 0; }
 .step-card, .description, .log-msg, .detail-value { overflow-wrap: anywhere; }
 @media (max-width: 768px) {
+  .scroll-container { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .step-card:last-child .action-btn { display: none; }
   .scroll-container { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 16px; }
   .step-card { width: 100%; padding: 16px; border-radius: var(--radius-lg); }
   .card-header, .step-info { align-items: flex-start; }

@@ -156,6 +156,7 @@
     "projektGeladenStatus": "Projekt geladen. Status: {p0}",
     "projektWirdGeladen": "Projekt wird geladen: {p0}...",
     "schritt": "Schritt",
+    "schrittFortschritt": "Schrittfortschritt",
     "schrittBetreten": "Schritt {p0} betreten: {p1}",
     "simulationStarten": "Simulation starten",
     "vollstandigeGraphdatenWerdenGeladen": "Vollständige Graphdaten werden geladen: {p0}",
@@ -309,6 +310,12 @@
     "umgebungsaufbau": "Agenten vorbereiten"
   },
   "graph": {
+    "entity": "Akteur",
+    "wissensgraph": "Wissensgraph",
+    "artenVonAkteuren": "Arten von Akteuren",
+    "legende": "Legende",
+    "kanten": "Kanten",
+    "fullscreen": "Vollbild",
     "unknown": "Unbekannt",
     "liveUpdate": "Echtzeit-Aktualisierung...",
     "nodeDetails": "Knotendetails",
@@ -700,6 +707,7 @@
     "responsesReceived": "{count} Antworten erhalten",
     "selectSimulatedPersonFirst": "Bitte zuerst ein simuliertes Individuum auswählen",
     "sendFailed": "Senden fehlgeschlagen: {error}",
+    "senden": "Frage senden",
     "sendingSurvey": "Umfrage an {count} Teilnehmer senden...",
     "sentToPerson": "An {name} gesendet: {message}...",
     "sentToReportAgent": "An Berichts-Agent gesendet: {message}...",

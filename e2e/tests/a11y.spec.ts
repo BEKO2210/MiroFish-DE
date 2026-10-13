@@ -7,7 +7,6 @@ const A11Y_ROUTES = ['/', '/history', '/settings', '/report/report_6587bcd7e3fa'
 
 /** Routes mit bekannten serious/critical – siehe BEFUNDE.md (Report: anderer Agent) */
 const KNOWN_A11Y_FAIL = new Set([
-  'tablet:/report/report_6587bcd7e3fa',
   'desktop:/report/report_6587bcd7e3fa',
 ])
 

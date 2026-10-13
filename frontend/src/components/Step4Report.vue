@@ -427,6 +427,11 @@
       </div>
       </div>
     </details>
+    <MobileStickyBar
+      v-if="isComplete"
+      :primary-label="$t('step4.zurTiefeninteraktion')"
+      @primary-click="goToInteraction"
+    />
   </div>
 </template>
 
@@ -435,6 +440,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } f
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { getAgentLog, getConsoleLog } from '../api/report'
+import MobileStickyBar from './MobileStickyBar.vue'
 
 const { t } = useI18n()
 
@@ -5449,6 +5455,8 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
 }
 
 @media (max-width: 768px) {
+  .next-step-btn { display: none; }
+  .report-main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .report-panel { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }
   .left-panel.report-style { padding: 24px 16px 40px; border-bottom: 0; }

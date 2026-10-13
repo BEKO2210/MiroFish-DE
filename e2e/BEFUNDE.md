@@ -8,17 +8,15 @@ WebKit-Status bei diesem Lauf: siehe `webkit-status.txt` (Binary vorhanden, Host
 
 | Test | Gerät | Route | Was passiert | Screenshot / Artefakt |
 |------|-------|-------|--------------|------------------------|
-| `smoke.spec.ts` | handy | `/process/proj_6fde53d0e82a` | Button „Zur Umgebungseinrichtung“ liegt unter dem Fußmenü. | `test-results/smoke-Smoke--process-…-handy/` |
-| `smoke.spec.ts` | handy | `/simulation/sim_2c3b36b2e33f` | Button „← Zurück zur Grapherstellung“ liegt unter dem Fußmenü. | `test-results/smoke-Smoke--simulation-…-handy/` |
-| `smoke.spec.ts` | handy | `/interaction/report_6587bcd7e3fa` | Textarea am Seitenende liegt unter dem Fußmenü. | `test-results/smoke-Smoke--interaction-…-handy/` |
+| – | – | – | Keine offenen Befunde: Startseite, Durchlauf und alle Schritt-Seiten sind behoben (Daumen-Leiste, Safe-Area). | – |
 
-Ursache: Schrittseiten (`Process` / `Simulation` / `Interaction`) – Scope eines anderen Agents. Startseite und Durchlauf sind mit Safe-Area + `MobileStickyBar` behoben.
+Behoben mit `MobileStickyBar` und Safe-Area-Abstand (UX Teil A + B).
 
 ## 2. Barrierefreiheit (axe serious/critical)
 
 | Test | Gerät | Route | Verstöße | Artefakt |
 |------|-------|-------|----------|----------|
-| `a11y.spec.ts` | tablet, desktop | `/report/report_6587bcd7e3fa` | `color-contrast` (u. a.) | `test-results/a11y-…-report-…` |
+| `a11y.spec.ts` | desktop | `/report/report_6587bcd7e3fa` | `color-contrast` (u. a.) | `test-results/a11y-…-report-…` |
 
 Hinweis: `/`, `/history`, `/settings` (Kontrast Marken-/Meta-Text, Labels/Selects, Datei-Input) sind behoben. Auf **handy** war `/report/...` bereits ohne serious/critical grün.
 

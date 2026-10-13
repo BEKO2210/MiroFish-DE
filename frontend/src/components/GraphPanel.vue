@@ -1,16 +1,38 @@
 <template>
   <div class="graph-panel">
     <div class="panel-header">
-      <span class="panel-title">{{ $t('graph.graphBeziehungsvisualisierung') }}</span>
-      <!-- Obere Werkzeugleiste (Intern oben rechts) -->
-      <div class="header-tools">
-        <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" :title="$t('graph.graphAktualisieren')">
-          <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
-          <span class="btn-text">{{ $t('common.refresh') }}</span>
+      <div class="panel-header__row-top">
+        <h2 class="panel-title">{{ $t('graph.wissensgraph') }}</h2>
+        <button
+          v-if="graphData && entityTypes.length"
+          type="button"
+          class="legend-toggle-btn"
+          :class="{ 'is-active': showLegendMobile }"
+          :aria-expanded="showLegendMobile"
+          @click="showLegendMobile = !showLegendMobile"
+        >
+          <span class="legend-toggle-btn__dot" aria-hidden="true"></span>
+          <span>{{ $t('graph.legende') }}</span>
         </button>
-        <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.maximierenWiederherstellen')">
-          <span class="icon-maximize">⛶</span>
-        </button>
+      </div>
+      <div class="panel-header__row-toolbar">
+        <div class="header-tools">
+          <button type="button" class="tool-btn" @click="$emit('refresh')" :disabled="loading" :aria-label="$t('graph.graphAktualisieren')">
+            <span class="icon-refresh" :class="{ 'spinning': loading }" aria-hidden="true">↻</span>
+            <span class="btn-text">{{ $t('common.refresh') }}</span>
+          </button>
+          <button type="button" class="tool-btn" @click="$emit('toggle-maximize')" :aria-label="$t('graph.maximierenWiederherstellen')">
+            <span class="icon-maximize" aria-hidden="true">⛶</span>
+            <span class="btn-text desktop-only">{{ $t('graph.fullscreen') }}</span>
+          </button>
+        </div>
+        <div v-if="graphData" class="edge-labels-control">
+          <label class="toggle-switch-compact" for="edge-label-toggle">
+            <input id="edge-label-toggle" type="checkbox" v-model="showEdgeLabels" />
+            <span class="slider" aria-hidden="true"></span>
+            <span class="toggle-label">{{ $t('graph.kanten') }}</span>
+          </label>
+        </div>
       </div>
     </div>
     
@@ -20,7 +42,7 @@
         <svg ref="graphSvg" class="graph-svg"></svg>
         
         <!-- Aufbau-/Simulationshinweis -->
-        <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint">
+        <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint graph-building-hint--top" role="status" aria-live="polite">
           <div class="memory-icon-wrapper">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="memory-icon">
               <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-4.04z" />
@@ -214,8 +236,11 @@
     </div>
 
     <!-- Legende unten (Bottom Left) -->
-    <div v-if="graphData && entityTypes.length" class="graph-legend">
-      <span class="legend-title">{{ $t('graph.entityTypes') }}</span>
+    <div v-if="graphData && entityTypes.length" class="graph-legend" :class="{ 'is-open-mobile': showLegendMobile }" role="region" :aria-label="$t('graph.artenVonAkteuren')">
+      <div class="legend-header">
+        <span class="legend-title">{{ $t('graph.artenVonAkteuren') }}</span>
+        <button type="button" class="legend-close-btn mobile-only" @click="showLegendMobile = false" :aria-label="$t('common.close')">×</button>
+      </div>
       <div class="legend-items">
         <div class="legend-item" v-for="type in entityTypes" :key="type.name">
           <span class="legend-dot" :style="{ background: type.color }"></span>
@@ -224,14 +249,6 @@
       </div>
     </div>
     
-    <!-- Kantenbezeichnungen ein-/ausblenden -->
-    <div v-if="graphData" class="edge-labels-toggle">
-      <label class="toggle-switch">
-        <input type="checkbox" v-model="showEdgeLabels" />
-        <span class="slider"></span>
-      </label>
-      <span class="toggle-label">{{ $t('graph.showEdgeLabels') }}</span>
-    </div>
   </div>
 </template>
 
@@ -258,6 +275,7 @@ const showEdgeLabels = ref(true) // Kantenbezeichnungen standardmäßig anzeigen
 const expandedSelfLoops = ref(new Set()) // Aufgeklappte Selbstschleifen-Einträge
 const showSimulationFinishedHint = ref(false) // Hinweis nach Simulationsende
 const wasSimulating = ref(false) // Verfolgt, ob vorher simuliert wurde
+const showLegendMobile = ref(false)
 
 // Hinweis nach Simulationsende schließen
 const dismissFinishedHint = () => {
@@ -289,7 +307,10 @@ const entityTypes = computed(() => {
   if (!props.graphData?.nodes) return []
   const typeMap = {}
   // Ansprechende Farbpalette
-  const colors = ['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#3498db', '#9b59b6', '#27ae60', '#f39c12']
+  const colors = [
+    'var(--color-brand-primary)', 'var(--color-info-text)', 'var(--color-success-text)',
+    'var(--color-warning-text)', 'var(--color-error-text)', 'var(--color-text-secondary)'
+  ]
   
   props.graphData.nodes.forEach(node => {
     const type = node.labels?.find(l => l !== 'Entity') || t('graph.entity')
@@ -327,6 +348,26 @@ const closeDetailPanel = () => {
 let currentSimulation = null
 let linkLabelsRef = null
 let linkLabelBgRef = null
+let resizeObserver = null
+let zoomBehavior = null
+let fitTimer = null
+
+const zoomToFit = (paddingPercent = 0.88, animate = true) => {
+  if (!graphSvg.value || !graphContainer.value || !zoomBehavior) return
+  const svg = d3.select(graphSvg.value)
+  const group = svg.select('g')
+  if (group.empty()) return
+  const bounds = group.node().getBBox()
+  const fullWidth = graphContainer.value.clientWidth
+  const fullHeight = graphContainer.value.clientHeight
+  if (!bounds.width || !bounds.height || !fullWidth || !fullHeight) return
+  const scale = Math.max(0.15, Math.min(1.8, paddingPercent / Math.max(bounds.width / fullWidth, bounds.height / fullHeight)))
+  const transform = d3.zoomIdentity
+    .translate(fullWidth / 2 - scale * (bounds.x + bounds.width / 2), fullHeight / 2 - scale * (bounds.y + bounds.height / 2))
+    .scale(scale)
+  const target = animate ? svg.transition().duration(400) : svg
+  target.call(zoomBehavior.transform, transform)
+}
 
 const renderGraph = () => {
   if (!graphSvg.value || !props.graphData) return
@@ -339,6 +380,7 @@ const renderGraph = () => {
   const container = graphContainer.value
   const width = container.clientWidth
   const height = container.clientHeight
+  if (width <= 0 || height <= 0) return
   
   const svg = d3.select(graphSvg.value)
     .attr('width', width)
@@ -473,6 +515,7 @@ const renderGraph = () => {
 
   // Simulation - Knotenabstand dynamisch nach Kantenanzahl anpassen
   const simulation = d3.forceSimulation(nodes)
+    .alphaMin(0.005)
     .force('link', d3.forceLink(edges).id(d => d.id).distance(d => {
       // Abstand dynamisch nach Kantenanzahl zwischen Knotenpaar anpassen
       // Basisabstand 150, pro zusätzlicher Kante 50 mehr
@@ -491,10 +534,11 @@ const renderGraph = () => {
 
   const g = svg.append('g')
   
-  // Zoom
-  svg.call(d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.1, 4]).on('zoom', (event) => {
+  // Zoom: Mausrad, Ein-Finger-Verschieben und Pinch-Zoom.
+  zoomBehavior = d3.zoom().extent([[0, 0], [width, height]]).scaleExtent([0.15, 3.5]).on('zoom', (event) => {
     g.attr('transform', event.transform)
-  }))
+  })
+  svg.call(zoomBehavior).style('touch-action', 'none')
 
   // Kanten - path-Element für Kurvenunterstützung verwenden
   const linkGroup = g.append('g').attr('class', 'links')
@@ -545,8 +589,8 @@ const renderGraph = () => {
     
     // Selbstschleife erkennen
     if (d.isSelfLoop) {
-      // Selbstschleifen-Beschriftung: rechts vom Knoten
-      return { x: sx + 70, y: sy }
+      // Selbstschleifen-Beschriftung: oberhalb des Knotennamens, damit beide lesbar bleiben
+      return { x: sx + 70, y: sy - 38 }
     }
     
     if (d.curvature === 0) {
@@ -623,13 +667,13 @@ const renderGraph = () => {
     .data(edges)
     .enter().append('text')
     .text(d => d.name)
-    .attr('font-size', '9px')
+    .attr('font-size', '11px')
     .attr('fill', 'var(--color-text-secondary)')
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
     .style('cursor', 'pointer')
     .style('pointer-events', 'all')
-    .style('font-family', 'system-ui, sans-serif')
+    .style('font-family', 'var(--font-body)')
     .style('display', showEdgeLabels.value ? 'block' : 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
@@ -732,16 +776,21 @@ const renderGraph = () => {
   const nodeLabels = nodeGroup.selectAll('text')
     .data(nodes)
     .enter().append('text')
-    .text(d => d.name.length > 8 ? d.name.substring(0, 8) + '…' : d.name)
-    .attr('font-size', '11px')
+    .text(d => {
+      const limit = window.innerWidth <= 768 ? 14 : 20
+      return d.name.length > limit ? `${d.name.substring(0, limit)}…` : d.name
+    })
+    .attr('font-size', window.innerWidth <= 768 ? '12px' : '11px')
     .attr('fill', 'var(--color-text-primary)')
     .attr('font-weight', '500')
     .attr('dx', 14)
     .attr('dy', 4)
     .style('pointer-events', 'none')
-    .style('font-family', 'system-ui, sans-serif')
+    .style('font-family', 'var(--font-body)')
 
+  let tickCount = 0
   simulation.on('tick', () => {
+    tickCount += 1
     // Kurvenpfade aktualisieren
     link.attr('d', d => getLinkPath(d))
     
@@ -774,7 +823,12 @@ const renderGraph = () => {
     nodeLabels
       .attr('x', d => d.x)
       .attr('y', d => d.y)
+
+    if (tickCount >= 300) simulation.stop()
   })
+  simulation.on('end', () => zoomToFit(0.88))
+  clearTimeout(fitTimer)
+  fitTimer = setTimeout(() => zoomToFit(0.88), 450)
   
   // Klick auf leere Fläche schließt Detailbereich
   svg.on('click', () => {
@@ -800,16 +854,17 @@ watch(showEdgeLabels, (newVal) => {
   }
 })
 
-const handleResize = () => {
-  nextTick(renderGraph)
-}
-
 onMounted(() => {
-  window.addEventListener('resize', handleResize)
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (entry?.contentRect.width > 0 && entry.contentRect.height > 0) nextTick(renderGraph)
+  })
+  if (graphContainer.value) resizeObserver.observe(graphContainer.value)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
+  resizeObserver?.disconnect()
+  clearTimeout(fitTimer)
   if (currentSimulation) {
     currentSimulation.stop()
   }
@@ -1195,7 +1250,7 @@ input:checked + .slider:before {
   border: 1px solid var(--color-border-default);
   border-radius: 6px;
   font-family: var(--font-body);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-secondary);
   word-break: break-all;
 }
@@ -1357,7 +1412,7 @@ input:checked + .slider:before {
 }
 
 .self-loop-index {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--color-text-muted);
   background: var(--color-border-default);
@@ -1421,17 +1476,102 @@ input:checked + .slider:before {
 
 .episode-tag.small {
   padding: 3px 6px;
-  font-size: 9px;
+  font-size: 11px;
 }
+/* Responsiver, überlappungsfreier Graphkopf */
+.graph-panel {
+  background-color: var(--color-bg-canvas);
+  background-image: radial-gradient(color-mix(in srgb, var(--color-border-strong) 20%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+.panel-header {
+  z-index: 15;
+  padding: 12px 16px;
+  background: color-mix(in srgb, var(--color-bg-canvas) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  pointer-events: auto;
+}
+.panel-header__row-top,
+.panel-header__row-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.panel-title { margin: 0; font-size: 15px; font-weight: 700; white-space: nowrap; }
+.tool-btn { min-width: 44px; min-height: 44px; height: 44px; border-radius: var(--radius-md); font-family: var(--font-body); font-weight: 600; }
+.legend-toggle-btn {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-toggle-btn__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-primary); }
+.edge-labels-control { display: flex; align-items: center; }
+.toggle-switch-compact { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; user-select: none; }
+.toggle-switch-compact input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle-switch-compact .slider { width: 38px; height: 22px; border-radius: var(--radius-full); background: var(--color-border-strong); position: relative; transition: background-color var(--transition-fast); }
+.toggle-switch-compact .slider::before { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: var(--color-bg-surface-raised); transition: transform var(--transition-fast); box-shadow: var(--shadow-sm); }
+.toggle-switch-compact input:checked + .slider { background: var(--color-brand-primary); }
+.toggle-switch-compact input:checked + .slider::before { transform: translateX(16px); }
+.toggle-switch-compact .toggle-label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); }
+.graph-building-hint,
+.graph-building-hint.finished-hint {
+  top: 116px;
+  bottom: auto;
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--shadow-md);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  max-width: 90%;
+  text-align: center;
+  z-index: 12;
+}
+.finished-hint .hint-icon { color: var(--color-text-primary); }
+.hint-close-btn { color: var(--color-text-primary); background: var(--color-bg-surface-subtle); min-width: 44px; min-height: 44px; }
+.graph-legend { background: var(--color-bg-surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); }
+.legend-title { color: var(--color-text-secondary); font-size: 12px; font-weight: 700; margin: 0; }
+.legend-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.legend-close-btn { border: 0; background: transparent; color: var(--color-text-muted); font-size: 20px; }
+.mobile-only { display: none; }
+.detail-close { min-width: 44px; min-height: 44px; }
+
 /* Mobile-first polish */
 button, [role="button"] { min-height: var(--touch-target-min); }
 h1, h2, h3, h4, h5, h6, .panel-title { font-family: var(--font-heading); }
 .detail-value, .property-value, .relation-text { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 768px) {
-  .panel-header { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
+  .panel-header { padding: 10px 12px; }
+  .panel-header__row-toolbar { flex-wrap: nowrap; }
   .header-tools { gap: 6px; }
   .tool-btn { min-width: 44px; height: 44px; padding-inline: 10px; }
-  .detail-panel { inset-inline: 8px; width: auto; max-width: none; }
+  .desktop-only { display: none; }
+  .mobile-only { display: inline-flex; }
+  .toggle-switch-compact { gap: 6px; }
+  .toggle-switch-compact .toggle-label { max-width: 72px; line-height: 1.15; }
+  .graph-building-hint { top: 112px; width: max-content; }
+  .graph-legend { display: none; left: 8px; right: 8px; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); max-width: none; }
+  .graph-legend.is-open-mobile { display: block; }
+  .detail-panel { top: auto; inset-inline: 8px; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none; max-height: 62%; border-radius: var(--radius-xl) var(--radius-xl) var(--radius-md) var(--radius-md); }
+  .detail-panel-header { min-height: 52px; }
+  .graph-svg { touch-action: none; }
+}
+@media (min-width: 1024px) {
+  .panel-header { flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 20px; }
+  .panel-header__row-toolbar { gap: 16px; }
+  .legend-toggle-btn { display: none; }
+  .graph-building-hint { top: 72px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

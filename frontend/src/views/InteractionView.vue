@@ -5,6 +5,7 @@
       <div class="header-left">
         <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
+      <StepHeaderCompact class="mobile-step-header" :current-step="5" :max-unlocked-step="5" :step-names="stepNames" @select-step="selectStep" />
       
       <div class="header-center">
         <div class="view-switcher">
@@ -69,6 +70,7 @@ import { useRoute, useRouter } from 'vue-router'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import StepHeaderCompact from '../components/StepHeaderCompact.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
 import { getReport } from '../api/report'
@@ -84,7 +86,8 @@ const props = defineProps({
 })
 
 // Layout-Status - Standardmäßig zur Arbeitsbereich-Ansicht wechseln
-const viewMode = ref('workbench')
+const viewMode = ref(window.innerWidth <= 768 ? 'workbench' : 'split')
+const stepNames = computed(() => [t('main.graphErstellen'), t('main.umgebungAufbauen'), t('main.simulationStarten'), t('main.berichtGenerieren'), t('main.tiefeInteraktion')])
 
 // Data State
 const currentReportId = ref(route.params.reportId)
@@ -140,6 +143,13 @@ const toggleMaximize = (target) => {
   } else {
     viewMode.value = target
   }
+}
+
+const selectStep = (step) => {
+  if (step === 4) router.push({ name: 'Report', params: { reportId: currentReportId.value } })
+  if (step === 3 && simulationId.value) router.push({ name: 'SimulationRun', params: { simulationId: simulationId.value } })
+  if (step === 2 && simulationId.value) router.push({ name: 'Simulation', params: { simulationId: simulationId.value } })
+  if (step === 1 && projectData.value?.project_id) router.push({ name: 'Process', params: { projectId: projectData.value.project_id } })
 }
 
 // --- Data Logic ---
@@ -365,6 +375,7 @@ onMounted(() => {
   .step-name { white-space: nowrap; }
   [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
+.mobile-step-header { display: none; }
 /* Ruhige, durchscheinende Kopfzeile wie in AppHeader. */
 .app-header {
   min-height: 60px;
@@ -396,6 +407,9 @@ onMounted(() => {
 .switch-btn:focus-visible, .brand:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 
 @media (max-width: 768px) {
+  .mobile-step-header { display: flex; order: 2; }
+  .header-right { display: none; }
+  .header-center { order: 3; }
   .main-view { height: calc(100dvh - 60px); min-width: 0; }
   .app-header { padding: 6px 16px; }
   .header-left, .header-right { min-width: 0; }

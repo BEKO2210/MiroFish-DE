@@ -281,6 +281,12 @@
         </div>
       </div>
     </div>
+    <MobileStickyBar
+      :primary-label="$t('step3.generateResultsReport')"
+      :primary-disabled="phase !== 2"
+      :primary-loading="isGeneratingReport"
+      @primary-click="handleNextStep"
+    />
   </div>
 </template>
 
@@ -295,6 +301,7 @@ import {
   getRunStatusDetail
 } from '../api/simulation'
 import { generateReport } from '../api/report'
+import MobileStickyBar from './MobileStickyBar.vue'
 
 const { t } = useI18n()
 
@@ -1296,6 +1303,7 @@ button, [role="button"], input, select, textarea { min-height: var(--touch-targe
 h1, h2, h3, h4, h5, h6, .platform-name { font-family: var(--font-heading); }
 .timeline-card, .content-text, .agent-name { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 768px) {
+  .action-controls { display: none; }
   .simulation-panel { min-width: 0; }
   .control-bar { height: auto; padding: 12px 16px; align-items: stretch; flex-direction: column; gap: 12px; }
   .status-group { display: grid; grid-template-columns: 1fr; gap: 8px; }
