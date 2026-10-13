@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { preparePage, settle } from '../support/helpers'
-import { isLiveMode } from '../support/mockApi'
+import { isLiveMode, type MockApi } from '../support/mockApi'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const sampleMd = path.join(__dirname, '../fixtures/sample-upload.md')
@@ -135,15 +135,25 @@ test.describe('Flows', () => {
     await expect(post.locator('strong')).toHaveText('Fakten')
   })
 
-  test('Mehrfachlauf starten: Optionen → POST → Navigation', async ({ page }) => {
-    const { api } = await preparePage(page)
+  async function openMehrfachlaufSheet(page: Page) {
     await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
     await settle(page)
     await page.waitForSelector('.methodology-card, .report-actions', { timeout: 15000 })
-
     await page.getByRole('button', { name: /Mehrfachlauf starten/i }).first().click()
     const sheet = page.locator('[role="alertdialog"]')
     await expect(sheet).toBeVisible()
+    return sheet
+  }
+
+  function lastEnsembleStartBody(api: MockApi) {
+    const posts = api.writes.filter((c) => c.method === 'POST' && c.pathname === '/api/ensemble/start')
+    expect(posts.length).toBe(1)
+    return posts[0].body as Record<string, unknown>
+  }
+
+  test('Mehrfachlauf starten: Optionen → POST → Navigation', async ({ page }) => {
+    const { api } = await preparePage(page)
+    const sheet = await openMehrfachlaufSheet(page)
 
     await sheet.getByRole('button', { name: /^10$/ }).click()
     await sheet.locator('input[type="number"]').fill('24')
@@ -153,14 +163,32 @@ test.describe('Flows', () => {
     await sheet.getByRole('button', { name: /^Starten$/i }).click()
     await expect(page).toHaveURL(/\/ensemble\/ens_e2e_started/)
 
-    const posts = api!.writes.filter((c) => c.method === 'POST' && c.pathname === '/api/ensemble/start')
-    expect(posts.length).toBe(1)
-    const body = posts[0].body as { simulation_id: string; runs: number; hours: number; variants: string[] }
+    const body = lastEnsembleStartBody(api!)
     expect(body.simulation_id).toBe('sim_2c3b36b2e33f')
     expect(body.runs).toBe(10)
     expect(body.hours).toBe(24)
-    expect(body.variants).toContain('baseline')
-    expect(body.variants.length).toBeGreaterThanOrEqual(2)
+    expect(body.minutes_per_round).toBe(60)
+    expect(body.variants).toEqual(expect.arrayContaining(['baseline']))
+    expect((body.variants as string[]).length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('Mehrfachlauf: Rundentakt und Vergleichsarme → POST', async ({ page }) => {
+    const { api } = await preparePage(page)
+    const sheet = await openMehrfachlaufSheet(page)
+
+    await sheet.getByRole('button', { name: /2 h je Runde/i }).click()
+    await sheet.getByText('Feed ausgeblendet', { exact: true }).click()
+    await sheet.getByText('Nullmodell mit Rollen', { exact: true }).click()
+
+    api!.reset()
+    await sheet.getByRole('button', { name: /^Starten$/i }).click()
+    await expect(page).toHaveURL(/\/ensemble\/ens_e2e_started/)
+
+    const body = lastEnsembleStartBody(api!)
+    expect(body.minutes_per_round).toBe(120)
+    expect(body.variants).toEqual(
+      expect.arrayContaining(['baseline', 'isolated', 'blind_feed', 'null_document', 'null_personas']),
+    )
   })
 
   test('Mehrfachlauf erklärt Laufanteile und trennt Mechanismen von Vergleichen', async ({ page }) => {
@@ -171,35 +199,31 @@ test.describe('Flows', () => {
     await expect(page.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
     await expect(page.getByText('7 von 10 Läufen dieser Simulation', { exact: false }).first()).toBeVisible()
     await expect(page.getByText('nicht als Beleg verwenden (explorativ)', { exact: false })).toBeVisible()
-    await expect(page.getByText('konfirmatorisch', { exact: true })).toBeVisible()
-    await expect(page.locator('.results:visible .mechanism-blocked__text').first()).toContainText('Dieser Arm kann diese Wechselwirkung technisch nicht erzeugen')
+    await expect(page.getByText(/konfirmatorisch/i)).toBeVisible()
+    await expect(page.locator('.results:visible .mechanism-blocked__text').first()).toContainText(
+      'Diese Variante kann diese Wechselwirkung technisch nicht erzeugen',
+    )
+    await expect(page.getByText(/Rundentakt:\s*60 Min/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Textmengen je Lauf' })).toBeVisible()
+    await expect(page.getByText('Feed ausgeblendet (blinder Feed)', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Nur Dokument (Nullmodell Dokument)', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Mit Rollen (Nullmodell Personas)', { exact: false }).first()).toBeVisible()
+    await expect(page.locator('.run-stats--list:visible .run-stats__run').first()).toBeVisible()
   })
 
   test('eigene Frage hinzufügen und Mehrfachlauf starten', async ({ page }) => {
     const { api } = await preparePage(page)
-    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
-    await settle(page)
-    await page.waitForSelector('.methodology-card, .report-actions', { timeout: 15000 })
-
-    await page.getByRole('button', { name: /Mehrfachlauf starten/i }).first().click()
-    const sheet = page.locator('[role="alertdialog"]')
-    await expect(sheet).toBeVisible()
+    const sheet = await openMehrfachlaufSheet(page)
 
     await sheet.getByRole('button', { name: /Frage hinzufügen/i }).click()
-    const q = sheet.locator('.ens-custom__input').first()
-    await q.fill('Es wird zu einer Unterschriftensammlung aufgerufen')
+    await sheet.locator('.ens-custom__input').first().fill('Es wird zu einer Unterschriftensammlung aufgerufen')
     await sheet.getByRole('button', { name: /^bleibt aus$/i }).click()
 
     api!.reset()
     await sheet.getByRole('button', { name: /^Starten$/i }).click()
     await expect(page).toHaveURL(/\/ensemble\/ens_e2e_started/)
 
-    const posts = api!.writes.filter((c) => c.method === 'POST' && c.pathname === '/api/ensemble/start')
-    expect(posts.length).toBe(1)
-    const body = posts[0].body as {
-      custom_outcomes?: { text_de: string; polarity?: string }[]
-    }
-    expect(body.custom_outcomes).toEqual([
+    expect(lastEnsembleStartBody(api!).custom_outcomes).toEqual([
       { text_de: 'Es wird zu einer Unterschriftensammlung aufgerufen', polarity: 'absence' },
     ])
   })
