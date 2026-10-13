@@ -40,7 +40,11 @@
           <tbody>
             <tr v-for="item in checklist" :key="item.id" :class="{ 'row--material': item.in_material }">
               <th scope="row" class="outcome">
-                <span>{{ item.text_de && locale === 'de' ? item.text_de : (item.text_en || item.text_de || item.id) }}</span>
+                <div class="outcome__head">
+                  <span>{{ outcomeLabel(item) }}</span>
+                  <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+                </div>
+                <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
                 <details v-if="item.in_material" class="material">
                   <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
                   <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
@@ -54,10 +58,14 @@
         </table>
       </section>
 
-      <!-- Mobile cards -->
+      <!-- Mobile cards (no horizontal table scroll) -->
       <section v-if="checklist.length" class="results results--cards" :aria-label="t('ensemble.resultsAria')">
         <article v-for="item in checklist" :key="'c-' + item.id" class="card" :class="{ 'card--material': item.in_material }">
-          <h2 class="card__title">{{ item.text_de && locale === 'de' ? item.text_de : (item.text_en || item.text_de || item.id) }}</h2>
+          <div class="card__head">
+            <h2 class="card__title">{{ outcomeLabel(item) }}</h2>
+            <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+          </div>
+          <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
           <details v-if="item.in_material" class="material">
             <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
             <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
@@ -72,7 +80,11 @@
       <section v-if="comparisons.length" class="compare" aria-labelledby="cmp-h">
         <h2 id="cmp-h" class="section-title">{{ t('ensemble.diffTitle') }}</h2>
         <ul class="compare__list">
-          <li v-for="(c, i) in comparisons" :key="i">
+          <li
+            v-for="(c, i) in comparisons"
+            :key="i"
+            :class="{ 'compare__item--unreliable': c.unreliable }"
+          >
             <strong>{{ compareVariantLabel(c.variant) }}</strong>
             · {{ outcomeText(c.outcome_id) }}:
             <span class="mono">{{ fmtDiff(c.diff) }} {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
@@ -194,13 +206,19 @@ function compareVariantLabel(key) {
   const v = variants.value.find((x) => x.key === key)
   return v ? variantLabel(v) : key
 }
+function outcomeLabel(item) {
+  if (!item) return '—'
+  return locale.value === 'en' ? (item.text_en || item.text_de || item.id) : (item.text_de || item.text_en || item.id)
+}
 function outcomeText(id) {
   const item = checklist.value.find((x) => x.id === id)
-  if (!item) return id
-  return locale.value === 'en' ? (item.text_en || item.text_de || id) : (item.text_de || item.text_en || id)
+  return item ? outcomeLabel(item) : id
 }
 function cell(variantKey, outcomeId) {
   return data.value?.results?.[variantKey]?.[outcomeId] || null
+}
+function reliabilityFor(outcomeId) {
+  return data.value?.reliability?.[outcomeId] || null
 }
 function pct(v) {
   if (!v?.total) return 0
@@ -221,6 +239,7 @@ function fmtDiffCi(low, high) {
   return t('ensemble.diffCi', { low: fmtPp(low), high: fmtPp(high) })
 }
 function interpretDiff(c) {
+  if (c.unreliable) return t('ensemble.compareUnreliable')
   if (c.ci_low <= 0 && c.ci_high >= 0) return t('ensemble.diffNone')
   if (c.diff > 0) return t('ensemble.diffHigher')
   return t('ensemble.diffLower')
@@ -231,6 +250,44 @@ function formatDuration(sec) {
   const m = Math.floor((s % 3600) / 60)
   if (h > 0) return t('ensemble.durationHm', { h, m })
   return t('ensemble.durationM', { m: Math.max(1, m) })
+}
+
+function relKey(label) {
+  if (label === 'messbar') return 'messbar'
+  if (label === 'unsicher') return 'unsicher'
+  return 'nichtMessbar'
+}
+
+const ReliabilityBadge = {
+  props: { rel: Object, t: Function },
+  setup(p) {
+    return () => {
+      const rel = p.rel
+      if (!rel?.label) return null
+      const key = relKey(rel.label)
+      const kids = [
+        h('span', { class: ['rel-badge', `rel-badge--${key}`] }, p.t(`ensemble.reliability.${key}`)),
+      ]
+      if (key === 'nichtMessbar') {
+        kids.push(h('span', { class: 'rel-hint' }, p.t('ensemble.reliabilityUnmeasurableHint')))
+      }
+      if (rel.kappa != null || rel.agreement != null) {
+        kids.push(
+          h('details', { class: 'rel-details' }, [
+            h('summary', p.t('ensemble.reliabilityKappaSummary')),
+            h('p', { class: 'rel-details__body' }, [
+              rel.kappa != null
+                ? h('span', { class: 'mono' }, p.t('ensemble.reliabilityKappa', { kappa: Number(rel.kappa).toFixed(2) }))
+                : null,
+              ' ',
+              p.t('ensemble.reliabilityKappaHelp'),
+            ]),
+          ]),
+        )
+      }
+      return h('div', { class: 'rel' }, kids)
+    }
+  },
 }
 
 const CellStat = {
@@ -244,8 +301,14 @@ const CellStat = {
       const hi = Math.round((st.ci_high ?? 0) * 100)
       const barLo = Math.max(0, Math.min(100, lo))
       const barHi = Math.max(barLo, Math.min(100, hi))
+      const disputed = Number(st.disputed) || 0
       return h('div', { class: 'stat' }, [
-        h('div', { class: 'stat__text' }, p.t('ensemble.cell', { yes: st.yes, n: st.n, rate, lo, hi })),
+        h('div', { class: 'stat__text' }, [
+          p.t('ensemble.cell', { yes: st.yes, n: st.n, rate, lo, hi }),
+          disputed > 0
+            ? h('span', { class: 'stat__disputed' }, ` · ${p.t('ensemble.disputed', { n: disputed })}`)
+            : null,
+        ]),
         h('div', { class: 'stat__bar', 'aria-hidden': 'true' }, [
           h('i', { style: { left: barLo + '%', width: Math.max(2, barHi - barLo) + '%' } }),
         ]),
@@ -372,7 +435,7 @@ onUnmounted(clearTimer)
 .section-title { font-family: var(--font-heading); font-size: 1.1rem; margin: 0 0 0.6rem; }
 .compare { margin: 1.75rem 0; }
 .compare__list { margin: 0; padding-left: 1.1rem; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
-.compare__list .ci { color: var(--color-text-muted); }
+.compare__item--unreliable { color: var(--color-text-muted); opacity: 0.72; }
 .help { margin-top: 2rem; padding: 1rem 1.1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .help p { margin: 0; }
 
@@ -414,6 +477,59 @@ onUnmounted(clearTimer)
 .material summary { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; color: var(--color-warning-text); font-weight: 600; }
 .snippet { margin: 6px 0 0; padding: 8px 10px; background: var(--color-bg-surface-subtle); border-radius: 8px; color: var(--color-text-secondary); }
 
+.outcome__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tag-user {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-info-text);
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info-border);
+}
+
+:deep(.rel) { display: grid; gap: 4px; margin-top: 8px; }
+:deep(.rel-badge) {
+  display: inline-flex;
+  align-items: center;
+  align-self: start;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+:deep(.rel-badge--messbar) {
+  color: var(--color-success-text);
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+}
+:deep(.rel-badge--unsicher) {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+}
+:deep(.rel-badge--nichtMessbar) {
+  color: var(--color-text-muted);
+  background: var(--color-bg-surface-subtle);
+  border-color: var(--color-border-subtle);
+}
+:deep(.rel-hint) { font-size: 12px; color: var(--color-text-muted); line-height: 1.4; }
+:deep(.rel-details) { font-size: 12px; color: var(--color-text-secondary); }
+:deep(.rel-details summary) {
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+:deep(.rel-details__body) { margin: 4px 0 0; line-height: 1.45; }
+
 .results--table { display: none; overflow-x: auto; }
 .grid { width: 100%; border-collapse: collapse; font-size: 13px; }
 .grid th, .grid td { border: 1px solid var(--color-border-subtle); padding: 10px; vertical-align: top; text-align: left; }
@@ -424,11 +540,13 @@ onUnmounted(clearTimer)
 .results--cards { display: grid; gap: 12px; }
 .card { padding: 14px; border: 1px solid var(--color-border-default); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); }
 .card--material { border-color: color-mix(in srgb, var(--color-warning-text) 45%, var(--color-border-default)); }
-.card__title { font-family: var(--font-heading); font-size: 1rem; margin: 0 0 8px; }
+.card__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+.card__title { font-family: var(--font-heading); font-size: 1rem; margin: 0; }
 .card__row { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--color-border-subtle); }
 .card__var { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
 
 :deep(.stat__text) { font-size: 13px; line-height: 1.4; }
+:deep(.stat__disputed) { color: var(--color-warning-text); font-weight: 600; }
 :deep(.stat__bar) { position: relative; height: 6px; margin-top: 6px; background: var(--color-bg-surface-subtle); border-radius: 999px; overflow: hidden; }
 :deep(.stat__bar i) { position: absolute; top: 0; bottom: 0; background: var(--color-brand-primary); border-radius: inherit; opacity: 0.75; }
 :deep(.evidence) { margin-top: 6px; font-size: 12px; }
