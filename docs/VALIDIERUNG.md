@@ -88,6 +88,14 @@ damit in `GET /api/ensemble/<id>` ausgegeben sowie in jede Laufkonfiguration ges
 Uhrzeit; weitere Runden addieren `minutes_per_round`, einschließlich des Tageswechsels nach Mitternacht. Dadurch nutzen
 Aktivitätsfenster und Aktionslogs dieselbe simulierte Uhrzeit.
 
+Optional steuert `minutes_per_round` (erlaubt 60, 120, 240; Standard 60) den Rundentakt für alle Arme gleich. Der Wert
+überschreibt den vom LLM erzeugten Eintrag in `time_config`, steht im Ensemble-Zustand, in jeder Laufkonfiguration und
+in `manifest.json`, und die Rundenzahl ist `hours * 60 / minutes_per_round`. Ein längerer Takt spart GPU-Zeit, weil
+weniger Runden und damit weniger Agentenentscheidungen pro simulierter Tag anfallen; das Hin-und-Her zwischen Akteuren
+wird grobkörniger. Aktivitätsfenster und Peak-/Off-Peak-Stunden greifen über das gesamte Rundenfenster (nicht nur die
+Startstunde). `response_delay_*` in den Agentenprofilen ist Metadaten für die Konfiguration und wird von den
+Laufskripten nicht ausgewertet.
+
 Nach jedem Lauf werden die Beiträge unmittelbar aus `twitter_simulation.db` und `reddit_simulation.db` gelesen. Der
 Klassifikator erhält keine Berichte. Ein Ja zählt nur, wenn das Modell eine vorhandene, plattformqualifizierte
 Beitrags-ID wie `twitter:17` nennt und eine wörtliche Textspanne liefert, die nach Leerraum-Normalisierung und ohne

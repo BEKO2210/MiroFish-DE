@@ -738,6 +738,9 @@ def build_manifest(
         plat = count_platform_activity(sim_dir)
         action_count = sum(p.get("actions", 0) for p in plat.values())
 
+    time_config = config.get("time_config") or {}
+    minutes_per_round = int(time_config.get("minutes_per_round") or 60) or 60
+
     return {
         "simulation_id": simulation_id,
         "seed": int(seed),
@@ -748,6 +751,7 @@ def build_manifest(
         "initial_posts_sha256": initial_posts_hash,
         "question_sha256": _sha256_text(requirement),
         "simulation_config_sha256": config_hash,
+        "minutes_per_round": minutes_per_round,
         "git_commit": git_commit_hash(),
         "started_at": started_at or datetime.now().isoformat(),
         "completed_at": completed_at,

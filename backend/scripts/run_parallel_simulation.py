@@ -88,7 +88,11 @@ _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
 sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
-from app.utils.simulation_time import simulation_clock
+from app.utils.simulation_time import (
+    hours_covered_by_round,
+    peak_multiplier_for_hours,
+    simulation_clock,
+)
 from app.services.blind_feed import (
     deliver_opening_stimulus,
     fetch_platform_posts,
@@ -1070,13 +1074,19 @@ def get_active_agents_for_round(
     
     peak_hours = time_config.get("peak_hours", [9, 10, 11, 14, 15, 20, 21, 22])
     off_peak_hours = time_config.get("off_peak_hours", [0, 1, 2, 3, 4, 5])
-    
-    if current_hour in peak_hours:
-        multiplier = time_config.get("peak_activity_multiplier", 1.5)
-    elif current_hour in off_peak_hours:
-        multiplier = time_config.get("off_peak_activity_multiplier", 0.3)
-    else:
-        multiplier = 1.0
+    minutes_per_round = time_config.get("minutes_per_round", 60)
+    start_hour = time_config.get("start_hour", 7)
+    # Ganzes Rundenfenster prüfen (nicht nur Startstunde); wichtig bei 120/240 Min.
+    covered = hours_covered_by_round(round_num, minutes_per_round, start_hour)
+    if not covered:
+        covered = [current_hour]
+    multiplier = peak_multiplier_for_hours(
+        covered,
+        peak_hours,
+        off_peak_hours,
+        time_config.get("peak_activity_multiplier", 1.5),
+        time_config.get("off_peak_activity_multiplier", 0.3),
+    )
     
     target_count = int(rng.uniform(base_min, base_max) * multiplier)
     
@@ -1086,7 +1096,7 @@ def get_active_agents_for_round(
         active_hours = cfg.get("active_hours", list(range(8, 23)))
         activity_level = cfg.get("activity_level", 0.5)
         
-        if current_hour not in active_hours:
+        if not any(hour in active_hours for hour in covered):
             continue
         
         if rng.random() < activity_level:

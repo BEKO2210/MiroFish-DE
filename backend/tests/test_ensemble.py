@@ -18,6 +18,7 @@ from app.services.blind_feed import (
     own_post_rows,
 )
 from app.services.ensemble import (
+    ALLOWED_MINUTES_PER_ROUND,
     EnsembleService,
     apply_without_variant,
     build_null_arm_prompt,
@@ -40,6 +41,7 @@ from app.services.ensemble import (
     paired_difference_interval,
     paired_outcome_table,
     parse_checklist,
+    prepare_run_directory,
     reliability_label,
     resolve_primary_outcome_id,
     validate_custom_outcomes,
@@ -48,8 +50,13 @@ from app.services.ensemble import (
     verify_classification_evidence,
     wilson_interval,
 )
+from app.services.report_validation import build_manifest
 from app.utils.llm_client import LLMClient, estimate_tokens
-from app.utils.simulation_time import simulation_clock
+from app.utils.simulation_time import (
+    hours_covered_by_round,
+    peak_multiplier_for_hours,
+    simulation_clock,
+)
 
 
 def test_wilson_known_value():
@@ -238,6 +245,17 @@ def test_simulation_clock_starts_at_configured_hour_and_crosses_midnight():
     assert simulation_clock(34, 30, 7) == (2, 0)
 
 
+def test_hours_covered_by_round_spans_multi_hour_takt():
+    assert hours_covered_by_round(0, 60, 7) == [7]
+    assert hours_covered_by_round(0, 240, 7) == [7, 8, 9, 10]
+    assert hours_covered_by_round(0, 240, 22) == [22, 23, 0, 1]
+    # 14 Tage à 4-h-Runden → 84 Runden
+    assert 14 * 24 * 60 // 240 == 84
+    assert peak_multiplier_for_hours(
+        [7, 8, 9, 10], [9, 10], [0, 1, 2], 1.5, 0.3
+    ) == 1.5
+
+
 def test_evidence_requires_id_and_literal_span_in_that_post():
     checklist = [{"id": "o1"}, {"id": "o2"}, {"id": "o3"}]
     posts = [
@@ -412,6 +430,72 @@ def test_start_hour_validation_happens_before_start(tmp_path):
             service.start("sim_test", 1, 2, ["baseline"], start_hour=value)
 
 
+def test_minutes_per_round_validation_happens_before_start(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    for value in (30, 90, 0, True, "60", 180):
+        with pytest.raises(ValueError, match="minutes_per_round"):
+            service.start("sim_test", 1, 2, ["baseline"], minutes_per_round=value)
+    assert ALLOWED_MINUTES_PER_ROUND == frozenset({60, 120, 240})
+
+
+def test_prepare_run_directory_overrides_minutes_per_round(tmp_path):
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "simulation_config.json").write_text(
+        json.dumps({
+            "time_config": {
+                "total_simulation_hours": 48,
+                "minutes_per_round": 60,
+                "start_hour": 7,
+            },
+            "agent_configs": [],
+        }),
+        encoding="utf-8",
+    )
+    (source / "reddit_profiles.json").write_text("[]", encoding="utf-8")
+    with (source / "twitter_profiles.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["user_id", "name"])
+        writer.writeheader()
+    run_dir = tmp_path / "run_1"
+    config = prepare_run_directory(
+        source, run_dir, "baseline", hours=336, start_hour=9, minutes_per_round=240
+    )
+    assert config["time_config"]["minutes_per_round"] == 240
+    assert config["time_config"]["total_simulation_hours"] == 336
+    assert config["time_config"]["start_hour"] == 9
+    assert 336 * 60 // 240 == 84
+    written = json.loads((run_dir / "simulation_config.json").read_text(encoding="utf-8"))
+    assert written["time_config"]["minutes_per_round"] == 240
+
+
+def test_manifest_records_minutes_per_round(tmp_path, monkeypatch):
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    sim = tmp_path / "ensembles" / "ens_x" / "baseline" / "run_1"
+    sim.mkdir(parents=True)
+    (sim / "simulation_config.json").write_text(
+        json.dumps({
+            "simulation_id": "run_1",
+            "simulation_requirement": "Frage?",
+            "time_config": {"minutes_per_round": 120, "total_simulation_hours": 24},
+            "event_config": {"initial_posts": []},
+        }),
+        encoding="utf-8",
+    )
+    (sim / "state.json").write_text(
+        json.dumps({"project_id": "proj_x", "simulation_requirement": "Frage?"}),
+        encoding="utf-8",
+    )
+    (sim / "reddit_profiles.json").write_text("[]", encoding="utf-8")
+    with (sim / "twitter_profiles.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=["user_id", "name"])
+        writer.writeheader()
+    project = tmp_path / "projects" / "proj_x"
+    project.mkdir(parents=True)
+    (project / "extracted_text.txt").write_text("x", encoding="utf-8")
+    manifest = build_manifest(str(sim), seed=1, temperature=0.7)
+    assert manifest["minutes_per_round"] == 120
+
+
 def test_ensemble_accepts_two_weeks_and_rejects_longer_horizon(tmp_path):
     service = EnsembleService(root=tmp_path / "ensembles")
     # 336 besteht die Zeitvalidierung und scheitert erst an der fehlenden Vorbereitung.
@@ -476,7 +560,7 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
         poll_interval=0.001,
     )
     started = service.start(
-        "sim_test", 2, 12, ["baseline"], start_hour=13,
+        "sim_test", 2, 12, ["baseline"], start_hour=13, minutes_per_round=120,
         custom_outcomes=[{"text_de": "Eine eigene Ergebnisfrage wird erfüllt"}],
     )
     deadline = time.time() + 3
@@ -493,11 +577,16 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
     assert state["checklist"][-1]["id"] == "c1"
     assert state["checklist"][-1]["source"] == "user"
     assert state["start_hour"] == 13
+    assert state["minutes_per_round"] == 120
+    assert 12 * 60 // state["minutes_per_round"] == 6
     first_config = json.loads(
         (tmp_path / "ensembles" / started["ensemble_id"] / "baseline" / "run_1" /
          "simulation_config.json").read_text(encoding="utf-8")
     )
     assert first_config["time_config"]["start_hour"] == 13
+    assert first_config["time_config"]["minutes_per_round"] == 120
+    md = ensemble_markdown(state)
+    assert "Rundentakt 120 Minuten" in md
 
 
 class BatchLLM:
