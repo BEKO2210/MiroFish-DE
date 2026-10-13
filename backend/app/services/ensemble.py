@@ -99,7 +99,9 @@ def _positive_event_text(item: Dict[str, Any]) -> str:
     explicit = str(item.get("presence_event") or "").strip()
     if explicit:
         return explicit
-    text = f"{item.get('text_de', '')} -- {item.get('definition', '')}".strip()
+    # Nur die Überschrift umformen: die Definition beschreibt bei Abwesenheits-Ergebnissen weiter das Ausbleiben
+    # („ohne jegliche Berichterstattung“) und machte die Frage nach dem Gegenereignis widersprüchlich.
+    text = str(item.get('text_de', '')).strip()
     text = re.sub(r"\bbleibt\s+aus\b", "findet statt", text, flags=re.IGNORECASE)
     text = re.sub(r"\bkeine\b", "eine", text, flags=re.IGNORECASE)
     text = re.sub(r"\bkein\b", "ein", text, flags=re.IGNORECASE)

@@ -639,3 +639,18 @@ def test_reclassify_uses_stored_database_and_preserves_results_v1(tmp_path):
     assert result["results_v1"] == old_results
     assert result["results"]["baseline"]["o1"]["yes"] == 1
     assert (run_dir / "classification.json").is_file()
+
+
+def test_positive_event_ignores_negated_definition():
+    """Regression ens_9c4647555d4b/o6: die Definition beschreibt das Ausbleiben und darf nicht mitgeschickt werden."""
+    from app.services.ensemble import _positive_event_text
+    item = {
+        "id": "o6",
+        "text_de": "Im simulierten Zeitraum reagieren die Medien nicht auf die Bekanntgabe der Schließung.",
+        "definition": "Bleibt die Bekanntgabe der Schließung in den relevanten Medienkanälen ohne jegliche "
+                      "Berichterstattung oder Kommentar unbedient?",
+        "polarity": "absence",
+    }
+    text = _positive_event_text(item)
+    assert "nicht" not in text and "ohne" not in text and "unbedient" not in text
+    assert "reagieren die Medien" in text
