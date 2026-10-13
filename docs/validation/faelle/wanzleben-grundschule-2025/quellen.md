@@ -65,6 +65,9 @@ Korrekturen an Nebenangaben: Entfernung nach Seehausen laut [2] „rund acht Kil
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt den
 in der Sitzung genannten Gründen (Ereignis an T0; Berichte erst ab 18.09.2025 bzw. 21.02.2026 – dokumentierte Ausnahme).
+Zweiter Anonymisierungsdurchgang: `ausgangslage.md` vergröbert Datum, Stichtag der Schließung, Investitionssumme, Entfernung,
+Petitionszahlen und Schulzahl und neutralisiert „Einheitsgemeinde/Ortschaft/Landesschulbehörde“ (→ „Kommune/Ortsteil/
+Schulaufsicht“); die Tabelle nennt die Originalwerte.
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|

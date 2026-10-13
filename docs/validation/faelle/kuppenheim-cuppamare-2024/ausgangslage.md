@@ -1,21 +1,21 @@
 # Ausgangslage: Hallenfreibad in einer Kleinstadt
 
-Stand: Tag der Ratsentscheidung.
+Stand: Tag der Ratsentscheidung (Frühjahr).
 
 ## Entscheidung
 
-Der Gemeinderat einer baden-württembergischen Kommune entscheidet einstimmig, den öffentlichen Betrieb des kommunalen Hallenfreibads zum Ende der Sommersaison
-einzustellen. Für die Folgenutzung des
-Areals ist ab dem Herbst ein Bürgerbeteiligungsprozess vorgesehen.
+Der Rat einer Kommune entscheidet einstimmig, den öffentlichen Betrieb des kommunalen Hallenfreibads zum Ende der
+Sommersaison einzustellen. Für die Folgenutzung des Areals ist im weiteren Jahresverlauf ein
+Bürgerbeteiligungsprozess vorgesehen.
 
 ## Finanzen und Betrieb
 
-- Die geschätzten Sanierungskosten liegen im Bereich von mehr als 20 Millionen Euro.
-- Der Betrieb verursacht jährlich ein Defizit von rund einer Million Euro.
-- Die Gesamtbesucherzahl ist über mehrere Jahre um mehr als ein Drittel zurückgegangen.
+- Die geschätzten Sanierungskosten sind sehr hoch und liegen im zweistelligen Millionenbereich.
+- Der Betrieb verursacht jährlich ein erhebliches Defizit.
+- Die Besucherzahl ist über mehrere Jahre deutlich zurückgegangen.
 
 ## Nutzung und Beteiligte
 
-- Mehr als zehn Schulen nutzen das Bad für Schwimmunterricht; mehrere Vereine belegen Wasserzeiten.
-- Beteiligt sind Bürgermeister, Gemeinderat, Stadtverwaltung, benachbarte Kommunen, Schulen sowie Schwimm- und
+- Zahlreiche Schulen nutzen das Bad für Schwimmunterricht; mehrere Vereine belegen Wasserzeiten.
+- Beteiligt sind Bürgermeister, Rat, Stadtverwaltung, benachbarte Kommunen, Schulen sowie Schwimm- und
   Rettungsschwimmvereine.
