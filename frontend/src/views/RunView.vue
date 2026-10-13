@@ -77,7 +77,7 @@
         <section class="actions">
           <router-link v-if="state.report_id" :to="`/report/${state.report_id}`" class="btn btn--primary">{{ t('run.openReport') }}</router-link>
           <router-link v-if="state.simulation_id" :to="`/simulation/${state.simulation_id}/start`" class="btn">{{ t('run.openSim') }}</router-link>
-          <router-link v-if="state.project_id && !state.simulation_id" :to="`/process/${state.project_id}`" class="btn">{{ t('run.openGraph') }}</router-link>
+          <router-link v-if="state.project_id" :to="`/process/${state.project_id}?view=graph`" class="btn">{{ t('run.openGraph') }}</router-link>
           <a v-if="state.simulation_id && state.status !== 'running'" :href="`/api/simulation/${state.simulation_id}/export`" class="btn" download>{{ t('run.export') }}</a>
         </section>
 

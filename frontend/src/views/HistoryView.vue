@@ -31,6 +31,9 @@
             <router-link v-if="it.reportHref" :to="it.reportHref" class="act" :title="t('run.openReport')">
               <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>{{ t('hist.report') }}</span>
             </router-link>
+            <router-link v-if="it.graphHref" :to="it.graphHref" class="act" :title="t('hist.graphTitle')">
+              <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="8" cy="18" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8 7.5 16 9M7.5 8.5 9.5 16M16.5 10 15.5 15M10 17.5 14.5 17"/></svg><span>{{ t('hist.graph') }}</span>
+            </router-link>
             <a v-if="it.exportHref" :href="it.exportHref" class="act" :title="t('hist.exportTitle')" download>
               <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>{{ t('hist.export') }}</span>
             </a>
@@ -98,6 +101,7 @@ const load = async () => {
         progress: running ? null : undefined,
         href: running ? `/run/${p.pipeline_id}` : s.report_id ? `/report/${s.report_id}` : `/simulation/${s.simulation_id}`,
         reportHref: s.report_id ? `/report/${s.report_id}` : null,
+        graphHref: s.project_id ? `/process/${s.project_id}?view=graph` : null,
         exportHref: `/api/simulation/${s.simulation_id}/export`, created: s.created_at
       })
     }

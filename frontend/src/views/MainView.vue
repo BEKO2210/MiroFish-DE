@@ -406,6 +406,9 @@ const stopGraphPolling = () => {
 }
 
 onMounted(() => {
+  if (route.query.view === 'graph') {
+    viewMode.value = 'graph'
+  }
   initProject()
 })
 

@@ -662,7 +662,7 @@ const sendToReportAgent = async (message) => {
   
   // Build chat history for API
   const historyForApi = chatHistory.value
-    .filter(msg => msg.role !== 'user' || msg.content !== message)
+    .slice(0, -1)
     .slice(-10) // Keep last 10 messages
     .map(msg => ({
       role: msg.role,
@@ -698,7 +698,7 @@ const sendToAgent = async (message) => {
   let prompt = message
   if (chatHistory.value.length > 1) {
     const historyContext = chatHistory.value
-      .filter(msg => msg.content !== message)
+      .slice(0, -1)
       .slice(-6)
       .map(msg => `${msg.role === 'user' ? 'Fragender' : 'Du'}: ${msg.content}`)
       .join('\n')
@@ -896,7 +896,7 @@ const loadProfiles = async () => {
   if (!props.simulationId) return
   
   try {
-    const res = await getSimulationProfilesRealtime(props.simulationId, 'reddit')
+    const res = await getSimulationProfilesRealtime(props.simulationId)
     if (res.success && res.data) {
       profiles.value = res.data.profiles || []
       addLog(t('step5.simulatedPeopleLoaded', { count: profiles.value.length }))
