@@ -1139,10 +1139,19 @@ async def run_twitter_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
+    # Gegenprobe "isolated": Ohne Feed-, Such- und Interaktionswerkzeuge
+    # kann ein Agent keine Beiträge anderer Agenten beobachten. Eigene
+    # Veröffentlichungen bleiben möglich, damit individuelle Reaktionen auf
+    # Persona und Ausgangsmaterial messbar bleiben.
+    available_actions = (
+        [ActionType.CREATE_POST, ActionType.DO_NOTHING]
+        if config.get("ensemble_variant") == "isolated"
+        else TWITTER_ACTIONS
+    )
     result.agent_graph = await generate_twitter_agent_graph(
         profile_path=profile_path,
         model=model,
-        available_actions=TWITTER_ACTIONS,
+        available_actions=available_actions,
     )
     
     # Abrufen der echten Agenten-Namenszuordnung aus der Konfigurationsdatei (Verwendung von entity_name statt des Standardnamens Agent_X)
@@ -1330,10 +1339,15 @@ async def run_reddit_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
+    available_actions = (
+        [ActionType.CREATE_POST, ActionType.DO_NOTHING]
+        if config.get("ensemble_variant") == "isolated"
+        else REDDIT_ACTIONS
+    )
     result.agent_graph = await generate_reddit_agent_graph(
         profile_path=profile_path,
         model=model,
-        available_actions=REDDIT_ACTIONS,
+        available_actions=available_actions,
     )
     
     # Mapping der echten Agent-Namen aus der Konfigurationsdatei abrufen (Verwendung von entity_name statt des Standard-Agent_X)

@@ -127,6 +127,7 @@ class LLMClient:
         temperature: Optional[float],
         max_tokens: Optional[int],
         response_format: Optional[Dict[str, Any]],
+        seed: Optional[int] = None,
     ) -> Any:
         """Eine rohe Chat-Completions-Anfrage über die Kompatibilitätsschicht senden."""
         extra_kwargs: Dict[str, Any] = {}
@@ -135,6 +136,9 @@ class LLMClient:
             # leeren Inhalt; Ollama honoriert reasoning_effort auf /v1. Abschaltbar über LOCAL_LLM_REASONING=on.
             if os.environ.get('LOCAL_LLM_REASONING', 'none').lower() != 'on':
                 extra_kwargs["extra_body"] = {"reasoning_effort": "none"}
+
+        if seed is not None:
+            extra_kwargs["seed"] = int(seed)
 
         return create_chat_completion(
             self.client,
@@ -151,7 +155,8 @@ class LLMClient:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
         max_tokens: Optional[int] = 4096,
-        response_format: Optional[Dict] = None
+        response_format: Optional[Dict] = None,
+        seed: Optional[int] = None,
     ) -> str:
         """
         Chat-Anfrage senden
@@ -171,6 +176,7 @@ class LLMClient:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 response_format=response_format,
+                seed=seed,
             )
             if not response or not response.choices:
                 raise ValueError("Modell lieferte eine leere Antwort zurück (keine Choices).")
@@ -193,6 +199,7 @@ class LLMClient:
         temperature: float = 0.3,
         max_tokens: Optional[int] = 4096,
         max_attempts: int = 1,
+        seed: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Chat-Anfrage senden und JSON zurückgeben
@@ -224,6 +231,7 @@ class LLMClient:
                         temperature=temperature,
                         max_tokens=request_max_tokens,
                         response_format=response_format,
+                        seed=seed,
                     )
                 except Exception as error:
                     if (

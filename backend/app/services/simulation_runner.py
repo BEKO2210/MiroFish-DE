@@ -237,9 +237,18 @@ class SimulationRunner:
     _monitor_threads: Dict[str, threading.Thread] = {}
     _stdout_files: Dict[str, Any] = {}  # Speicherung von stdout Datei-Handles
     _stderr_files: Dict[str, Any] = {}  # Speicherung von stderr Datei-Handles
+    # Externe Laufordner für Ensemble-Läufe. Nach einem Backend-Neustart
+    # werden solche laufenden Ensembles als fehlgeschlagen markiert.
+    _run_dirs: Dict[str, str] = {}
     
     # Graphenspeicher-Update-Konfiguration
     _graph_memory_enabled: Dict[str, bool] = {}  # simulation_id -> enabled
+
+    @classmethod
+    def _simulation_dir(cls, simulation_id: str) -> str:
+        return cls._run_dirs.get(
+            simulation_id, os.path.join(cls.RUN_STATE_DIR, simulation_id)
+        )
     
     @classmethod
     def get_run_state(cls, simulation_id: str) -> Optional[SimulationRunState]:
@@ -256,7 +265,7 @@ class SimulationRunner:
     @classmethod
     def _load_run_state(cls, simulation_id: str) -> Optional[SimulationRunState]:
         """Laufstatus aus Datei laden"""
-        state_file = os.path.join(cls.RUN_STATE_DIR, simulation_id, "run_state.json")
+        state_file = os.path.join(cls._simulation_dir(simulation_id), "run_state.json")
         if not os.path.exists(state_file):
             return None
         
@@ -314,7 +323,7 @@ class SimulationRunner:
     @classmethod
     def _save_run_state(cls, state: SimulationRunState):
         """Laufstatus in Datei speichern"""
-        sim_dir = os.path.join(cls.RUN_STATE_DIR, state.simulation_id)
+        sim_dir = cls._simulation_dir(state.simulation_id)
         os.makedirs(sim_dir, exist_ok=True)
         state_file = os.path.join(sim_dir, "run_state.json")
         
@@ -334,6 +343,8 @@ class SimulationRunner:
         enable_graph_memory_update: bool = False,  # Ob Aktivitäten in Zep-Graphen aktualisiert werden sollen
         graph_id: str = None,  # Zep-Graphen-ID (erforderlich, wenn Graphen-Update aktiviert)
         seed: int = None,  # Reproduzierbarkeits-Seed (optional; sonst zufällig)
+        simulation_dir: str = None,  # Optionaler externer Laufordner (Ensemble)
+        keep_alive: bool = True,  # Nach Lauf für Interviews offen halten
     ) -> SimulationRunState:
         """
         Simulation starten
@@ -352,13 +363,16 @@ class SimulationRunner:
         import random
         from .report_validation import build_manifest, write_manifest
 
+        if simulation_dir is not None:
+            cls._run_dirs[simulation_id] = os.path.abspath(simulation_dir)
+
         # Prüfen, ob bereits läuft
         existing = cls.get_run_state(simulation_id)
         if existing and existing.runner_status in [RunnerStatus.RUNNING, RunnerStatus.STARTING]:
             raise ValueError(f"Simulation läuft bereits: {simulation_id}")
         
         # Simulationskonfiguration laden
-        sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
+        sim_dir = cls._simulation_dir(simulation_id)
         config_path = os.path.join(sim_dir, "simulation_config.json")
         
         if not os.path.exists(config_path):
@@ -460,6 +474,8 @@ class SimulationRunner:
                 "--config", config_path,  # Verwende vollständigen Konfigurationsdateipfad
                 "--seed", str(seed),
             ]
+            if not keep_alive and platform == "parallel":
+                cmd.append("--no-wait")
             
             # Wenn maximale Runden angegeben, zu Befehlszeilenargumenten hinzufügen
             if max_rounds is not None and max_rounds > 0:
@@ -526,7 +542,7 @@ class SimulationRunner:
     @classmethod
     def _monitor_simulation(cls, simulation_id: str):
         """Simulationsprozess überwachen, Aktionsprotokolle parsen"""
-        sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
+        sim_dir = cls._simulation_dir(simulation_id)
         
         # Neue Protokollstruktur: Plattform-spezifische Aktionsprotokolle
         twitter_actions_log = os.path.join(sim_dir, "twitter", "actions.jsonl")
@@ -750,7 +766,7 @@ class SimulationRunner:
         Returns:
             True, wenn alle aktivierten Plattformen abgeschlossen sind
         """
-        sim_dir = os.path.join(cls.RUN_STATE_DIR, state.simulation_id)
+        sim_dir = cls._simulation_dir(state.simulation_id)
         twitter_log = os.path.join(sim_dir, "twitter", "actions.jsonl")
         reddit_log = os.path.join(sim_dir, "reddit", "actions.jsonl")
         
