@@ -203,9 +203,9 @@ class Config:
             if not cls.LLM_API_KEY or cls.LLM_API_KEY.strip() == "":
                 errors.append("LLM_API_KEY nicht konfiguriert")
         
-        # ZEP ist immer erforderlich für die Kern-Funktionalität
-        if not cls.ZEP_API_KEY or cls.ZEP_API_KEY.strip() == "":
-            errors.append("ZEP_API_KEY nicht konfiguriert")
+        # ZEP nur bei den Memory-Providern 'zep' und 'hybrid'; 'obsidian' läuft komplett lokal
+        if cls.MEMORY_PROVIDER in ('zep', 'hybrid') and (not cls.ZEP_API_KEY or cls.ZEP_API_KEY.strip() == ""):
+            errors.append("ZEP_API_KEY nicht konfiguriert (MEMORY_PROVIDER=zep/hybrid)")
             
         # Wenn Keys maskiert sind, geben wir nur eine Warnung aus, lassen den Start aber zu
         if cls.ZEP_API_KEY and '...****' in cls.ZEP_API_KEY:
