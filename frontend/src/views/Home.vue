@@ -104,10 +104,10 @@
                   <option value="hybrid">Hybrid (Markdown + Zep)</option>
                 </select>
                 <p class="field-desc" v-if="configData.memory_provider === 'obsidian'">
-                  Speichert Wissen als Markdown in <code>uploads/simulations/.../vault</code>.
+                  Kein Zep-Konto nötig – das Wissen bleibt als Markdown auf diesem Rechner (<code>uploads/simulations/.../vault</code>).
                 </p>
                 <p class="field-desc" v-if="configData.memory_provider === 'zep'">
-                  Mit „Obsidian / Markdown (Lokal)“ ist kein Zep-Konto nötig – alles bleibt auf diesem Rechner.
+                  Erfordert einen gültigen Zep API Key.
                 </p>
               </div>
 
