@@ -134,27 +134,25 @@ def _run(pid, files, requirement, project_name):
         state["simulation_id"] = sim_id
         _set(state, "create", "done", sim_id)
 
-        # 4 Vorbereiten (Profile + Konfiguration)
+        # 4 Vorbereiten (Profile + Konfiguration). Der Fortschritt hängt an der task_id dieser einen Aufgabe; ohne sie
+        # meldet der Status-Endpunkt "nicht gestartet", und ein erneutes /prepare würde eine weitere, parallel
+        # laufende Vorbereitung starten (so entstanden früher Hunderte gleichzeitiger Aufgaben).
         _set(state, "prepare", "running")
-        _ok(s.post(f"{base}/api/simulation/prepare", json={"simulation_id": sim_id, "parallel_profile_count": 1}, timeout=60))
-        idle_polls = 0
-        while True:
-            st = _ok(s.post(f"{base}/api/simulation/prepare/status", json={"simulation_id": sim_id}, timeout=30))
+        prep = _ok(s.post(f"{base}/api/simulation/prepare", json={"simulation_id": sim_id, "parallel_profile_count": 1}, timeout=60))
+        task_id = prep.get("task_id")
+        while not prep.get("already_prepared"):
+            st = _ok(s.post(f"{base}/api/simulation/prepare/status",
+                            json={"simulation_id": sim_id, "task_id": task_id}, timeout=30))
             status = st.get("status") or st.get("simulation_status")
-            if "nicht gestartet" in str(st.get("message", "")):
-                idle_polls += 1
-                if idle_polls >= 3:  # Vorbereitung hat nie angefangen: noch einmal anstoßen
-                    _ok(s.post(f"{base}/api/simulation/prepare", json={"simulation_id": sim_id, "parallel_profile_count": 1}, timeout=60))
-                    idle_polls = 0
             prog = st.get("progress") or st.get("progress_percent") or 0
             _set(state, "prepare", "running", st.get("message") or st.get("current_step") or "", progress=prog)
             if status in ("ready", "completed") or st.get("already_prepared") or st.get("is_ready"):
-                n = st.get('entities_count') or st.get('profiles_count')
-                _set(state, "prepare", "done", f"{n} Agenten" if n else "Agenten bereit")
                 break
             if status in ("failed", "error"):
                 raise RuntimeError(st.get("error") or "Vorbereitung fehlgeschlagen")
             time.sleep(10)
+        n = prep.get("expected_entities_count") or prep.get("entities_count")
+        _set(state, "prepare", "done", f"{n} Agenten" if n else "Agenten bereit")
 
         # 5 Simulation
         _set(state, "simulate", "running")

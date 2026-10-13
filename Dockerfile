@@ -22,8 +22,9 @@ COPY .env.example docker-entrypoint.sh ./
 # entstehen schon beim Bauen, damit der Container als normaler Nutzer laufen kann (Dateien in data/ gehören dir).
 RUN mkdir -p /app/data && ln -s /app/data/.env /app/.env \
   && rm -rf /app/backend/uploads && ln -s /app/data/uploads /app/backend/uploads \
-  && chmod -R a+rwX /app/backend /app/data
-ENV FLASK_HOST=0.0.0.0 FLASK_PORT=5001 FLASK_DEBUG=false PYTHONUNBUFFERED=1 \
+  && mkdir -p /app/backend/logs && chmod 0777 /app/data /app/backend/logs
+# Code bleibt schreibgeschützt; beschreibbar sind nur data/ (Volume) und logs/
+ENV FLASK_HOST=0.0.0.0 FLASK_PORT=5001 FLASK_DEBUG=false PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
     HOME=/app/data HF_HOME=/app/data/.cache/huggingface
 EXPOSE 5001
 ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
