@@ -1,32 +1,31 @@
-# Graph Report - mirofish-ensemble-fe  (2026-10-13)
+# Graph Report - MiroFish-DE  (2026-10-13)
 
 ## Corpus Check
-- 147 files · ~690,923 words
+- 148 files · ~735,298 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 9 file(s) not represented in the graph (top: (none) 7, .example 1, .lock 1)
+- Unclassified: 8 file(s) not represented in the graph (top: (none) 6, .example 1, .lock 1)
 
 ## Summary
-- 2970 nodes · 5842 edges · 149 communities (91 shown, 58 thin omitted)
-- Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 391 edges (avg confidence: 0.91)
+- 3072 nodes · 5986 edges · 149 communities (84 shown, 65 thin omitted)
+- Extraction: 93% EXTRACTED · 7% INFERRED · 0% AMBIGUOUS · INFERRED: 394 edges (avg confidence: 0.91)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `374af586`
+- Built from commit: `0d26cf28`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- MemoryProvider
 - interview_agent
 - Step4Report.vue
-- services/__init__.py
+- SimulationManager
 - Process.vue
 - Step5Interaction.vue
-- simulation.py
-- ProjectManager
+- error
+- graph.py
 - SimulationConfigGenerator
-- pipeline.py
-- system.py
+- EnsembleService
+- app/__init__.py
 - Step3Simulation.vue
 - mockApi.ts
 - Step2EnvSetup.vue
@@ -37,33 +36,32 @@
 - run_reddit_simulation
 - IPCHandler
 - IPCHandler
-- SimulationIPCClient
 - EnsembleView.vue
 - SimulationView.vue
-- run_reddit_simulation.py
-- ZepToolsService
-- services/ensemble.py
+- run_parallel_simulation.py
+- test_ensemble.py
+- simulation_runner.py
 - HistoryDatabase.vue
-- SimulationRunner
+- SimulationRunState
 - Home.vue
 - ReportView.vue
-- get_run_status_detail
+- AgentAction
 - 3. Detaillierte Spezifikation nach Seiten und Komponenten
 - GraphPanel.vue
 - InteractionView.vue
 - ZepMemoryProvider
-- Config
 - AgentActivity
 - ParallelIPCHandler
 - SimulationLogManager
-- graph.js
+- simulation.js
 - package.json
 - HistoryView.vue
 - SettingsView.vue
-- .get_report_by_simulation
+- get_simulation_profiles_realtime
+- ZepToolsService
 - retry_with_backoff_async
-- NodeInfo
-- OasisAgentProfile
+- EntityNode
+- OasisProfileGenerator
 - ZepGraphMemoryUpdater
 - ObsidianMemoryProvider
 - ReportConsoleLogger
@@ -71,87 +69,81 @@
 - LLMClient
 - ReportAgent
 - ReportManager
-- MiroFish E2E (Playwright)
-- cleanup.py
+- .generate_config
+- os
 - vue
-- typing
-- .send_command
+- logger.py
+- services/__init__.py
 - addLog
 - ThemePicker.vue
 - frontend/package.json
 - Design-System: MiroFish „Editorial Clarity“
-- EdgeInfo
-- OntologyGenerator
+- FileParser
+- .cleanup_all_simulations
+- ontology_generator.py
 - Änderungen
 - getReport
 - UX-Report: Graph-Höhe mobil (Seiten-Scroll-Regression)
 - UX-REPORT – Cursor Live (Audit-2 Nacharbeit)
 - compilerOptions
 - RunView.vue
-- simulation.js
 - Any
-- Polish-Report
+- Any
 - Konkrete Mobile- & Template-Fixes (Mobile First 412 px)
-- get_simulation_timeline
+- newcombe_difference_interval
 - SwarmCanvas.vue
-- get_console_log
 - Design-Audit: MiroFish Web-App (Mobile First & Barrierefreiheit)
 - 3. Umfassender Ansichten-Audit (View-by-View Breakdown)
 - 2. Bestätigung und Tiefenanalyse der bekannten Kernmängel
-- test_cleanup.py
+- ReportOutline
+- .generate_profiles_from_entities
 - UX-REPORT – belkis (Abschnitt 3.1A, 3.3–3.6, global)
-- delete_pipeline_cascade
-- IPCResponse
-- report_validation.py
-- .search_graph
-- delete_simulation_cascade
-- report.py
-- run_parallel_simulation.py
+- get_env_status
+- Config
+- setup_oasis_logging
+- SimulationRunner
+- GraphBuilderService
+- _enrich_action_context
 - mirofish-backend
 - Konkrete Template-Textersetzungen:
-- logger.py
+- create_app
 - Mangel 3: Leere Flächen mit einzelnen Rauten-Symbolen
 - Mangel 4: Karten der „Simulationsaufzeichnungen“ am Handy links/rechts abgeschnitten
 - Mangel 2: Badge „Elegante universelle Schwarm-Intelligenz-Engine“ bricht um
 - Mangel 5: Im Prompt-Feld überlappt Badge „Engine: MiroFish-V1.0“ den Platzhaltertext
 - Mangel 10: Fehlende Zeitschätzung und Statusführung bei langen Läufen (Minuten bis 1 Stunde)
-- MemoryNode
-- vue-i18n
+- .plan_outline
+- file_parser.py
 - sample-upload.md
 - Roadmap v2 – „so gut, dass es jeder gern benutzt"
-- CleanupError
+- mark_checklist_material
 - REPORT-UI.md
-- AgentInterview
 - setup_oasis_logging
 - I18N-Bericht
 - Step1GraphBuild.vue
-- dependencies
+- SimulationParameters
 - setup_signal_handlers
-- MemoryEdge
-- getProject
-- ontology_generator.py
-- stop_simulation
+- fetch_all_edges
+- init_logging_for_simulation
+- conftest.py
+- setup_logger
 - UX-REPORT-codex.md
-- MemorySearchResult
+- setup_signal_handlers
 - UX-REPORT – Cursor Validierung (V1)
-- scripts
-- get_agent_log
+- MaxTokensWarningFilter
 - Zukunftsprognosebericht: Dynamik der Parkgebührenanpassung und die Eskalationspfade zum Bürgerentscheid
 - Ausgangslage: Hallenbad Süd in Neuberg
-- EnsembleService
+- services/ensemble.py
 - setup_signal_handlers
 - emit
-- InsightForgeResult
-- Any
+- InterviewResult
 - PanoramaResult
 - szenarien/README.md
 - docker-test.sh
 - UX-REPORT – Cursor Ensemble (Mehrfachlauf)
-- get_simulation_history
-- get_graph_statistics_tool
 - docker-entrypoint.sh
 - busy-check.sh
-- FilteredEntities
+- ZepEntityReader
 - MaxTokensWarningFilter
 
 ## God Nodes (most connected - your core abstractions)
@@ -167,77 +159,73 @@
 10. `get_logger()` - 33 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Übersicht` --references--> `_get_default_platform()`  [INFERRED]
+  docs/UPSTREAM.md → backend/app/api/simulation.py
 - `Projekt und Graph` --references--> `delete_project_cascade()`  [INFERRED]
   docs/CLEANUP.md → backend/app/services/cleanup.py
 - `Simulation löschen` --references--> `delete_simulation_cascade()`  [INFERRED]
   docs/CLEANUP.md → backend/app/services/cleanup.py
+- `Durchlauf löschen` --references--> `delete_pipeline_cascade()`  [INFERRED]
+  docs/CLEANUP.md → backend/app/services/cleanup.py
 - `Verwaiste Reste` --references--> `sweep_orphans()`  [INFERRED]
   docs/CLEANUP.md → backend/app/services/cleanup.py
-- `Automatisch` --references--> `mark_stale_runs()`  [INFERRED]
-  docs/CLEANUP.md → backend/app/api/pipeline.py
-- `Übersicht` --references--> `_get_default_platform()`  [INFERRED]
-  docs/UPSTREAM.md → backend/app/api/simulation.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (149 total, 58 thin omitted)
+## Communities (149 total, 65 thin omitted)
 
 ### Community 1 - "interview_agent"
-Cohesion: 0.10
-Nodes (5): get_env_status(), interview_agent(), interview_agents_batch(), interview_all_agents(), optimize_interview_prompt()
+Cohesion: 0.12
+Nodes (4): interview_agent(), interview_agents_batch(), interview_all_agents(), optimize_interview_prompt()
 
 ### Community 2 - "Step4Report.vue"
 Cohesion: 0.02
 Nodes (53): activeSectionIndex, activeStep, activeTocIndex, agentLogLine, agentLogs, agentTypeOptions, agentTypesLabel, collapsedSections (+45 more)
 
-### Community 3 - "services/__init__.py"
+### Community 3 - "SimulationManager"
 Cohesion: 0.04
-Nodes (9): chat_with_report_agent(), OasisProfileGenerator, generate_single_profile(), SimulationParameters, PlatformType, SimulationManager, SimulationState, SimulationStatus (+1 more)
+Nodes (16): _check_simulation_prepared(), close_simulation_env(), _get_report_id_for_simulation(), get_simulation(), get_simulation_history(), list_simulations(), prepare_simulation(), run_prepare() (+8 more)
 
 ### Community 4 - "Process.vue"
-Cohesion: 0.07
-Nodes (36): getPendingUpload(), buildProgress, closeDetailPanel(), currentPhase, currentProjectId, entityTypes, error, graphContainer (+28 more)
+Cohesion: 0.06
+Nodes (40): clearPendingUpload(), getPendingUpload(), state, buildProgress, closeDetailPanel(), currentPhase, currentProjectId, entityTypes (+32 more)
 
 ### Community 5 - "Step5Interaction.vue"
 Cohesion: 0.05
 Nodes (32): getSimulationProfilesRealtime(), activeTab, autoGrowChatInput(), autoGrowMobileChatInput(), chatHistory, chatHistoryCache, chatInput, chatInputRef (+24 more)
 
-### Community 6 - "simulation.py"
+### Community 6 - "error"
 Cohesion: 0.04
-Nodes (26): _check_simulation_prepared(), close_simulation_env(), create_simulation(), download_simulation_config(), download_simulation_script(), generate_profiles(), _get_default_platform(), get_entities_by_type() (+18 more)
+Nodes (31): chat_with_report_agent(), check_report_status(), delete_report(), generate_report(), get_agent_log(), get_console_log(), get_generate_status(), get_graph_statistics_tool() (+23 more)
 
-### Community 7 - "ProjectManager"
-Cohesion: 0.07
-Nodes (9): allowed_file(), delete_project(), generate_ontology(), get_project(), list_projects(), reset_project(), Project, ProjectManager (+1 more)
+### Community 7 - "graph.py"
+Cohesion: 0.05
+Nodes (16): allowed_file(), build_graph(), delete_project(), generate_ontology(), get_graph_data(), get_project(), get_task(), list_projects() (+8 more)
 
-### Community 8 - "SimulationConfigGenerator"
-Cohesion: 0.07
-Nodes (5): AgentActivityConfig, EventConfig, PlatformConfig, SimulationConfigGenerator, TimeSimulationConfig
+### Community 9 - "EnsembleService"
+Cohesion: 0.20
+Nodes (4): EnsembleService, ChecklistRetryLLM, test_checklist_number_retry_stops_after_two_attempts(), test_checklist_prompt_retries_after_material_number()
 
-### Community 9 - "pipeline.py"
-Cohesion: 0.16
-Nodes (13): _base(), delete_pipeline(), _dir(), _load(), mark_stale_runs(), _ok(), _path(), pipeline_list() (+5 more)
-
-### Community 10 - "system.py"
-Cohesion: 0.16
-Nodes (6): list_models(), mask_key(), _ollama_root(), save_config(), system_models(), system_status()
+### Community 10 - "app/__init__.py"
+Cohesion: 0.08
+Nodes (8): list_models(), mask_key(), _ollama_root(), save_config(), system_models(), system_status(), test_llm(), main()
 
 ### Community 11 - "Step3Simulation.vue"
 Cohesion: 0.07
-Nodes (38): getRunStatus(), getRunStatusDetail(), startSimulation(), stopSimulation(), actionIds, addLog(), allActions, checkPlatformsCompleted() (+30 more)
+Nodes (36): getRunStatus(), getRunStatusDetail(), actionIds, addLog(), allActions, checkPlatformsCompleted(), chronologicalActions, doStartSimulation() (+28 more)
 
 ### Community 12 - "mockApi.ts"
 Cohesion: 0.05
-Nodes (54): devDependencies, @axe-core/playwright, @playwright/test, typescript, name, private, scripts, test (+46 more)
+Nodes (55): devDependencies, @axe-core/playwright, @playwright/test, typescript, name, private, scripts, test (+47 more)
 
 ### Community 13 - "Step2EnvSetup.vue"
-Cohesion: 0.10
-Nodes (37): Offene Frontend-Punkte (nicht angewendet, Umbau läuft parallel), getSimulationConfigRealtime(), prepareSimulation(), addLog(), autoGeneratedRounds, currentStage, customMaxRounds, displayProfiles (+29 more)
+Cohesion: 0.08
+Nodes (43): Offene Frontend-Punkte (nicht angewendet, Umbau läuft parallel), Ausgelassen, Checks, Geändert, npm audit (`cd frontend && npm audit --omit=dev`), Offen, Polish-Report, getPrepareStatus() (+35 more)
 
 ### Community 14 - "MainView.vue"
 Cohesion: 0.09
-Nodes (36): clearPendingUpload(), addLog(), buildProgress, currentPhase, currentProjectId, currentStep, error, graphData (+28 more)
+Nodes (36): addLog(), buildProgress, currentPhase, currentProjectId, currentStep, error, fetchGraphData(), graphData (+28 more)
 
 ### Community 15 - "README-EN.md"
 Cohesion: 0.05
@@ -245,35 +233,31 @@ Nodes (40): Der eine Aufruf, der alles macht, Einzelne Stufen (wenn du selbst st
 
 ### Community 16 - "SimulationRunView.vue"
 Cohesion: 0.08
-Nodes (31): closeSimulationEnv(), getEnvStatus(), getSimulationConfig(), addLog(), currentSimulationId, currentStatus, graphData, graphLoading (+23 more)
+Nodes (31): closeSimulationEnv(), getSimulationConfig(), stopSimulation(), addLog(), currentSimulationId, currentStatus, graphData, graphLoading (+23 more)
 
 ### Community 18 - "run_reddit_simulation"
-Cohesion: 0.08
-Nodes (7): PlatformActionLogger, create_model(), get_active_agents_for_round(), get_agent_names_from_config(), PlatformSimulation, run_reddit_simulation(), run_twitter_simulation()
+Cohesion: 0.06
+Nodes (8): PlatformActionLogger, create_model(), get_active_agents_for_round(), get_agent_names_from_config(), load_config(), PlatformSimulation, run_reddit_simulation(), run_twitter_simulation()
 
 ### Community 22 - "EnsembleView.vue"
 Cohesion: 0.07
-Nodes (27): cancelEnsemble(), deleteEnsemble(), getEnsemble(), busy, canCancel, canDelete, CellStat, checklist (+19 more)
+Nodes (32): cancelEnsemble(), deleteEnsemble(), getEnsemble(), busy, canCancel, canDelete, canGoReport, CellStat (+24 more)
 
 ### Community 23 - "SimulationView.vue"
+Cohesion: 0.09
+Nodes (26): getGraphData(), getEnvStatus(), addLog(), checkAndStopRunningSimulation(), currentSimulationId, currentStatus, forceStopSimulation(), graphData (+18 more)
+
+### Community 24 - "run_parallel_simulation.py"
+Cohesion: 0.09
+Nodes (9): simulation_clock(), apply_python_seeds(), build_model_config_dict(), resolve_seed_and_temperature(), _utf8_open(), CommandType, main(), CommandType (+1 more)
+
+### Community 25 - "test_ensemble.py"
 Cohesion: 0.10
-Nodes (26): getSimulation(), addLog(), checkAndStopRunningSimulation(), currentSimulationId, currentStatus, forceStopSimulation(), graphData, graphLoading (+18 more)
-
-### Community 24 - "run_reddit_simulation.py"
-Cohesion: 0.08
-Nodes (11): apply_python_seeds(), build_model_config_dict(), resolve_seed_and_temperature(), CommandType, main(), setup_oasis_logging(), UnicodeFormatter, CommandType (+3 more)
-
-### Community 26 - "services/ensemble.py"
-Cohesion: 0.12
-Nodes (5): _write_json_atomic(), CommandStatus, CommandType, show_expected_formats(), test_profile_formats()
+Nodes (10): filter_checklist_material_numbers(), _number_tokens(), parse_checklist(), FakeLLM, FakeRunner, _prepared_simulation(), test_checklist_number_filter_normalizes_material_numbers(), test_checklist_parsing_and_validation() (+2 more)
 
 ### Community 27 - "HistoryDatabase.vue"
 Cohesion: 0.08
 Nodes (14): closeModal(), containerStyle, goToProject(), goToReport(), goToSimulation(), historyContainer, hoveringCard, isExpanded (+6 more)
-
-### Community 28 - "SimulationRunner"
-Cohesion: 0.04
-Nodes (6): start_simulation(), RunnerStatus, SimulationRunner, cleanup_handler(), SimulationRunState, ZepGraphMemoryManager
 
 ### Community 29 - "Home.vue"
 Cohesion: 0.09
@@ -283,89 +267,81 @@ Nodes (22): startPipeline(), activeRuns, add(), autopilot, canSubmit, error, fil
 Cohesion: 0.08
 Nodes (22): { locale, t }, addLog(), currentReportId, currentStatus, graphData, graphLoading, leftPanelStyle, loadGraph() (+14 more)
 
-### Community 31 - "get_run_status_detail"
-Cohesion: 0.07
-Nodes (4): get_agent_stats(), get_run_status_detail(), get_simulation_actions(), AgentAction
-
 ### Community 32 - "3. Detaillierte Spezifikation nach Seiten und Komponenten"
 Cohesion: 0.06
 Nodes (33): 1. Barrierefreiheit (e2e-Befund), 1. Gemeinsame Header-Architektur am Smartphone, 1. Kurzurteil, 1. Mobil-Verhalten, 1. Mobil-Verhalten (`04-durchlauf-mobil.png`), 1. Mobil-Verhalten (Samsung S23 Ultra, 412 px), 1. Problemstellung & IST-Zustand (Screenshots 10 & 11), 2. Befundtabelle (+25 more)
 
 ### Community 33 - "GraphPanel.vue"
-Cohesion: 0.10
-Nodes (20): closeDetailPanel(), emit, entityTypes, expandedSelfLoops, graphContainer, graphSvg, handleResize(), nodeCountRef (+12 more)
+Cohesion: 0.09
+Nodes (22): closeDetailPanel(), emit, entityTypes, expandedSelfLoops, graphContainer, graphSvg, handleResize(), nodeCountRef (+14 more)
 
 ### Community 34 - "InteractionView.vue"
-Cohesion: 0.09
-Nodes (22): addLog(), currentReportId, currentStatus, graphData, graphLoading, graphPanelRef, leftPanelStyle, loadGraph() (+14 more)
+Cohesion: 0.08
+Nodes (25): getProject(), getSimulation(), addLog(), currentReportId, currentStatus, graphData, graphLoading, graphPanelRef (+17 more)
 
 ### Community 35 - "ZepMemoryProvider"
-Cohesion: 0.12
-Nodes (3): MemoryFactory, HybridMemoryProvider, ZepMemoryProvider
+Cohesion: 0.07
+Nodes (3): MemorySearchResult, HybridMemoryProvider, ZepMemoryProvider
 
-### Community 36 - "Config"
-Cohesion: 0.15
-Nodes (3): Config, main(), upload()
-
-### Community 39 - "SimulationLogManager"
-Cohesion: 0.13
-Nodes (3): SimulationLogManager, load_config(), main()
-
-### Community 40 - "graph.js"
-Cohesion: 0.35
-Nodes (7): buildGraph(), generateOntology(), getTaskStatus(), requestWithRetry(), service, chatWithReport(), generateReport()
+### Community 40 - "simulation.js"
+Cohesion: 0.17
+Nodes (9): buildGraph(), generateOntology(), getTaskStatus(), requestWithRetry(), service, chatWithReport(), generateReport(), prepareSimulation() (+1 more)
 
 ### Community 41 - "package.json"
 Cohesion: 0.11
 Nodes (17): description, devDependencies, concurrently, engines, node, license, name, scripts (+9 more)
 
 ### Community 42 - "HistoryView.vue"
-Cohesion: 0.15
-Nodes (17): deletePipeline(), deleteSimulation(), getSimulationHistory(), confirmDelete(), loadHistory(), deleting, doDelete(), error (+9 more)
+Cohesion: 0.14
+Nodes (18): deletePipeline(), deleteSimulation(), getSimulationHistory(), confirmDelete(), loadHistory(), goToReport(), deleting, doDelete() (+10 more)
 
 ### Community 43 - "SettingsView.vue"
 Cohesion: 0.11
 Nodes (16): baseUrl(), cfg, load(), masked, memoryLabel, models, result, save() (+8 more)
 
-### Community 44 - ".get_report_by_simulation"
-Cohesion: 0.17
-Nodes (3): check_report_status(), get_report_by_simulation(), ReportStatus
+### Community 44 - "get_simulation_profiles_realtime"
+Cohesion: 0.11
+Nodes (5): _get_default_platform(), get_simulation_comments(), get_simulation_posts(), get_simulation_profiles(), get_simulation_profiles_realtime()
+
+### Community 45 - "ZepToolsService"
+Cohesion: 0.05
+Nodes (6): AgentInterview, EdgeInfo, InsightForgeResult, NodeInfo, SearchResult, ZepToolsService
 
 ### Community 46 - "retry_with_backoff_async"
 Cohesion: 0.15
 Nodes (6): retry_with_backoff(), retry_with_backoff_async(), decorator(), decorator(), wrapper(), RetryableAPIClient
 
-### Community 49 - "OasisAgentProfile"
-Cohesion: 0.11
-Nodes (4): _coerce_to_str(), _coerce_to_str_list(), OasisAgentProfile, Übersicht
+### Community 49 - "OasisProfileGenerator"
+Cohesion: 0.09
+Nodes (7): _coerce_to_str(), _coerce_to_str_list(), OasisAgentProfile, OasisProfileGenerator, show_expected_formats(), test_profile_formats(), Übersicht
 
 ### Community 54 - "LLMClient"
-Cohesion: 0.08
-Nodes (7): test_llm(), _clean_chat_text(), _is_response_format_unsupported(), LLMClient, LLMResponseError, Neuerungen aus dem Original (666ghj/MiroFish), Prüfung
-
-### Community 55 - "ReportAgent"
-Cohesion: 0.08
-Nodes (3): run_generate(), ReportAgent, ReportSection
+Cohesion: 0.06
+Nodes (9): _clean_chat_text(), _is_response_format_unsupported(), LLMClient, LLMResponseError, create_chat_completion(), extract_chat_completion_text(), is_gpt5_family(), Neuerungen aus dem Original (666ghj/MiroFish) (+1 more)
 
 ### Community 56 - "ReportManager"
-Cohesion: 0.04
-Nodes (10): delete_report(), download_report(), get_report(), get_report_progress(), get_report_sections(), get_single_section(), list_reports(), Report (+2 more)
+Cohesion: 0.10
+Nodes (3): download_report(), Report, ReportManager
 
-### Community 57 - "MiroFish E2E (Playwright)"
-Cohesion: 0.13
-Nodes (13): frontend(), 1. Fußmenü verdeckt Bedienelemente (Handy), 2. Barrierefreiheit (axe serious/critical), 3. iPhone (WebKit): seitliche Scrollleiste, Bekannte Befunde (E2E), Nicht als App-Bug gewertet (Tests angepasst), Bekannte App-Fehler, CI (+5 more)
-
-### Community 58 - "cleanup.py"
+### Community 57 - ".generate_config"
 Cohesion: 0.15
-Nodes (21): _child(), _delete_graph_storage(), _delete_pipelines_for_simulation(), delete_project_cascade(), _delete_reports_for(), _inside(), _iter_pipelines(), _maybe_delete_project() (+13 more)
+Nodes (3): AgentActivityConfig, EventConfig, PlatformConfig
+
+### Community 58 - "os"
+Cohesion: 0.05
+Nodes (63): _base(), delete_pipeline(), _dir(), _load(), mark_stale_runs(), _ok(), _path(), pipeline_list() (+55 more)
 
 ### Community 59 - "vue"
-Cohesion: 0.11
-Nodes (15): listPipelines(), route, showTheme, { t }, activeCount, poll(), route, { t } (+7 more)
+Cohesion: 0.09
+Nodes (17): listPipelines(), route, showTheme, { t }, { t }, activeCount, poll(), route (+9 more)
 
-### Community 60 - "typing"
+### Community 60 - "logger.py"
+Cohesion: 0.09
+Nodes (4): MemoryEdge, MemoryProvider, MemoryFactory, get_logger()
+
+### Community 61 - "services/__init__.py"
 Cohesion: 0.10
-Nodes (6): create_chat_completion(), extract_chat_completion_text(), is_gpt5_family(), fetch_all_edges(), fetch_all_nodes(), _fetch_page_with_retry()
+Nodes (6): CommandStatus, CommandType, IPCCommand, IPCResponse, SimulationIPCClient, SimulationIPCServer
 
 ### Community 62 - "addLog"
 Cohesion: 0.25
@@ -376,16 +352,16 @@ Cohesion: 0.08
 Nodes (44): Grenzen von V3/V4, Prüfung, Rechenzeit und Betrieb, Statistik, V3: Mehrfachlauf, V4: Gegenproben, Validierung V1/V2, Validierung V1–V4 (+36 more)
 
 ### Community 64 - "frontend/package.json"
-Cohesion: 0.17
-Nodes (11): devDependencies, vite, @vitejs/plugin-vue, name, private, type, version, axios (+3 more)
+Cohesion: 0.09
+Nodes (21): dependencies, axios, d3, vue, vue-i18n, vue-router, devDependencies, vite (+13 more)
 
 ### Community 65 - "Design-System: MiroFish „Editorial Clarity“"
 Cohesion: 0.08
 Nodes (24): 1. Design-Richtung & Philosophie, 2. Typografie, 3.1 Helles Design (Light Mode - Standard), 3.2 Dunkles Design (Dark Mode - `[data-theme="dark"]`), 3. Farbpalette & Nachgerechnete WCAG-AA-Kontraste, 4. Abstands- und Rastersystem, 5.1 Buttons (Schaltflächen), 5.2 Karten (Cards) (+16 more)
 
-### Community 68 - "OntologyGenerator"
-Cohesion: 0.05
-Nodes (7): OntologyGenerator, resolve_entity_name(), _to_pascal_case(), TextProcessor, FileParser, _read_text_with_fallback(), split_text_into_chunks()
+### Community 68 - "ontology_generator.py"
+Cohesion: 0.08
+Nodes (8): _ascii_fold(), OntologyGenerator, resolve_entity_name(), _to_pascal_case(), _to_upper_snake_case(), normalize_ontology_attribute(), normalize_ontology_attributes(), normalize_ontology_source_targets()
 
 ### Community 70 - "Änderungen"
 Cohesion: 0.29
@@ -396,8 +372,8 @@ Cohesion: 0.18
 Nodes (12): listEnsembles(), getAgentLog(), getConsoleLog(), getReport(), fetchAgentLog(), fetchConsoleLog(), loadEnsembleList(), loadMethodology() (+4 more)
 
 ### Community 72 - "UX-Report: Graph-Höhe mobil (Seiten-Scroll-Regression)"
-Cohesion: 0.20
-Nodes (9): zoomToFit(), Abnahme, E2E, Gegenprobe, `GraphPanel.vue`, Problem, Schritt-Views (`MainView`, `SimulationView`, `SimulationRunView`, `ReportView`, `InteractionView`), UX-Report: Graph-Höhe mobil (Seiten-Scroll-Regression) (+1 more)
+Cohesion: 0.25
+Nodes (7): Abnahme, E2E, Gegenprobe, Problem, Schritt-Views (`MainView`, `SimulationView`, `SimulationRunView`, `ReportView`, `InteractionView`), UX-Report: Graph-Höhe mobil (Seiten-Scroll-Regression), Änderungen
 
 ### Community 73 - "UX-REPORT – Cursor Live (Audit-2 Nacharbeit)"
 Cohesion: 0.33
@@ -411,13 +387,17 @@ Nodes (11): compilerOptions, esModuleInterop, module, moduleResolution, noEmit, 
 Cohesion: 0.10
 Nodes (18): getPipeline(), STEP_LABELS, STEP_ORDER, cleanedUp, currentDetail, currentLabel, etaText, HINTS (+10 more)
 
-### Community 78 - "Polish-Report"
-Cohesion: 0.29
-Nodes (6): Ausgelassen, Checks, Geändert, npm audit (`cd frontend && npm audit --omit=dev`), Offen, Polish-Report
+### Community 76 - "Any"
+Cohesion: 0.26
+Nodes (6): _read_json(), validate_variants(), _variant_label(), verify_classification_evidence(), test_evidence_must_reference_existing_post(), test_start_hour_validation_happens_before_start()
 
 ### Community 79 - "Konkrete Mobile- & Template-Fixes (Mobile First 412 px)"
 Cohesion: 0.13
 Nodes (15): CSS-Fix (`Home.vue` `<style scoped>`):, CSS-Fix in `Home.vue`:, CSS-Fix in `tokens.css` (wird automatisch wirksam) bzw. `App.vue`:, CSS-Fix (`MainView.vue` `<style scoped>`):, CSS-Fix (`MainView.vue` `<style scoped>`):, Globaler CSS-Klassen-Fix (Drop-in):, Konkrete Mobile- & Template-Fixes (Mobile First 412 px), Mangel 11: Touch-Targets unter 44 px (Löschen-Button, Switcher) (+7 more)
+
+### Community 80 - "newcombe_difference_interval"
+Cohesion: 0.22
+Nodes (5): newcombe_difference_interval(), _round(), wilson_interval(), test_newcombe_method_10_known_value(), test_wilson_known_value()
 
 ### Community 81 - "SwarmCanvas.vue"
 Cohesion: 0.21
@@ -435,41 +415,29 @@ Nodes (10): 3.1 Globale Basis (`App.vue`, `index.html`), 3.2 Startseite / Landin
 Cohesion: 0.25
 Nodes (8): 2. Bestätigung und Tiefenanalyse der bekannten Kernmängel, Mangel 1: Hero-Überschrift am Handy riesig und 4 Zeilen, Mangel 2: Badge „Elegante universelle Schwarm-Intelligenz-Engine“ bricht um, Mangel 3: Leere Flächen mit einzelnen Rauten-Symbolen, Mangel 4: Karten der „Simulationsaufzeichnungen“ am Handy links/rechts abgeschnitten (horizontaler Überlauf), Mangel 5: Im Prompt-Feld überlappt Badge „Engine: MiroFish-V1.0“ den Platzhaltertext, Mangel 6: Monospace-Fließtext ist schwer lesbar, Mangel 7: Fachjargon in Nutzertexten
 
-### Community 88 - "test_cleanup.py"
-Cohesion: 0.32
-Nodes (11): _dump(), make_project(), make_report(), make_run(), make_sim(), test_cascade_removes_only_the_finished_simulation(), test_delete_failed_pipelines_removes_failed_keeps_running_and_completed(), test_pipeline_cascade_removes_its_project() (+3 more)
-
 ### Community 89 - "UX-REPORT – belkis (Abschnitt 3.1A, 3.3–3.6, global)"
 Cohesion: 0.40
 Nodes (4): Abnahme, Nicht angefasst, UX-REPORT – belkis (Abschnitt 3.1A, 3.3–3.6, global), Änderungen
 
-### Community 90 - "delete_pipeline_cascade"
-Cohesion: 0.20
-Nodes (9): delete_failed_pipelines(), delete_pipeline_cascade(), Aufräumen, Automatisch, Durchlauf löschen, Projekt und Graph, Simulation löschen, Verlauf (+1 more)
-
-### Community 92 - "report_validation.py"
+### Community 92 - "Config"
 Cohesion: 0.05
-Nodes (44): export_simulation(), append_methodology_to_markdown(), apply_python_seeds(), best_content_match(), build_manifest(), build_methodology(), build_model_config_dict(), collect_events() (+36 more)
+Nodes (45): export_simulation(), Config, append_methodology_to_markdown(), apply_python_seeds(), best_content_match(), build_manifest(), build_methodology(), build_model_config_dict() (+37 more)
 
-### Community 94 - "delete_simulation_cascade"
+### Community 95 - "GraphBuilderService"
+Cohesion: 0.05
+Nodes (7): build_task(), delete_graph(), get_prepare_status(), Task, TaskManager, GraphBuilderService, GraphInfo
+
+### Community 96 - "_enrich_action_context"
 Cohesion: 0.13
-Nodes (7): delete_simulation(), CleanupBusy, delete_simulation_cascade(), _runner_alive(), simulation_is_active(), _stop_runner(), info()
-
-### Community 95 - "report.py"
-Cohesion: 0.05
-Nodes (13): build_graph(), build_task(), delete_graph(), get_graph_data(), get_task(), list_tasks(), generate_report(), get_generate_status() (+5 more)
-
-### Community 96 - "run_parallel_simulation.py"
-Cohesion: 0.09
-Nodes (10): CommandType, disable_oasis_logging(), _enrich_action_context(), fetch_new_actions_from_db(), _get_comment_info(), _get_post_info(), _get_user_name(), init_logging_for_simulation() (+2 more)
+Nodes (5): _enrich_action_context(), fetch_new_actions_from_db(), _get_comment_info(), _get_post_info(), _get_user_name()
 
 ### Community 98 - "Konkrete Template-Textersetzungen:"
 Cohesion: 0.50
 Nodes (4): 1. In `Home.vue`:, 2. In `Step1GraphBuild.vue`:, Konkrete Template-Textersetzungen:, Mangel 7: Fachjargon in Nutzertexten
 
-### Community 99 - "logger.py"
-Cohesion: 0.09
-Nodes (15): cancel_ensemble(), delete_ensemble(), _error(), get_ensemble(), list_ensembles(), mark_stale_ensembles(), start_ensemble(), create_app() (+7 more)
+### Community 99 - "create_app"
+Cohesion: 0.07
+Nodes (25): cancel_ensemble(), delete_ensemble(), _error(), get_ensemble(), list_ensembles(), mark_stale_ensembles(), start_ensemble(), create_app() (+17 more)
 
 ### Community 100 - "Mangel 3: Leere Flächen mit einzelnen Rauten-Symbolen"
 Cohesion: 0.50
@@ -491,13 +459,13 @@ Nodes (3): CSS-Fix (`Home.vue` `<style scoped>`):, Mangel 5: Im Prompt-Feld übe
 Cohesion: 0.67
 Nodes (3): CSS-Fix (`Step3Simulation.vue` `<style scoped>`):, Mangel 10: Fehlende Zeitschätzung und Statusführung bei langen Läufen (Minuten bis 1 Stunde), Template-Fix (`Step3Simulation.vue`):
 
-### Community 106 - "vue-i18n"
-Cohesion: 0.29
-Nodes (3): { t }, savedLanguage, vue-i18n
+### Community 109 - "Roadmap v2 – „so gut, dass es jeder gern benutzt""
+Cohesion: 0.50
+Nodes (3): Roadmap v2 – „so gut, dass es jeder gern benutzt", Stand Validierung 13.10.2026 abends, Validierung (ab 13.10.2026) – vom Szenariogenerator zur prüfbaren Prognose
 
-### Community 110 - "CleanupError"
-Cohesion: 0.33
-Nodes (3): CleanupError, _require(), test_symlink_outside_upload_is_not_followed()
+### Community 110 - "mark_checklist_material"
+Cohesion: 0.40
+Nodes (3): mark_checklist_material(), verified_material_quote(), test_material_quote_must_be_normalized_verbatim()
 
 ### Community 114 - "I18N-Bericht"
 Cohesion: 0.33
@@ -507,25 +475,17 @@ Nodes (5): Bewusst nicht übersetzte Stellen, I18N-Bericht, Offene Punkte, Prüf
 Cohesion: 0.17
 Nodes (9): createSimulation(), creatingSimulation, graphStats, handleEnterEnvSetup(), logContent, props, router, selectedOntologyItem (+1 more)
 
-### Community 116 - "dependencies"
-Cohesion: 0.33
-Nodes (6): dependencies, axios, d3, vue, vue-i18n, vue-router
+### Community 117 - "setup_signal_handlers"
+Cohesion: 0.13
+Nodes (3): CommandType, MaxTokensWarningFilter, setup_signal_handlers()
 
-### Community 119 - "getProject"
-Cohesion: 0.50
-Nodes (5): getGraphData(), getProject(), fetchGraphData(), fetchGraphData(), refreshGraph()
-
-### Community 120 - "ontology_generator.py"
-Cohesion: 0.18
-Nodes (5): _ascii_fold(), _to_upper_snake_case(), normalize_ontology_attribute(), normalize_ontology_attributes(), normalize_ontology_source_targets()
+### Community 118 - "fetch_all_edges"
+Cohesion: 0.21
+Nodes (3): fetch_all_edges(), fetch_all_nodes(), _fetch_page_with_retry()
 
 ### Community 125 - "UX-REPORT – Cursor Validierung (V1)"
 Cohesion: 0.29
 Nodes (6): Abnahme, Berichtskopf, E2E, i18n, Methodik-Karte, UX-REPORT – Cursor Validierung (V1)
-
-### Community 126 - "scripts"
-Cohesion: 0.50
-Nodes (4): scripts, build, dev, preview
 
 ### Community 128 - "Zukunftsprognosebericht: Dynamik der Parkgebührenanpassung und die Eskalationspfade zum Bürgerentscheid"
 Cohesion: 0.33
@@ -535,9 +495,9 @@ Nodes (5): Agentenverhalten undfraktionsbildende Dynamiken, Chronologie der erst
 Cohesion: 0.40
 Nodes (4): Ausgangslage: Hallenbad Süd in Neuberg, Entscheidung, Weitere Beteiligte, Wer das Hallenbad Süd heute nutzt
 
-### Community 130 - "EnsembleService"
-Cohesion: 0.06
-Nodes (29): _agent_id(), apply_without_variant(), ensemble_markdown(), EnsembleService, load_simulation_posts(), mark_checklist_material(), newcombe_difference_interval(), parse_checklist() (+21 more)
+### Community 130 - "services/ensemble.py"
+Cohesion: 0.12
+Nodes (11): _agent_id(), apply_without_variant(), ensemble_markdown(), load_simulation_posts(), prepare_run_directory(), _read_twitter_csv(), _runner_status(), _table_columns() (+3 more)
 
 ### Community 132 - "emit"
 Cohesion: 0.50
@@ -547,25 +507,29 @@ Nodes (4): startEnsemble(), addLog(), emit, startEnsembleRun()
 Cohesion: 0.50
 Nodes (3): Auftrag A – Mehrfachlauf, Auftrag B – Befunde, UX-REPORT – Cursor Ensemble (Mehrfachlauf)
 
+### Community 143 - "ZepEntityReader"
+Cohesion: 0.12
+Nodes (4): generate_profiles(), get_entities_by_type(), FilteredEntities, ZepEntityReader
+
 ## Knowledge Gaps
-- **586 isolated node(s):** `mirofish-backend`, `docker-entrypoint.sh script`, `docker-test.sh script`, `name`, `private` (+581 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1610 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **58 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **588 isolated node(s):** `mirofish-backend`, `docker-entrypoint.sh script`, `docker-test.sh script`, `name`, `private` (+583 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1694 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **65 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Neuerungen aus dem Original (666ghj/MiroFish)` connect `LLMClient` to `OasisAgentProfile`, `Step2EnvSetup.vue`?**
-  _High betweenness centrality (0.308) - this node is a cross-community bridge._
+- **Why does `Neuerungen aus dem Original (666ghj/MiroFish)` connect `LLMClient` to `OasisProfileGenerator`, `Step2EnvSetup.vue`?**
+  _High betweenness centrality (0.301) - this node is a cross-community bridge._
 - **Are the 40 inferred relationships involving `Config` (e.g. with `allowed_file()` and `build_graph()`) actually correct?**
   _`Config` has 40 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `mirofish-backend`, `docker-entrypoint.sh script`, `docker-test.sh script` to the rest of the system?**
-  _586 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `MemoryProvider` be split into smaller, more focused modules?**
-  _Cohesion score 0.11594202898550725 - nodes in this community are weakly interconnected._
+  _588 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `interview_agent` be split into smaller, more focused modules?**
+  _Cohesion score 0.12418300653594772 - nodes in this community are weakly interconnected._
 - **Why does `Offene Frontend-Punkte (nicht angewendet, Umbau läuft parallel)` connect `Step2EnvSetup.vue` to `Step3Simulation.vue`, `LLMClient`?**
-  _High betweenness centrality (0.308) - this node is a cross-community bridge._
+  _High betweenness centrality (0.301) - this node is a cross-community bridge._
 - **Are the 7 inferred relationships involving `error()` (e.g. with `cancel_ensemble()` and `delete_ensemble()`) actually correct?**
   _`error()` has 7 INFERRED edges - model-reasoned connections that need verification._
-- **Should `interview_agent` be split into smaller, more focused modules?**
-  _Cohesion score 0.09956709956709957 - nodes in this community are weakly interconnected._
+- **Should `Step4Report.vue` be split into smaller, more focused modules?**
+  _Cohesion score 0.024691358024691357 - nodes in this community are weakly interconnected._
