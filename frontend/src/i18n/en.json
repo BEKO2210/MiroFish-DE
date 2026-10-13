@@ -765,6 +765,7 @@
     "since": "since {time}",
     "newForecast": "New forecast",
     "addDocs": "Add documents",
+    "uploadLabel": "Upload documents",
     "docTypes": "PDF, Markdown or text",
     "remove": "Remove {name}",
     "addMore": "+ Add file",

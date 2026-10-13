@@ -140,6 +140,11 @@ onUnmounted(() => clearInterval(timer))
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
 .main { max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
+@media (max-width: 768px) {
+  .main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .act { min-height: 48px; color: var(--color-text-primary); }
+  .act--danger { color: var(--color-error-text); }
+}
 .page__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 .page__title { font-family: var(--font-heading); font-size: 26px; margin: 0; letter-spacing: -0.01em; }
 .list { display: flex; flex-direction: column; gap: 10px; }
@@ -147,11 +152,11 @@ onUnmounted(() => clearInterval(timer))
 .row--running { border-color: var(--color-brand-border); }
 .row__main { display: block; padding: 14px 16px 12px; text-decoration: none; color: inherit; }
 .row__title { font-family: var(--font-body); font-size: 15px; font-weight: 600; line-height: 1.35; margin: 8px 0 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.row__meta { margin: 0; font-size: 12px; color: var(--color-text-muted); }
+.row__meta { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
 .row__bar { height: 3px; background: var(--color-border-subtle); border-radius: 999px; margin-top: 10px; overflow: hidden; }
 .row__bar div { height: 100%; background: var(--color-brand-primary); }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 3px 8px; border-radius: 999px; background: var(--color-bg-surface-subtle); color: var(--color-text-secondary); }
-.chip--running { background: var(--color-brand-subtle); color: var(--color-brand-primary); }
+.chip--running { background: var(--color-brand-subtle); color: var(--color-brand-hover); font-weight: 700; }
 .chip--completed { background: var(--color-success-bg); color: var(--color-success-text); }
 .chip--failed { background: var(--color-error-bg); color: var(--color-error-text); }
 .chip--progress { background: var(--color-warning-bg); color: var(--color-warning-text); }
@@ -176,5 +181,38 @@ onUnmounted(() => clearInterval(timer))
 @keyframes shimmer { to { background-position: -200% 0; } }
 @media (min-width: 769px) {
   .main { padding: 32px 24px 64px; max-width: 880px; }
+}
+
+@media (min-width: 1024px) {
+  .main {
+    max-width: 1360px;
+    padding: 32px 32px 80px;
+  }
+
+  .list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
+  }
+
+  .row {
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .row:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-strong);
+  }
+
+  .row__main {
+    min-height: 140px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chip__pulse { animation: none; }
+  .sk { animation: none; }
+  .row { transition: none; }
 }
 </style>

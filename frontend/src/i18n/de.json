@@ -765,6 +765,7 @@
     "since": "seit {time}",
     "newForecast": "Neue Vorhersage",
     "addDocs": "Dokumente hinzufügen",
+    "uploadLabel": "Dokumente hochladen",
     "docTypes": "PDF, Markdown oder Text",
     "remove": "{name} entfernen",
     "addMore": "+ Weitere Datei",

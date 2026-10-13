@@ -5,23 +5,10 @@ import { isLiveMode } from '../support/mockApi'
 
 const A11Y_ROUTES = ['/', '/history', '/settings', '/report/report_6587bcd7e3fa'] as const
 
-/** Routes mit bekannten serious/critical – siehe BEFUNDE.md */
+/** Routes mit bekannten serious/critical – siehe BEFUNDE.md (Report: anderer Agent) */
 const KNOWN_A11Y_FAIL = new Set([
-  'handy:/',
-  'handy:/history',
-  'handy:/settings',
-  'tablet:/',
-  'tablet:/history',
-  'tablet:/settings',
   'tablet:/report/report_6587bcd7e3fa',
-  'desktop:/',
-  'desktop:/history',
-  'desktop:/settings',
   'desktop:/report/report_6587bcd7e3fa',
-  // iphone analog zu handy, falls WebKit aktiv
-  'iphone:/',
-  'iphone:/history',
-  'iphone:/settings',
 ])
 
 test.describe('Barrierefreiheit (axe)', () => {
