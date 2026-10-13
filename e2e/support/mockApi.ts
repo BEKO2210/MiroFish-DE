@@ -192,16 +192,18 @@ function resolveFixture(pathname: string): unknown | null {
   const ens = pathname.match(/^\/api\/ensemble\/(ens_[^/]+)$/)
   if (ens) {
     const id = ens[1]
-    if (id === ENSEMBLE_TEST_ID || id === 'ens_e2e_started') {
-      return defaultOk({ ...ENSEMBLE_MOCK, ensemble_id: id, status: id === 'ens_e2e_started' ? 'running' : 'completed' })
-    }
-    return defaultOk({ ...ENSEMBLE_MOCK, ensemble_id: id })
+    return defaultOk({
+      ...ENSEMBLE_MOCK,
+      ensemble_id: id,
+      status: id === 'ens_e2e_started' ? 'running' : ENSEMBLE_MOCK.status,
+    })
   }
 
   return null
 }
 
 const ENSEMBLE_TEST_ID = 'ens_test'
+const ENSEMBLE_ROUND_MINUTES = [60, 120, 240] as const
 const ENSEMBLE_MOCK = {
   ensemble_id: ENSEMBLE_TEST_ID,
   simulation_id: 'sim_2c3b36b2e33f',
@@ -211,11 +213,14 @@ const ENSEMBLE_MOCK = {
   finished_at: '2026-10-13T11:00:00.000000',
   runs: 10,
   hours: 24,
+  minutes_per_round: 60,
   primary_outcome_id: 'o1',
   variants: [
     { key: 'baseline', label_de: 'Basis', label_en: 'Baseline', status: 'completed', done: 10, total: 10 },
     { key: 'isolated', label_de: 'Ohne Vernetzung', label_en: 'No networking', status: 'completed', done: 10, total: 10 },
-    { key: 'null_model', label_de: 'Nullmodell', label_en: 'Null model', status: 'completed', done: 10, total: 10 },
+    { key: 'blind_feed', label_de: 'Blinder Feed', label_en: 'Blind feed', status: 'completed', done: 10, total: 10 },
+    { key: 'null_document', label_de: 'Nullmodell Dokument', label_en: 'Null model (document)', status: 'completed', done: 10, total: 10 },
+    { key: 'null_personas', label_de: 'Nullmodell Personas', label_en: 'Null model (personas)', status: 'completed', done: 10, total: 10 },
   ],
   checklist: [
     { id: 'o1', text_de: 'Dominanz-Narrativ', text_en: 'Dominance narrative', definition: '', kind: 'event', in_material: true, material_snippet: 'technologische Dominanz von MiroFish', source: 'auto' },
@@ -245,7 +250,16 @@ const ENSEMBLE_MOCK = {
       o6: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
       o_user1: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
     },
-    null_model: {
+    blind_feed: {
+      o1: { yes: 6, n: 10, rate: 0.6, ci_low: 0.31, ci_high: 0.83, disputed: 0, evidence: [] },
+      o2: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76, disputed: 0, evidence: [] },
+      o3: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76, disputed: 0, evidence: [] },
+      o4: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
+      o5: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
+      o6: { yes: 4, n: 10, rate: 0.4, ci_low: 0.17, ci_high: 0.69, disputed: 0, evidence: [] },
+      o_user1: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
+    },
+    null_document: {
       o1: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, disputed: 0, evidence: [] },
       o2: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, disputed: 0, evidence: [] },
       o3: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
@@ -254,6 +268,33 @@ const ENSEMBLE_MOCK = {
       o6: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
       o_user1: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
     },
+    null_personas: {
+      o1: { yes: 3, n: 10, rate: 0.3, ci_low: 0.11, ci_high: 0.6, disputed: 0, evidence: [] },
+      o2: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, disputed: 0, evidence: [] },
+      o3: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, disputed: 0, evidence: [] },
+      o4: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
+      o5: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
+      o6: { yes: 2, n: 10, rate: 0.2, ci_low: 0.06, ci_high: 0.51, disputed: 0, evidence: [] },
+      o_user1: { yes: 1, n: 10, rate: 0.1, ci_low: 0.02, ci_high: 0.4, disputed: 0, evidence: [] },
+    },
+  },
+  run_stats: {
+    baseline: [
+      { run: 1, post_count: 42, character_count: 8200, batch_count: 3 },
+      { run: 2, post_count: 38, character_count: 7600, batch_count: 3 },
+    ],
+    isolated: [
+      { run: 1, post_count: 30, character_count: 5100, batch_count: 2 },
+    ],
+    blind_feed: [
+      { run: 1, post_count: 40, character_count: 7900, batch_count: 3 },
+    ],
+    null_document: [
+      { run: 1, post_count: 0, character_count: 4500, batch_count: 1 },
+    ],
+    null_personas: [
+      { run: 1, post_count: 0, character_count: 6200, batch_count: 1 },
+    ],
   },
   reliability: {
     o1: { agreement: 0.85, kappa: 0.72, n_pairs: 30, label: 'messbar' },
@@ -266,9 +307,9 @@ const ENSEMBLE_MOCK = {
   },
   comparisons: [
     { variant: 'isolated', outcome_id: 'o1', diff: -0.2, ci_low: -0.5, ci_high: 0.1, unreliable: true, role: 'confirmatory', mcnemar_p: 0.125, holm_p: 0.25 },
-    { variant: 'null_model', outcome_id: 'o2', diff: -0.4, ci_low: -0.7, ci_high: -0.08, unreliable: false, role: 'exploratory', mcnemar_p: 0.03125, holm_p: 0.375 },
+    { variant: 'null_document', outcome_id: 'o2', diff: -0.4, ci_low: -0.7, ci_high: -0.08, unreliable: false, role: 'exploratory', mcnemar_p: 0.03125, holm_p: 0.375 },
     { variant: 'isolated', outcome_id: 'o3', diff: -0.1, ci_low: -0.4, ci_high: 0.2, unreliable: false, role: 'exploratory', mcnemar_p: 1, holm_p: 1 },
-    { variant: 'null_model', outcome_id: 'o3', diff: -0.4, ci_low: -0.68, ci_high: -0.05, unreliable: false, role: 'exploratory', mcnemar_p: 0.0625, holm_p: 0.75 },
+    { variant: 'null_document', outcome_id: 'o3', diff: -0.4, ci_low: -0.68, ci_high: -0.05, unreliable: false, role: 'exploratory', mcnemar_p: 0.0625, holm_p: 0.75 },
   ],
   current: null,
   eta_seconds: null,
@@ -286,10 +327,21 @@ function ensembleListItem(full: typeof ENSEMBLE_MOCK) {
 
 function writeDefaults(method: string, pathname: string, body: unknown): unknown {
   if (method === 'POST' && pathname === '/api/ensemble/start') {
-    const b = (body || {}) as { runs?: number; hours?: number; variants?: string[] }
+    const b = (body || {}) as {
+      runs?: number
+      hours?: number
+      variants?: string[]
+      minutes_per_round?: number
+    }
+    const minutes = (ENSEMBLE_ROUND_MINUTES as readonly number[]).includes(b.minutes_per_round ?? -1)
+      ? (b.minutes_per_round as number)
+      : 60
+    const rounds = Math.max(1, Math.floor(((b.hours || 24) * 60) / minutes))
+    const variantCount = b.variants?.length || 1
     return defaultOk({
       ensemble_id: 'ens_e2e_started',
-      estimate_seconds: Math.max(60, (b.runs || 10) * (b.hours || 24) * (b.variants?.length || 1) * 12),
+      estimate_seconds: Math.max(60, rounds * (b.runs || 10) * variantCount * 12),
+      minutes_per_round: minutes,
     })
   }
   if (method === 'POST' && pathname.match(/^\/api\/ensemble\/[^/]+\/cancel$/)) {
