@@ -779,7 +779,10 @@
     "showAll": "Alle anzeigen",
     "untitled": "Ohne Titel",
     "hasReport": "Bericht",
-    "footer": "MiroFish · Open Source"
+    "footer": "MiroFish · Open Source",
+    "modelLoaded": "{model} ist geladen",
+    "modelIdle": "{model} – wird beim Start geladen",
+    "notReachable": "Modellserver nicht erreichbar"
   },
   "hist": {
     "title": "Verlauf",
@@ -844,7 +847,16 @@
     "colorsHint": "Eine von einer Million geprüften Farb-Combos",
     "language": "Sprache",
     "aboutText": "Schwarm-Simulation zur Vorhersage öffentlicher Reaktionen. Open Source (AGPL-3.0).",
-    "source": "Quellcode und Anleitung"
+    "source": "Quellcode und Anleitung",
+    "mainModel": "Hauptmodell",
+    "mainModelHint": "Liest die Dokumente und schreibt den Bericht. Größer = gründlicher.",
+    "agentModel": "Agentenmodell",
+    "agentModelHint": "Spricht für die Agenten in der Simulation. Kleiner = schneller.",
+    "rescan": "Neu suchen",
+    "scanning": "Sucht …",
+    "noModels": "Keine Modelle gefunden. Ist der Server gestartet und die Adresse richtig?",
+    "notInstalled": "nicht installiert",
+    "loadedNow": "geladen"
   },
   "run": {
     "back": "‹ Start",

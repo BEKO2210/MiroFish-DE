@@ -10,7 +10,7 @@
         <div class="card--status__text">
           <strong v-if="status.ready">{{ t('settings.ready') }}</strong>
           <strong v-else>{{ t('settings.notReady') }}</strong>
-          <small v-if="status.ready">{{ status.llm_model }} · {{ t('settings.memoryIs', { where: memoryLabel }) }}</small>
+          <small v-if="status.ready">{{ status.llm_model }}<template v-if="status.loaded"> · {{ t('settings.loadedNow') }}</template> · {{ t('settings.memoryIs', { where: memoryLabel }) }}</small>
           <small v-else>{{ t('settings.notReadyHint') }}</small>
         </div>
       </section>
@@ -31,11 +31,35 @@
         <template v-if="cfg.llm_provider === 'openai'">
           <label class="field"><span class="field__label">{{ t('settings.apiKey') }}</span><input type="password" v-model="cfg.llm_api_key" class="field__input" placeholder="sk-…" autocomplete="off"></label>
           <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
-          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span><input type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
+          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span>
+            <select v-if="models.length" v-model="cfg.llm_model_name" class="field__input">
+              <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ m.name }}</option>
+            </select>
+            <input v-else type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
         </template>
         <template v-else>
           <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
-          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span><input type="text" v-model="cfg.local_llm_model_name" class="field__input" :placeholder="t('settings.modelPh')"><span class="field__hint">{{ t('settings.modelNameHint') }}</span></label>
+          <div class="field">
+            <div class="field__row">
+              <span class="field__label">{{ t('settings.mainModel') }}</span>
+              <button type="button" class="linkbtn linkbtn--sm" :disabled="scanning" @click="scan">
+                <span v-if="scanning" class="spin spin--sm"></span>{{ scanning ? t('settings.scanning') : t('settings.rescan') }}
+              </button>
+            </div>
+            <select v-if="models.length" v-model="cfg.local_llm_model_name" class="field__input">
+              <option v-for="m in withCurrent(models, cfg.local_llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
+            </select>
+            <input v-else type="text" v-model="cfg.local_llm_model_name" class="field__input" :placeholder="t('settings.modelPh')">
+            <span class="field__hint">{{ models.length ? t('settings.mainModelHint') : (scanned ? t('settings.noModels') : t('settings.modelNameHint')) }}</span>
+          </div>
+          <div class="field">
+            <span class="field__label">{{ t('settings.agentModel') }}</span>
+            <select v-if="models.length" v-model="cfg.llm_model_name" class="field__input">
+              <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
+            </select>
+            <input v-else type="text" v-model="cfg.llm_model_name" class="field__input" :placeholder="t('settings.modelPh')">
+            <span class="field__hint">{{ t('settings.agentModelHint') }}</span>
+          </div>
           <label class="field"><span class="field__label">{{ t('settings.localKey') }}</span><input type="password" v-model="cfg.local_llm_api_key" class="field__input" autocomplete="off"></label>
         </template>
       </section>
@@ -97,7 +121,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import ThemePicker from '../components/ThemePicker.vue'
@@ -111,20 +135,41 @@ const saving = ref(false), testing = ref(false), result = ref(null), showTheme =
 const memoryLabel = computed(() => ({ obsidian: t('settings.wLocal'), zep: t('settings.wZep'), hybrid: t('settings.wHybrid') }[status.value.memory_provider] || status.value.memory_provider))
 const masked = computed(() => Object.values(cfg.value).some(v => typeof v === 'string' && v.includes('...****')))
 
+const models = ref([]), scanning = ref(false), scanned = ref(false)
+const baseUrl = () => (cfg.value.llm_provider === 'openai' ? cfg.value.llm_base_url : cfg.value.local_llm_base_url)
+// Installierte Modelle vom eingetragenen Server holen (auch vor dem Speichern)
+const scan = async () => {
+  scanning.value = true
+  try {
+    const res = await service.get('/api/graph/system/models', { params: { provider: cfg.value.llm_provider, base_url: baseUrl() } })
+    models.value = res?.data?.models || []
+  } catch (e) { models.value = [] } finally { scanning.value = false; scanned.value = true }
+}
+// Gespeichertes Modell, das (noch) nicht installiert ist, trotzdem als Option zeigen
+const withCurrent = (list, cur) => (cur && !list.some(m => m.name === cur) ? [{ name: cur, missing: true }, ...list] : list)
+const optionLabel = (m) => {
+  if (m.missing) return `${m.name} · ${t('settings.notInstalled')}`
+  const parts = [m.name]
+  if (m.size_gb) parts.push(`${m.size_gb.toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE')} GB`)
+  if (m.loaded) parts.push(t('settings.loadedNow'))
+  return parts.join(' · ')
+}
 const load = async () => {
   try {
     const res = await service.get('/api/graph/system/status')
     if (res?.success) {
-      status.value = { ready: true, llm_model: res.data.llm_model, memory_provider: res.data.memory_provider }
-      if (res.data.config) cfg.value = { ...cfg.value, ...res.data.config }
+      const d = res.data
+      status.value = { ready: d.reachable && d.model_installed, llm_model: d.llm_model, memory_provider: d.memory_provider, loaded: (d.loaded_models || []).includes(d.llm_model) }
+      if (d.config) cfg.value = { ...cfg.value, ...d.config }
     }
   } catch (e) { status.value.ready = false }
 }
+watch(() => [cfg.value.llm_provider, baseUrl()], () => { scanned.value = false; models.value = [] })
 const save = async () => {
   saving.value = true; result.value = null
   try {
     const res = await service.post('/api/graph/system/config', cfg.value)
-    if (res?.success) { result.value = { ok: true, text: t('settings.saved') }; await load() }
+    if (res?.success) { result.value = { ok: true, text: t('settings.saved') }; await load(); scan() }
   } catch (e) { result.value = { ok: false, text: t('settings.saveFailed', { msg: e.response?.data?.error || e.message }) } }
   finally { saving.value = false }
 }
@@ -136,7 +181,7 @@ const test = async () => {
   } catch (e) { result.value = { ok: false, text: t('settings.testFailed', { msg: e.response?.data?.error || e.message }) } }
   finally { testing.value = false }
 }
-onMounted(load)
+onMounted(async () => { await load(); scan() })
 </script>
 
 <style scoped>
@@ -155,6 +200,10 @@ onMounted(load)
 .field__label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 6px; }
 .field__input { width: 100%; font: inherit; font-size: 16px; padding: 12px 14px; border: 1px solid var(--color-border-default); border-radius: 12px; background: var(--color-bg-surface-raised); color: inherit; }
 .field__input:focus { outline: none; border-color: var(--color-brand-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 15%, transparent); }
+.field__row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.field__row .field__label { margin-bottom: 0; }
+.linkbtn--sm { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--color-brand-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 6px 0; min-height: 32px; }
+.spin--sm { width: 12px; height: 12px; }
 .field__hint { display: block; font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
 .actions { display: flex; gap: 10px; margin: 4px 0 12px; }
 .btn { flex: 1; min-height: 48px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; font: inherit; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }

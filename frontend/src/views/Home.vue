@@ -1,8 +1,8 @@
 <template>
   <div class="home">
     <AppHeader>
-      <router-link to="/settings" class="status" :class="status.ready ? 'ok' : 'warn'" :title="status.ready ? t('start.readyTitle') : t('start.setupTitle')">
-        <span class="status__dot"></span><span>{{ status.ready ? t('start.ready') : t('start.setup') }}</span>
+      <router-link to="/settings" class="status" :class="status.ready ? (status.loaded ? 'ok' : 'idle') : 'warn'" :title="statusTitle">
+        <span class="status__dot"></span><span class="status__text">{{ status.ready ? shortModel(status.model) : t('start.setup') }}</span>
       </router-link>
     </AppHeader>
 
@@ -133,16 +133,23 @@ const autopilot = ref(true)
 const fileInput = ref(null)
 const activeRuns = ref([])
 const recent = ref([])
-const status = ref({ ready: false })
+const status = ref({ ready: false, model: '', loaded: false, reachable: false })
 let timer = null
 
+// "gemma4:12b-it-qat-16k" -> "gemma4:12b": Familie und Größe reichen im Kopf, der volle Name steht im Tooltip
+const shortModel = (m) => (m || '').replace(/^(.*?:[^-]+).*$/, '$1')
+const statusTitle = computed(() => !status.value.reachable ? t('start.notReachable')
+  : status.value.ready ? t(status.value.loaded ? 'start.modelLoaded' : 'start.modelIdle', { model: status.value.model }) : t('start.setupTitle'))
 const canSubmit = computed(() => question.value.trim() && files.value.length > 0)
 const stepLabel = (s) => (s ? t(`steps.${s}`) : t('run.preparing'))
 const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' }) } catch (e) { return '' } }
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(loc(), { day: '2-digit', month: 'short' }) } catch (e) { return '' } }
 
 const loadStatus = async () => {
-  try { const r = await service.get('/api/graph/system/status'); status.value.ready = !!r?.success } catch (e) { status.value.ready = false }
+  try {
+    const d = (await service.get('/api/graph/system/status'))?.data || {}
+    status.value = { ready: !!(d.reachable && d.model_installed), reachable: !!d.reachable, model: d.llm_model || '', loaded: (d.loaded_models || []).includes(d.llm_model) }
+  } catch (e) { status.value = { ready: false, model: '', loaded: false, reachable: false } }
 }
 const loadRuns = async () => {
   try { activeRuns.value = ((await listPipelines())?.data || []).filter(r => r.status === 'running') } catch (e) { /* optional */ }
@@ -187,6 +194,9 @@ onUnmounted(() => clearInterval(timer))
 .status { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 13px; font-weight: 500; text-decoration: none; }
 .status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success-text); }
 .status.warn .status__dot { background: var(--color-warning-text); }
+.status.idle .status__dot { background: transparent; box-shadow: inset 0 0 0 2px var(--color-success-text); }
+.status.ok .status__dot { box-shadow: 0 0 0 3px var(--color-success-bg); }
+.status__text { max-width: 128px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Hero */
 .hero { position: relative; overflow: hidden; min-height: 300px; display: flex; align-items: flex-end; border-bottom: 1px solid var(--color-border-subtle);
