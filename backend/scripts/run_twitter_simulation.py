@@ -49,6 +49,8 @@ else:
 
 import re
 
+from app.utils.simulation_time import simulation_clock
+
 
 class UnicodeFormatter(logging.Formatter):
     """Benutzerdefinierter Formatter, der Unicode-Escape-Sequenzen in lesbare Zeichen umwandelt"""
@@ -550,6 +552,7 @@ class TwitterSimulationRunner:
         time_config = self.config.get("time_config", {})
         total_hours = time_config.get("total_simulation_hours", 72)
         minutes_per_round = time_config.get("minutes_per_round", 30)
+        start_hour = time_config.get("start_hour", 7)
         
         # Gesamtzahl der Runden berechnen
         total_rounds = (total_hours * 60) // minutes_per_round
@@ -637,9 +640,9 @@ class TwitterSimulationRunner:
         
         for round_num in range(total_rounds):
             # Berechne aktuelle Simulationszeit
-            simulated_minutes = round_num * minutes_per_round
-            simulated_hour = (simulated_minutes // 60) % 24
-            simulated_day = simulated_minutes // (60 * 24) + 1
+            simulated_day, simulated_hour = simulation_clock(
+                round_num, minutes_per_round, start_hour
+            )
             
             # Agent dieser Runde abrufen
             active_agents = self._get_active_agents_for_round(

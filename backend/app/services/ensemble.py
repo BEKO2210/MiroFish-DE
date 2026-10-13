@@ -7,6 +7,7 @@ import json
 import math
 import os
 import random
+import re
 import shutil
 import sqlite3
 import threading
@@ -107,12 +108,51 @@ def parse_checklist(payload: Any) -> List[Dict[str, str]]:
     return result
 
 
+def _number_tokens(text: str) -> set[str]:
+    """Zahlen vergleichbar machen (z. B. 3.100 und 3100)."""
+    return {
+        re.sub(r"\D", "", match.group(0)).lstrip("0") or "0"
+        for match in re.finditer(r"(?<!\w)\d+(?:[.,]\d+)*(?:\s*%)?(?!\w)", text or "")
+    }
+
+
+def filter_checklist_material_numbers(
+    checklist: Sequence[Dict[str, Any]], material: str
+) -> List[Dict[str, Any]]:
+    """Ergebnisse mit einer im Material vorkommenden Zahl deterministisch verwerfen."""
+    material_numbers = _number_tokens(material)
+    if not material_numbers:
+        return [dict(item) for item in checklist]
+    return [
+        dict(item)
+        for item in checklist
+        if not (
+            _number_tokens(
+                f"{item.get('text_de', '')} {item.get('definition', '')}"
+            )
+            & material_numbers
+        )
+    ]
+
+
+def verified_material_quote(payload: Any, material: str) -> str:
+    """Nur ein als vorhanden bewertetes, normalisiert wörtliches Zitat akzeptieren."""
+    if not isinstance(payload, dict) or payload.get("in_material") is not True:
+        return ""
+    quote = " ".join(str(payload.get("zitat") or "").split())
+    normalized_material = " ".join((material or "").split())
+    if quote and quote.casefold() in normalized_material.casefold():
+        return quote
+    return ""
+
+
 def mark_checklist_material(
     checklist: Sequence[Dict[str, Any]],
     extracted_text: str,
     initial_posts: Sequence[Dict[str, Any]],
+    quote_checks: Sequence[Any] = (),
 ) -> List[Dict[str, Any]]:
-    """Checklistenpunkte mit demselben Inhaltswortabgleich wie V1 markieren."""
+    """Checklistenpunkte per Inhaltswortabgleich oder verifiziertem Zitat markieren."""
     sources: List[Tuple[str, str]] = []
     if extracted_text:
         sources.append(("Material", extracted_text))
@@ -120,21 +160,24 @@ def mark_checklist_material(
         text = str(post.get("content") or "") if isinstance(post, dict) else str(post)
         if text:
             sources.append((f"Startbeitrag[{index}]", text))
+    quote_material = "\n".join(source for _, source in sources)
 
     marked = []
-    for item in checklist:
+    for index, item in enumerate(checklist):
         candidate = dict(item)
         query = f"{candidate.get('text_de', '')} {candidate.get('definition', '')}".strip()
-        best_ratio, best_label, best_snippet = 0.0, "", ""
+        best_ratio = 0.0
         if len(content_stems(query)) >= MIN_CONTENT_WORDS:
-            for label, source in sources:
-                ratio, snippet = best_content_match(query, source)
+            for _, source in sources:
+                ratio, _ = best_content_match(query, source)
                 if ratio > best_ratio:
-                    best_ratio, best_label, best_snippet = ratio, label, snippet
-        candidate["in_material"] = best_ratio >= CONTENT_OVERLAP_THRESHOLD
-        candidate["material_snippet"] = (
-            f"{best_label}: {best_snippet}" if candidate["in_material"] else ""
+                    best_ratio = ratio
+        quote_payload = quote_checks[index] if index < len(quote_checks) else None
+        quote = verified_material_quote(quote_payload, quote_material)
+        candidate["in_material"] = bool(
+            best_ratio >= CONTENT_OVERLAP_THRESHOLD or quote
         )
+        candidate["material_snippet"] = quote
         marked.append(candidate)
     return marked
 
@@ -266,7 +309,9 @@ def _write_twitter_csv(path: Path, fields: Sequence[str], rows: Iterable[Dict[st
         writer.writerows(rows)
 
 
-def prepare_run_directory(source_dir: Path, run_dir: Path, variant: str, hours: int) -> Dict[str, Any]:
+def prepare_run_directory(
+    source_dir: Path, run_dir: Path, variant: str, hours: int, start_hour: int = 7
+) -> Dict[str, Any]:
     """Vorbereitete Profile/Config kopieren und nur die Variante anwenden."""
     run_dir.mkdir(parents=True, exist_ok=False)
     config = _read_json(source_dir / "simulation_config.json")
@@ -280,7 +325,9 @@ def prepare_run_directory(source_dir: Path, run_dir: Path, variant: str, hours: 
         config, reddit, twitter = apply_without_variant(
             config, reddit, twitter, variant.split(":", 1)[1]
         )
-    config.setdefault("time_config", {})["total_simulation_hours"] = hours
+    time_config = config.setdefault("time_config", {})
+    time_config["total_simulation_hours"] = hours
+    time_config["start_hour"] = start_hour
     config["ensemble_variant"] = variant
     config["simulation_id"] = run_dir.name
 
@@ -446,13 +493,26 @@ class EnsembleService:
             state["updated_at"] = datetime.now().isoformat()
             _write_json_atomic(existing_path, state)
 
-    def start(self, simulation_id: str, runs: int, hours: int, variants: Any) -> Dict[str, Any]:
+    def start(
+        self,
+        simulation_id: str,
+        runs: int,
+        hours: int,
+        variants: Any,
+        start_hour: int = 7,
+    ) -> Dict[str, Any]:
         if not isinstance(simulation_id, str) or not simulation_id.startswith("sim_"):
             raise ValueError("simulation_id muss mit sim_ beginnen")
         if isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100:
             raise ValueError("runs muss zwischen 1 und 100 liegen")
         if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 168:
             raise ValueError("hours muss zwischen 1 und 168 liegen")
+        if (
+            isinstance(start_hour, bool)
+            or not isinstance(start_hour, int)
+            or not 0 <= start_hour <= 23
+        ):
+            raise ValueError("start_hour muss zwischen 0 und 23 liegen")
         variants = validate_variants(variants)
         source = Path(Config.UPLOAD_FOLDER) / "simulations" / simulation_id
         required = ("simulation_config.json", "reddit_profiles.json", "twitter_profiles.csv", "state.json")
@@ -494,6 +554,7 @@ class EnsembleService:
             "finished_at": None,
             "runs": runs,
             "hours": hours,
+            "start_hour": start_hour,
             "variants": [
                 {
                     "key": key,
@@ -607,24 +668,73 @@ class EnsembleService:
         return max(1, math.ceil(seconds_per_round * (rounds * runs * simulation_variants + null_runs)))
 
     def _create_checklist(self, state: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
+        material = context["extracted_text"]
+        initial = (context["config"].get("event_config") or {}).get("initial_posts") or []
+        comparison_material = "\n".join([
+            material,
+            *(
+                str(post.get("content") or "")
+                for post in initial
+                if isinstance(post, dict)
+            ),
+        ])
+        llm = self._llm()
         prompt = (
             "Erzeuge 5 bis 8 konkrete, beobachtbare Ja/Nein-Ergebnisse für die Frage. "
-            "Keine bloßen Meinungen oder vagen Tendenzen. Antworte als JSON "
+            f"Jedes Ergebnis muss innerhalb der simulierten {state['hours']} Stunden beobachtbar "
+            "sein und mit ‚Im simulierten Zeitraum …‘ beginnen. Formuliere allgemein mit "
+            "Akteursgruppen statt Eigennamen. Übernimm KEINE Zahlen, Schwellen, Namen oder "
+            "bereits beschriebenen bzw. angekündigten Ereignisse aus dem Eingabematerial. "
+            "Mische mindestens zwei Eskalationen, mindestens zwei Deeskalationen oder "
+            "Kompromisse und genau ein Ergebnis ‚keine nennenswerte Reaktion‘. Keine bloßen "
+            "Meinungen oder vagen Tendenzen. Antworte als JSON "
             "{\"outcomes\":[{\"text_de\":...,\"definition\":...}]}.\n\n"
-            f"Frage: {state['question']}\nZeitraum: {state['hours']} Stunden\n"
-            f"Eingabematerial:\n{context['extracted_text']}"
+            f"Frage: {state['question']}\nSimulierter Zeitraum: {state['hours']} Stunden\n"
+            f"Eingabematerial:\n{material}"
         )
-        payload = self._llm().chat_json(
-            [{"role": "system", "content": "Du definierst prüfbare Ergebnisvariablen."},
-             {"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=2000,
-            max_attempts=2,
-            seed=state["base_seed"],
-        )
-        checklist = parse_checklist(payload)
-        initial = (context["config"].get("event_config") or {}).get("initial_posts") or []
-        return mark_checklist_material(checklist, context["extracted_text"], initial)
+        checklist: List[Dict[str, Any]] = []
+        for attempt in range(2):
+            retry = (
+                "\n\nDer vorherige Entwurf enthielt Zahlen aus dem Material und wurde "
+                "verworfen. Erzeuge die vollständige Checkliste neu."
+                if attempt else ""
+            )
+            payload = llm.chat_json(
+                [{"role": "system", "content": "Du definierst prüfbare Ergebnisvariablen."},
+                 {"role": "user", "content": prompt + retry}],
+                temperature=0,
+                max_tokens=2000,
+                max_attempts=1,
+                seed=state["base_seed"],
+            )
+            generated = parse_checklist(payload)
+            checklist = filter_checklist_material_numbers(generated, comparison_material)
+            if len(checklist) == len(generated):
+                break
+        if len(checklist) != len(generated):
+            raise ValueError(
+                "Checkliste enthält nach zwei Versuchen Zahlen aus dem Material"
+            )
+
+        quote_checks = []
+        for item in checklist:
+            event = f"{item['text_de']} -- {item['definition']}"
+            quote_checks.append(llm.chat_json(
+                [
+                    {"role": "system", "content": "Prüfe streng gegen das Eingabematerial."},
+                    {"role": "user", "content": (
+                        "Wird dieses Ereignis im Material bereits als geschehen oder angekündigt "
+                        "beschrieben? Antworte JSON {\"in_material\":true|false,"
+                        "\"zitat\":\"wörtliche Textstelle oder leer\"}.\n\n"
+                        f"Ereignis:\n{event}\n\nMaterial:\n{comparison_material}"
+                    )},
+                ],
+                temperature=0,
+                max_tokens=500,
+                max_attempts=2,
+                seed=state["base_seed"],
+            ))
+        return mark_checklist_material(checklist, material, initial, quote_checks)
 
     def _null_narrative(self, state: Dict[str, Any], context: Dict[str, Any], seed: int) -> str:
         return self._llm().chat(
@@ -796,7 +906,13 @@ class EnsembleService:
                                 state, narrative, seed, run_number
                             )
                         else:
-                            config = prepare_run_directory(source, run_dir, key, state["hours"])
+                            config = prepare_run_directory(
+                                source,
+                                run_dir,
+                                key,
+                                state["hours"],
+                                state.get("start_hour", 7),
+                            )
                             runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
                             state["current_runner_id"] = runner_id
                             self._save(state)

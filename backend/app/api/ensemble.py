@@ -23,6 +23,7 @@ def start_ensemble():
             runs=data.get("runs", 10),
             hours=data.get("hours", 24),
             variants=data.get("variants", ["baseline"]),
+            start_hour=data.get("start_hour", 7),
         )
         return jsonify({"success": True, "data": result})
     except FileNotFoundError as error:
@@ -82,4 +83,3 @@ def delete_ensemble(ensemble_id: str):
 def mark_stale_ensembles() -> int:
     """Beim Backend-Start verlorene Hintergrundthreads sichtbar abschließen."""
     return service.mark_stale_runs()
-
