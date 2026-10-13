@@ -51,6 +51,7 @@ NULL_ARMS = NULL_DOCUMENT_ARMS | NULL_PERSONA_ARMS
 
 MAX_ENSEMBLE_HOURS = 336
 MAX_CUSTOM_OUTCOMES = 20
+ALLOWED_MINUTES_PER_ROUND = frozenset({60, 120, 240})
 
 
 def wilson_interval(yes: int, n: int, z: float = Z_95) -> Tuple[float, float]:
@@ -685,7 +686,12 @@ def _write_twitter_csv(path: Path, fields: Sequence[str], rows: Iterable[Dict[st
 
 
 def prepare_run_directory(
-    source_dir: Path, run_dir: Path, variant: str, hours: int, start_hour: int = 7
+    source_dir: Path,
+    run_dir: Path,
+    variant: str,
+    hours: int,
+    start_hour: int = 7,
+    minutes_per_round: int = 60,
 ) -> Dict[str, Any]:
     """Vorbereitete Profile/Config kopieren und nur die Variante anwenden."""
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -703,6 +709,8 @@ def prepare_run_directory(
     time_config = config.setdefault("time_config", {})
     time_config["total_simulation_hours"] = hours
     time_config["start_hour"] = start_hour
+    # Ensemble-Override: LLM-Wert ersetzen, alle Arme identisch.
+    time_config["minutes_per_round"] = minutes_per_round
     config["ensemble_variant"] = variant
     config["simulation_id"] = run_dir.name
 
@@ -1298,6 +1306,7 @@ class EnsembleService:
         hours: int,
         variants: Any,
         start_hour: int = 7,
+        minutes_per_round: int = 60,
         custom_outcomes: Any = None,
         primary_outcome_id: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -1317,6 +1326,12 @@ class EnsembleService:
             or not 0 <= start_hour <= 23
         ):
             raise ValueError("start_hour muss zwischen 0 und 23 liegen")
+        if (
+            isinstance(minutes_per_round, bool)
+            or not isinstance(minutes_per_round, int)
+            or minutes_per_round not in ALLOWED_MINUTES_PER_ROUND
+        ):
+            raise ValueError("minutes_per_round muss 60, 120 oder 240 sein")
         variants = validate_variants(variants)
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
         if primary_outcome_id is not None:
@@ -1355,7 +1370,9 @@ class EnsembleService:
             or ""
         )
         ensemble_id = f"ens_{uuid.uuid4().hex[:12]}"
-        estimate = self.estimate_seconds(runs, hours, variants, config)
+        estimate = self.estimate_seconds(
+            runs, hours, variants, config, minutes_per_round=minutes_per_round
+        )
         now = datetime.now().isoformat()
         state = {
             "ensemble_id": ensemble_id,
@@ -1367,6 +1384,7 @@ class EnsembleService:
             "runs": runs,
             "hours": hours,
             "start_hour": start_hour,
+            "minutes_per_round": minutes_per_round,
             "variants": [
                 {
                     "key": key,
@@ -1507,7 +1525,12 @@ class EnsembleService:
         return count
 
     def estimate_seconds(
-        self, runs: int, hours: int, variants: Sequence[str], config: Dict[str, Any]
+        self,
+        runs: int,
+        hours: int,
+        variants: Sequence[str],
+        config: Dict[str, Any],
+        minutes_per_round: Optional[int] = None,
     ) -> int:
         samples = []
         roots = [Path(Config.UPLOAD_FOLDER) / "simulations", self.root]
@@ -1525,7 +1548,10 @@ class EnsembleService:
                 except (KeyError, TypeError, ValueError):
                     continue
         seconds_per_round = sum(samples) / len(samples) if samples else 40.0
-        minutes = int((config.get("time_config") or {}).get("minutes_per_round") or 60)
+        if minutes_per_round is None:
+            minutes = int((config.get("time_config") or {}).get("minutes_per_round") or 60)
+        else:
+            minutes = int(minutes_per_round)
         rounds = max(1, hours * 60 // max(minutes, 1))
         simulation_variants = sum(1 for key in variants if null_arm(key) is None)
         null_runs = runs * sum(1 for key in variants if null_arm(key))
@@ -2428,6 +2454,7 @@ class EnsembleService:
                                 key,
                                 state["hours"],
                                 state.get("start_hour", 7),
+                                state.get("minutes_per_round", 60),
                             )
                             runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
                             state["current_runner_id"] = runner_id
@@ -2522,7 +2549,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
     lines = [
         "## Mehrfachlauf",
         "",
-        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden. "
+        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden "
+        f"(Rundentakt {state.get('minutes_per_round', 60)} Minuten). "
         "Die Anteile sind Anteile der Seeds dieses Aufbaus.",
         f"Primärergebnis (konfirmatorisch): {primary_text}.",
         "",
