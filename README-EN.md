@@ -8,15 +8,13 @@ Simple and versatile swarm intelligence engine, predicting everything
 </br>
 <em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
 
-## 🚀 Recent Updates (April 2026)
+## 🚀 New in this edition (October 2026)
 
-MiroFish has been significantly upgraded for better flexibility and accessibility:
-
-*   **📁 Local Obsidian Integration (New):** Store your knowledge graph locally as Markdown files in an Obsidian vault structure. Ideal for maximum privacy and human-readability of agent memories.
-*   **🧠 Hybrid Memory Provider:** Combine the speed of Zep Cloud with the local persistence of Markdown files.
-*   **🇩🇪 Full German Localization:** The entire UI and documentation are now available in German.
-*   **🏠 Local LLM Support (LM Studio & Ollama):** MiroFish now supports local LLM providers. Run your own models (e.g., Llama 3, Qwen, WhiteRabbitNeo) privately with zero API costs.
-*   **⚙️ Dynamic Configuration:** Memory providers, LLM providers, and API settings can now be changed and tested directly from the web dashboard.
+*   **One click to the report:** upload documents, ask a question – MiroFish runs every step on its own and shows progress live.
+*   **Fully local:** Ollama models instead of a cloud API, agent memory as Markdown (Obsidian-compatible), no Zep account needed.
+*   **Models detected automatically:** Settings list every installed model to choose from.
+*   **New interface:** for phone and desktop, German and English, freely selectable colour pairs.
+*   **History with export and delete**, HTTP interface for scripts and AI agents ([docs/API.md](docs/API.md)).
 
 ---
 
@@ -105,92 +103,75 @@ Click the image to watch MiroFish's deep prediction of the lost ending based on 
 
 ## 🚀 Quick Start
 
-### Option 1: Source Code Deployment (Recommended)
+MiroFish runs entirely on your computer: a local language model via [Ollama](https://ollama.com) and the agents'
+memory as Markdown files. No account, no cloud costs. A graphics card with 8 GB is enough.
 
-#### Prerequisites
-
-| Tool | Version | Description | Check Installation |
-|------|---------|-------------|-------------------|
-| **Node.js** | 18+ | Frontend runtime, includes npm | `node -v` |
-| **Python** | ≥3.11, ≤3.12 | Backend runtime | `python --version` |
-| **uv** | Latest | Python package manager | `uv --version` |
-
-#### 1. Configure Environment Variables
+### 1. Ollama and models
 
 ```bash
-# Copy the example configuration file
+# Install Ollama: https://ollama.com/download
+ollama pull gemma4:12b-it-qat     # main model: reads documents, writes the report
+ollama pull gemma4:e4b-it-qat     # agent model: faster, speaks for the agents
+```
+
+Ollama picks its context length from GPU memory; below 24 GB that is only 4096 tokens – too little for the ontology
+and the report. Set the server to 16,384:
+
+```bash
+# Linux (systemd):
+sudo systemctl edit ollama   # add:  [Service]  Environment="OLLAMA_CONTEXT_LENGTH=16384"
+sudo systemctl restart ollama
+# macOS / Windows: set the environment variable OLLAMA_CONTEXT_LENGTH=16384 and restart Ollama
+```
+
+Other models work the same way; MiroFish lists every installed model under **Settings**.
+
+### 2a. Run with Docker (recommended)
+
+```bash
+git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
+docker compose up -d --build
+```
+
+Open **http://localhost:5001**. On first start MiroFish creates `data/.env`; settings, uploads, simulations and
+reports live in `data/`. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
+listen on all interfaces for that (`Environment="OLLAMA_HOST=0.0.0.0"` in `systemctl edit ollama`).
+
+### 2b. Run from source
+
+Requirements: Python 3.11 (required by OASIS), Node.js 18+, [uv](https://docs.astral.sh/uv/).
+
+```bash
+git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
 cp .env.example .env
-
-# Edit the .env file and fill in the required API keys
+cd frontend && npm ci && npx vite build && cd ..
+cd backend && uv sync --frozen && uv run python run.py
 ```
 
-**Required Environment Variables:**
+Open **http://localhost:5001**. The backend serves the built interface itself (one port).
+For development with hot reload: `npm run dev` in the project root (interface on port 3000).
 
-```env
-# LLM API Configuration (supports any LLM API with OpenAI SDK format)
-# Recommended: Alibaba Qwen-plus model via Bailian Platform: https://bailian.console.aliyun.com/
-# High consumption, try simulations with fewer than 40 rounds first
-LLM_API_KEY=your_api_key
-LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
-LLM_MODEL_NAME=qwen-plus
+### Using it
 
-# Memory Provider Configuration ('zep', 'obsidian', or 'hybrid')
-# obsidian stores everything locally in Markdown files (zero cloud costs for memory)
-MEMORY_PROVIDER=zep
+1. **Home**: upload documents (PDF, Markdown, text), ask a question, press “Start forecast”.
+2. The run shows every step live: reading documents → knowledge graph → agents → simulation → report.
+   You can close the page; **History** has everything, with export (ZIP) and delete.
+3. To control every step yourself, switch off “Run through to the report”.
 
-# Zep Cloud Configuration (only needed if MEMORY_PROVIDER=zep or hybrid)
-# Free monthly quota is sufficient for simple usage: https://app.getzep.com/
-ZEP_API_KEY=your_zep_api_key
-```
+Duration on an RTX 3070 with the models above: a little over 30 minutes for a short document and one simulated
+week, longer for extensive material.
 
-#### 2. Install Dependencies
+### Access from other devices and for agents
 
-```bash
-# One-click installation of all dependencies (root + frontend + backend)
-npm run setup:all
-```
+The app has no login and therefore only listens on `localhost`. For your phone or other computers use a protected
+route such as [Tailscale](https://tailscale.com) (`tailscale serve 5001`). You can also set an `API_TOKEN` in `.env`.
+The HTTP interface for your own scripts and AI agents is described in [docs/API.md](docs/API.md) – one call runs a
+complete forecast up to the report.
 
-Or install step by step:
+### Cloud models
 
-```bash
-# Install Node dependencies (root + frontend)
-npm run setup
-
-# Install Python dependencies (backend, auto-creates virtual environment)
-npm run setup:backend
-```
-
-#### 3. Start Services
-
-```bash
-# Start both frontend and backend (run from project root)
-npm run dev
-```
-
-**Service URLs:**
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5001`
-
-**Start Individually:**
-
-```bash
-npm run backend   # Start backend only
-npm run frontend  # Start frontend only
-```
-
-### Option 2: Docker Deployment
-
-```bash
-# 1. Configure environment variables (same as source deployment)
-cp .env.example .env
-
-# 2. Pull image and start
-docker compose up -d
-```
-
-Reads `.env` from root directory by default, maps ports `3000 (frontend) / 5001 (backend)`
-
-> Mirror address for faster pulling is provided as comments in `docker-compose.yml`, replace if needed.
+Any OpenAI-compatible service works instead of Ollama: choose provider “OpenAI” under **Settings** and enter the
+address and key. Zep Cloud is optional for memory (`MEMORY_PROVIDER=zep`).
 
 ## 📬 Join the Conversation
 

@@ -2,7 +2,8 @@
 
 Basis-URL: `http://<host>:5002` (lokal) bzw. deine Tailscale-Adresse. Alle Antworten sind JSON mit `success` und `data`
 oder `error`. Ist in der `.env` ein `API_TOKEN` gesetzt, braucht jeder Aufruf den Header `Authorization: Bearer <token>`
-(oder `?token=<token>`); ohne `API_TOKEN` ist die API offen – dann nur in einem geschützten Netz betreiben.
+(Skripte, Agenten). Im Browser einmal `https://<host>/?token=<token>` öffnen: das Token wird als geschütztes Cookie
+gespeichert und aus der Adresse entfernt. Ohne `API_TOKEN` ist die API offen – dann nur in einem geschützten Netz betreiben.
 
 ## Der eine Aufruf, der alles macht
 

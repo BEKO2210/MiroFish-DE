@@ -156,6 +156,15 @@ class SimulationRunState:
         
         self.updated_at = datetime.now().isoformat()
     
+    def _progress_round(self) -> int:
+        """Fortschritt = langsamste aktive Plattform. current_round folgt der schnellsten; damit zeigte die Anzeige
+        100 %, obwohl die zweite Plattform noch lief. Plattformen ohne Start (z. B. nur Twitter) zählen nicht."""
+        active = [r for r, running, done in (
+            (self.twitter_current_round, self.twitter_running, self.twitter_completed),
+            (self.reddit_current_round, self.reddit_running, self.reddit_completed),
+        ) if running or done or r > 0]
+        return min(active) if active else self.current_round
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "simulation_id": self.simulation_id,
@@ -164,7 +173,7 @@ class SimulationRunState:
             "total_rounds": self.total_rounds,
             "simulated_hours": self.simulated_hours,
             "total_simulation_hours": self.total_simulation_hours,
-            "progress_percent": round(self.current_round / max(self.total_rounds, 1) * 100, 1),
+            "progress_percent": round(self._progress_round() / max(self.total_rounds, 1) * 100, 1),
             # Plattform-spezifische Runden und Zeit
             "twitter_current_round": self.twitter_current_round,
             "reddit_current_round": self.reddit_current_round,

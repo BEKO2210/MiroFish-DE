@@ -2,6 +2,7 @@
 MiroFish Backend - Flask-Anwendungsfabrik
 """
 
+import hmac
 import os
 import warnings
 
@@ -9,7 +10,7 @@ import warnings
 # Muss vor allen anderen Importen gesetzt werden
 warnings.filterwarnings("ignore", message=".*resource_tracker.*")
 
-from flask import Flask, request, send_from_directory, jsonify
+from flask import Flask, request, send_from_directory, jsonify, redirect
 from flask_cors import CORS
 
 from .config import Config
@@ -40,16 +41,29 @@ def create_app(config_class=Config):
         logger.info("=" * 50)
     
     # Optionaler API-Schlüssel: ist API_TOKEN gesetzt, brauchen alle /api/*-Aufrufe den Header
-    # Authorization: Bearer <token> oder ?token=<token>. Ohne API_TOKEN bleibt die API offen (z. B. nur im Tailscale-Netz).
+    # Authorization: Bearer <token> (Agenten, Skripte) oder das Cookie, das der Browser einmalig über einen Link
+    # /?token=<token> bekommt. So steht das Token nie in API-URLs oder Zugriffsprotokollen.
+    # Ohne API_TOKEN bleibt die API offen (z. B. nur auf localhost oder im Tailscale-Netz).
     api_token = os.environ.get('API_TOKEN', '').strip()
+
+    def token_ok(given):
+        return bool(given) and hmac.compare_digest(given.encode(), api_token.encode())
 
     @app.before_request
     def require_api_token():
-        if not api_token or not request.path.startswith('/api/'):
+        if not api_token:
+            return None
+        if not request.path.startswith('/api/'):
+            given = request.args.get('token', '')
+            if given and token_ok(given):
+                resp = redirect(request.path)  # Token aus der Adresszeile entfernen
+                resp.set_cookie('mirofish_token', given, max_age=365 * 24 * 3600, httponly=True,
+                                samesite='Strict', secure=request.is_secure)
+                return resp
             return None
         auth = request.headers.get('Authorization', '')
-        given = auth[7:] if auth.startswith('Bearer ') else request.args.get('token', '')
-        if given != api_token:
+        given = auth[7:] if auth.startswith('Bearer ') else request.cookies.get('mirofish_token', '')
+        if not token_ok(given):
             return jsonify({"success": False, "error": "API-Schlüssel fehlt oder ist falsch"}), 401
         return None
 

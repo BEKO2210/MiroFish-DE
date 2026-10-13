@@ -1,14 +1,14 @@
 services:
   mirofish:
-    image: ghcr.io/666ghj/mirofish:latest
-    # Beschleunigtes Mirror (ersetzen Sie die obige Adresse bei langsamen Downloads)
-    # image: ghcr.nju.edu.cn/666ghj/mirofish:latest
+    build: .
+    image: mirofish-de:latest
     container_name: mirofish
-    env_file:
-      - .env
+    # Nur auf diesem Rechner erreichbar: die App hat keine Anmeldung. Für Zugriff von anderen Geräten
+    # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN in data/.env setzen.
     ports:
-      - "3000:3000"
-      - "5001:5001"
-    restart: unless-stopped
+      - "127.0.0.1:5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
-      - ./backend/uploads:/app/backend/uploads
+      - ./data:/app/data
+    restart: unless-stopped

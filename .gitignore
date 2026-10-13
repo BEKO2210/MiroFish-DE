@@ -67,3 +67,6 @@ uploads/
 backend/uploads/
 *.log
 frontend/dist/
+
+# Docker-Daten (Einstellungen, Uploads, Simulationen)
+/data/
