@@ -20,6 +20,30 @@ from ..models.project import ProjectManager
 logger = get_logger('mirofish.api.simulation')
 
 
+def _get_default_platform(simulation_id: str) -> str:
+    """
+    Standardplattform anhand der Simulationskonfiguration liefern (Upstream aaf3ea0, #150)
+
+    Liest enable_twitter / enable_reddit aus dem SimulationState und gibt die tatsächlich
+    genutzte Plattform zurück, statt fest 'reddit' anzunehmen (sonst liefern reine
+    Twitter-Simulationen stillschweigend leere Ergebnisse).
+
+    Args:
+        simulation_id: Simulations-ID
+
+    Returns:
+        'twitter' oder 'reddit'
+    """
+    try:
+        manager = SimulationManager()
+        state = manager._load_simulation_state(simulation_id)
+        if state:
+            return state.get_default_platform()
+    except Exception:
+        pass
+    return "reddit"
+
+
 # Interview-Prompt-Optimierungspräfix
 # Dieses Präfix verhindert, dass der Agent Tools aufruft, und antwortet direkt mit Text
 INTERVIEW_PROMPT_PREFIX = "Basierend auf deinem Charakter, allen vergangenen Erinnerungen und Handlungen, antworte mir direkt mit Text, ohne Tools aufzurufen: "
@@ -586,11 +610,18 @@ def prepare_simulation():
                     parallel_profile_count=parallel_profile_count
                 )
                 
-                # Aufgabe abgeschlossen
-                task_manager.complete_task(
-                    task_id,
-                    result=result_state.to_simple_dict()
-                )
+                # Ein FAILED-Status darf nicht als abgeschlossene Aufgabe gemeldet werden (Upstream 05bea4a)
+                if result_state.status == SimulationStatus.FAILED:
+                    task_manager.fail_task(
+                        task_id,
+                        result_state.error or "Simulationsvorbereitung fehlgeschlagen"
+                    )
+                else:
+                    # Aufgabe abgeschlossen
+                    task_manager.complete_task(
+                        task_id,
+                        result=result_state.to_simple_dict()
+                    )
                 
             except Exception as e:
                 logger.error(f"Simulationsvorbereitung fehlgeschlagen: {str(e)}")
@@ -1093,10 +1124,10 @@ def get_simulation_profiles(simulation_id: str):
     Agent-Profile der Simulation abrufen
     
     Query-Parameter:
-        platform: Plattformtyp (reddit/twitter, Standard reddit)
+        platform: Plattformtyp (reddit/twitter, Standard: Plattform der Simulation)
     """
     try:
-        platform = request.args.get('platform', 'reddit')
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
         
         manager = SimulationManager()
         profiles = manager.get_profiles(simulation_id, platform=platform)
@@ -1158,7 +1189,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
     from datetime import datetime
     
     try:
-        platform = request.args.get('platform', 'reddit')
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
         
         # Simulationsverzeichnis abrufen
         sim_dir = os.path.join(Config.OASIS_SIMULATION_DATA_DIR, simulation_id)
@@ -1200,6 +1231,8 @@ def get_simulation_profiles_realtime(simulation_id: str):
         # Prüfen ob gerade generiert wird (anhand von state.json)
         is_generating = False
         total_expected = None
+        status = None
+        error = None
         
         state_file = os.path.join(sim_dir, "state.json")
         if os.path.exists(state_file):
@@ -1209,6 +1242,7 @@ def get_simulation_profiles_realtime(simulation_id: str):
                     status = state_data.get("status", "")
                     is_generating = status == "preparing"
                     total_expected = state_data.get("entities_count")
+                    error = state_data.get("error")
             except Exception:
                 pass
         
@@ -1220,6 +1254,9 @@ def get_simulation_profiles_realtime(simulation_id: str):
                 "count": len(profiles),
                 "total_expected": total_expected,
                 "is_generating": is_generating,
+                # Status/Fehler, damit das Frontend das Polling bei Fehlschlag beenden kann
+                "status": status,
+                "error": error,
                 "file_exists": file_exists,
                 "file_modified_at": file_modified_at,
                 "profiles": profiles
@@ -1295,6 +1332,9 @@ def get_simulation_config_realtime(simulation_id: str):
         # Prüfen ob gerade generiert wird (anhand von state.json)
         is_generating = False
         generation_stage = None
+        status = None
+        error = None
+        profiles_generated = False
         config_generated = False
         
         state_file = os.path.join(sim_dir, "state.json")
@@ -1303,17 +1343,21 @@ def get_simulation_config_realtime(simulation_id: str):
                 with open(state_file, 'r', encoding='utf-8') as f:
                     state_data = json.load(f)
                     status = state_data.get("status", "")
+                    error = state_data.get("error")
                     is_generating = status == "preparing"
+                    profiles_generated = state_data.get("profiles_generated", False)
                     config_generated = state_data.get("config_generated", False)
                     
                     # Aktuelle Phase bestimmen
                     if is_generating:
-                        if state_data.get("profiles_generated", False):
+                        if profiles_generated:
                             generation_stage = "generating_config"
                         else:
                             generation_stage = "generating_profiles"
                     elif status == "ready":
                         generation_stage = "completed"
+                    elif status == "failed":
+                        generation_stage = "failed"
             except Exception:
                 pass
         
@@ -1323,7 +1367,10 @@ def get_simulation_config_realtime(simulation_id: str):
             "file_exists": file_exists,
             "file_modified_at": file_modified_at,
             "is_generating": is_generating,
+            "status": status,
+            "error": error,
             "generation_stage": generation_stage,
+            "profiles_generated": profiles_generated,
             "config_generated": config_generated,
             "config": config
         }
@@ -2097,7 +2144,7 @@ def get_simulation_posts(simulation_id: str):
     Gibt Beitragsliste zurück (aus SQLite-Datenbank gelesen)
     """
     try:
-        platform = request.args.get('platform', 'reddit')
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         
@@ -2165,14 +2212,19 @@ def get_simulation_posts(simulation_id: str):
 @simulation_bp.route('/<simulation_id>/comments', methods=['GET'])
 def get_simulation_comments(simulation_id: str):
     """
-    Kommentare der Simulation abrufen (nur Reddit)
+    Kommentare der Simulation abrufen
     
     Query-Parameter:
+        platform: Plattformtyp (twitter/reddit, Standard: Plattform der Simulation)
         post_id: Beitrags-ID-Filter (optional)
         limit: Rückgabeanzahl
         offset: Versatz
     """
     try:
+        platform = request.args.get('platform') or _get_default_platform(simulation_id)
+        if platform not in ('twitter', 'reddit'):
+            # Plattform landet im Dateipfad der Datenbank; nur bekannte Werte zulassen
+            return jsonify({"success": False, "error": f"Nicht unterstützte Plattform: {platform}"}), 400
         post_id = request.args.get('post_id')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
@@ -2182,7 +2234,7 @@ def get_simulation_comments(simulation_id: str):
             f'../../uploads/simulations/{simulation_id}'
         )
         
-        db_path = os.path.join(sim_dir, "reddit_simulation.db")
+        db_path = os.path.join(sim_dir, f"{platform}_simulation.db")
         
         if not os.path.exists(db_path):
             return jsonify({

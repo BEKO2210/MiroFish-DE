@@ -2,7 +2,7 @@
 name = "mirofish-backend"
 version = "0.1.0"
 description = "MiroFish - Eine einfache und universelle Schwarmintelligenz-Engine zur Vorhersage von allem"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 license = { text = "AGPL-3.0" }
 authors = [
     { name = "MiroFish Team" }

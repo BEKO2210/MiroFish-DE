@@ -20,9 +20,51 @@ from zep_cloud.client import Zep
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.openai_chat_compat import create_chat_completion, extract_chat_completion_text
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.oasis_profile')
+
+
+def _coerce_to_str(value: Any) -> str:
+    """Wert in einen einfachen String umwandeln.
+
+    LLM-JSON liefert für Textfelder teils dict, list oder andere Typen (Upstream 41fc932).
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        for key in ('text', 'value', 'description', 'content', 'summary', 'name'):
+            if key in value:
+                candidate = _coerce_to_str(value[key])
+                if candidate:
+                    return candidate
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, (list, tuple)):
+        str_items = [_coerce_to_str(item) for item in value]
+        str_items = [item for item in str_items if item]
+        return ', '.join(str_items)
+    return str(value)
+
+
+def _coerce_to_str_list(value: Any) -> List[str]:
+    """Wert in eine Liste von Strings umwandeln (auch verschachtelte LLM-Strukturen)."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple)):
+        result: List[str] = []
+        for item in value:
+            if isinstance(item, (list, tuple)):
+                result.extend(_coerce_to_str_list(item))
+            else:
+                text = _coerce_to_str(item)
+                if text:
+                    result.append(text)
+        return result
+    text = _coerce_to_str(value)
+    return [text] if text else []
 
 
 @dataclass
@@ -56,6 +98,18 @@ class OasisAgentProfile:
     source_entity_type: Optional[str] = None
     
     created_at: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
+    
+    def __post_init__(self):
+        """Strukturierte LLM-Felder einmalig an der Profilgrenze normalisieren (Upstream 9f80ad6)."""
+        self.bio = _coerce_to_str(self.bio) or self.name
+        self.persona = _coerce_to_str(self.persona) or (
+            f"{self.name} is a participant in social discussions."
+        )
+        self.country = _coerce_to_str(self.country) or None
+        self.profession = _coerce_to_str(self.profession) or None
+        self.gender = _coerce_to_str(self.gender) or None
+        self.mbti = _coerce_to_str(self.mbti) or None
+        self.interested_topics = _coerce_to_str_list(self.interested_topics)
     
     def to_reddit_format(self) -> Dict[str, Any]:
         """In Reddit-Plattformformat konvertieren"""
@@ -527,19 +581,21 @@ class OasisProfileGenerator:
         
         for attempt in range(max_attempts):
             try:
-                response = self.client.chat.completions.create(
-                    **Config.local_llm_extra_kwargs(),
+                # GPT-5-kompatibel (Upstream f7138e0/e67a52e); lokale extra_body bleiben erhalten
+                response = create_chat_completion(
+                    self.client,
                     model=self.model_name,
                     messages=[
                         {"role": "system", "content": self._get_system_prompt(is_individual)},
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # Temperatur bei jedem Retry reduzieren
+                    temperature=0.7 - (attempt * 0.1),  # Temperatur bei jedem Retry reduzieren
+                    **Config.local_llm_extra_kwargs(),
                     # Kein max_tokens, damit LLM frei arbeiten kann
                 )
                 
-                content = response.choices[0].message.content
+                content = extract_chat_completion_text(response)
                 
                 # Prüfen, ob die Ausgabe abgeschnitten wurde (finish_reason nicht 'stop')
                 finish_reason = response.choices[0].finish_reason
@@ -1165,8 +1221,9 @@ Wichtig:
                 "user_id": profile.user_id if profile.user_id is not None else idx,  # Wichtig: Muss user_id enthalten
                 "username": profile.user_name,
                 "name": profile.name,
-                "bio": profile.bio[:150] if profile.bio else f"{profile.name}",
-                "persona": profile.persona or f"{profile.name} is a participant in social discussions.",
+                # bio/persona sind seit __post_init__ immer nicht-leere Strings
+                "bio": profile.bio[:150],
+                "persona": profile.persona,
                 "karma": profile.karma if profile.karma else 1000,
                 "created_at": profile.created_at,
                 # OASIS-erforderliche Felder - Stelle sicher, dass alle Standardwerte haben

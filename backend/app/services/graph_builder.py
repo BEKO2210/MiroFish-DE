@@ -16,6 +16,12 @@ from zep_cloud import EpisodeData, EntityEdgeSourceTarget
 from ..config import Config
 from ..models.task import TaskManager, TaskStatus
 from ..utils.zep_paging import fetch_all_nodes, fetch_all_edges
+from ..utils.ontology import (
+    MAX_ONTOLOGY_TYPES,
+    RESERVED_ONTOLOGY_ATTRIBUTE_NAMES,
+    normalize_ontology_attributes,
+    normalize_ontology_source_targets,
+)
 from .text_processor import TextProcessor
 from .memory.factory import MemoryFactory
 
@@ -210,24 +216,23 @@ class GraphBuilderService:
         # Pydantic v2 Warnung über Field(default=None) unterdrücken
         warnings.filterwarnings('ignore', category=UserWarning, module='pydantic')
         
-        # Zep reservierte Namen
-        RESERVED_NAMES = {'uuid', 'name', 'group_id', 'name_embedding', 'summary', 'created_at'}
-        
         def safe_attr_name(attr_name: str) -> str:
-            if attr_name.lower() in RESERVED_NAMES:
+            """Zep-reservierte Namen in sichere Namen umwandeln"""
+            if attr_name.lower() in RESERVED_ONTOLOGY_ATTRIBUTE_NAMES:
                 return f"entity_{attr_name}"
             return attr_name
         
         # Entitätstypen dynamisch erstellen
         entity_types = {}
-        for entity_def in ontology.get("entity_types", []):
+        for entity_def in ontology.get("entity_types", [])[:MAX_ONTOLOGY_TYPES]:
             name = entity_def["name"]
             description = entity_def.get("description", f"A {name} entity.")
             attrs = {"__doc__": description}
             annotations = {}
-            for attr_def in entity_def.get("attributes", []):
-                attr_name = safe_attr_name(attr_def["name"])
-                attr_desc = attr_def.get("description", attr_name)
+            # Attribute können vom LLM als Strings kommen (Upstream #135); zentral normalisieren
+            for normalized in normalize_ontology_attributes(entity_def.get("attributes", [])):
+                attr_name = safe_attr_name(normalized["name"])
+                attr_desc = normalized["description"]
                 attrs[attr_name] = Field(description=attr_desc, default=None)
                 annotations[attr_name] = Optional[EntityText]
             attrs["__annotations__"] = annotations
@@ -236,14 +241,14 @@ class GraphBuilderService:
         
         # Kantentypen dynamisch erstellen
         edge_definitions = {}
-        for edge_def in ontology.get("edge_types", []):
+        for edge_def in ontology.get("edge_types", [])[:MAX_ONTOLOGY_TYPES]:
             name = edge_def["name"]
             description = edge_def.get("description", f"A {name} relationship.")
             attrs = {"__doc__": description}
             annotations = {}
-            for attr_def in edge_def.get("attributes", []):
-                attr_name = safe_attr_name(attr_def["name"])
-                attr_desc = attr_def.get("description", attr_name)
+            for normalized in normalize_ontology_attributes(edge_def.get("attributes", [])):
+                attr_name = safe_attr_name(normalized["name"])
+                attr_desc = normalized["description"]
                 attrs[attr_name] = Field(description=attr_desc, default=None)
                 annotations[attr_name] = Optional[str]
             attrs["__annotations__"] = annotations
@@ -251,7 +256,7 @@ class GraphBuilderService:
             edge_class = type(class_name, (EdgeModel,), attrs)
             source_targets = [
                 EntityEdgeSourceTarget(source=st.get("source", "Entity"), target=st.get("target", "Entity"))
-                for st in edge_def.get("source_targets", [])
+                for st in normalize_ontology_source_targets(edge_def.get("source_targets", []))
             ]
             if source_targets:
                 edge_definitions[name] = (edge_class, source_targets)
@@ -261,7 +266,8 @@ class GraphBuilderService:
             if entity_types or edge_definitions:
                 self.provider.client.graph.set_ontology(
                     graph_ids=[graph_id],
-                    entities=entity_types if entity_types else None,
+                    # zep-cloud iteriert entities.items(); eine reine Kanten-Ontologie braucht daher {} statt None
+                    entities=entity_types,
                     edges=edge_definitions if edge_definitions else None,
                 )
 
