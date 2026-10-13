@@ -40,3 +40,12 @@ Bericht beschreibt Woche 1–4, simuliert wurden 24 Stunden in einem einzigen La
 
 Rechenbudget auf pop-os (RTX 3070): ein 24-Stunden-Lauf mit ~14 Agenten ≈ 10–20 Min ohne Bericht (Vorbereitung wird
 im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über Nacht; 100 Läufe ≈ 1–2 Tage pro Szenario.
+
+### Stand Validierung 13.10.2026 abends
+- V1 + V2 erledigt und live (Methodik und Grenzen, Vorgabe-Abgleich, Szenario-Titel, Seeds, Manifest, events.jsonl).
+- V3/V4 Maschine und Oberfläche live; erster echter Mehrfachlauf `ens_9c4647555d4b` (neutrales Hallenbad-Szenario,
+  10 × 24 h, Basis / ohne Vernetzung / Nullmodell) läuft über Nacht.
+- Offen V3b: **eigene Ja/Nein-Fragen** beim Start des Mehrfachlaufs ergänzen (z. B. „Es wird zu einer
+  Unterschriftensammlung oder einem Bürgerbegehren aufgerufen“), da die automatische Checkliste nur aus der Frage
+  abgeleitet wird. Die eigenen Fragen werden ebenfalls auf „stand schon im Material“ geprüft.
+- Offen V4b: Sensitivität (Eingriffsstärke als Variable im Szenario), V5 Realitätsabgleich.
