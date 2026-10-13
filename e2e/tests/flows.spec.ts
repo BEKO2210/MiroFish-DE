@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { preparePage, settle } from '../support/helpers'
+import { expectNoHorizontalScroll, preparePage, settle } from '../support/helpers'
 import { isLiveMode, type MockApi } from '../support/mockApi'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -226,6 +226,52 @@ test.describe('Flows', () => {
     expect(lastEnsembleStartBody(api!).custom_outcomes).toEqual([
       { text_de: 'Es wird zu einer Unterschriftensammlung aufgerufen', polarity: 'absence' },
     ])
+  })
+
+  test('Verlässlichkeit: Hinweis im Bericht, Seite und Mehrfachlauf', async ({ page }) => {
+    await preparePage(page)
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.clear()
+      } catch {
+        /* ignore */
+      }
+    })
+
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('.methodology-card, [data-testid="reliability-hint"]', { timeout: 15000 })
+
+    const reportHint = page.getByTestId('reliability-hint')
+    await expect(reportHint).toBeVisible()
+    await expect(reportHint).toContainText(/denkbaren Verlauf/i)
+    await expect(page.getByText(/keine neue Erkenntnis/i).first()).toBeVisible()
+
+    await reportHint.getByRole('link', { name: /Wie verlässlich ist das/i }).click()
+    await expect(page).toHaveURL(/\/verlaesslichkeit/)
+    await settle(page)
+    await expect(page.locator('.guide .guide-h1')).toContainText(/verlässlich/i)
+    await expect(page.getByText(/keine Vorhersage/i).first()).toBeVisible()
+    await expectNoHorizontalScroll(page)
+
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('[data-testid="reliability-hint"]', { timeout: 15000 })
+    await page.locator('[data-testid="reliability-hint"] .guide-tip__close').click()
+    await expect(page.getByTestId('reliability-hint')).toHaveCount(0)
+
+    await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    const ensHint = page.getByTestId('reliability-hint')
+    await expect(ensHint).toBeVisible()
+    await expect(ensHint).toContainText(/keine Wahrscheinlichkeiten für die echte Welt/i)
+    await expect(page.locator('.results:visible .material-in-hint').first()).toBeVisible()
+    await expectNoHorizontalScroll(page)
+
+    await page.goto('/settings', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.getByRole('link', { name: /Wie verlässlich ist MiroFish/i }).click()
+    await expect(page).toHaveURL(/\/verlaesslichkeit/)
   })
 
   test('Einstellungen: Farbwähler Voll und Reset', async ({ page }) => {

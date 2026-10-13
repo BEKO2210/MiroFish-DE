@@ -710,6 +710,15 @@
     "methodologyMaterialSource": "Source: {source}",
     "methodologyMaterialSnippet": "Show passage"
   },
+  "reliability": {
+    "eyebrow": "Guide",
+    "singleRunHint": "A single run shows one possible path, not a forecast",
+    "ensembleHint": "These shares are ranges from multiple runs – not real-world probabilities",
+    "inMaterialHint": "was already in your material – not a new insight",
+    "link": "How reliable is this?",
+    "dismiss": "Dismiss hint",
+    "settingsLink": "How reliable is MiroFish?"
+  },
   "ensemble": {
     "eyebrow": "Multi-run",
     "untitled": "Multi-run",

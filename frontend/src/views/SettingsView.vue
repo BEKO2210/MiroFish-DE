@@ -116,6 +116,7 @@
             <div>
               <strong>MiroFish</strong>
               <small>{{ t('settings.aboutText') }}</small>
+              <router-link to="/verlaesslichkeit">{{ t('reliability.settingsLink') }}</router-link>
               <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">{{ t('settings.source') }}</a>
             </div>
           </section>

@@ -17,6 +17,14 @@
         <p v-if="data.error" class="error" role="alert">{{ data.error }}</p>
       </header>
 
+      <ReliabilityHint
+        storage-key="ensemble"
+        :message="t('reliability.ensembleHint')"
+        :link-label="t('reliability.link')"
+        link-to="/verlaesslichkeit"
+        :dismiss-label="t('reliability.dismiss')"
+      />
+
       <aside class="meaning" aria-labelledby="meaning-title">
         <h2 id="meaning-title" class="meaning__title">{{ t('ensemble.meaningTitle') }}</h2>
         <p>{{ t('ensemble.meaningBody') }}</p>
@@ -96,6 +104,7 @@
                   <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
                 </div>
                 <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
+                <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
                 <details v-if="item.in_material" class="material">
                   <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
                   <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
@@ -125,6 +134,7 @@
             <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
           </div>
           <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
+          <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
           <details v-if="item.in_material" class="material">
             <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
             <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
@@ -249,6 +259,7 @@ import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
+import ReliabilityHint from '../components/ReliabilityHint.vue'
 import { getEnsemble, cancelEnsemble, deleteEnsemble } from '../api/ensemble'
 import { getSimulationHistory } from '../api/simulation'
 
@@ -631,6 +642,12 @@ onUnmounted(clearTimer)
   text-underline-offset: 3px;
 }
 
+.material-in-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-warning-text);
+}
 .material { margin-top: 6px; font-size: 13px; }
 .material summary { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; color: var(--color-warning-text); font-weight: 600; }
 .snippet { margin: 6px 0 0; padding: 8px 10px; background: var(--color-bg-surface-subtle); border-radius: 8px; color: var(--color-text-secondary); }

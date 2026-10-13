@@ -23,6 +23,14 @@
           </nav>
 
           <div class="report-content-wrapper">
+          <ReliabilityHint
+            v-if="isSingleRun"
+            storage-key="single-run"
+            :message="$t('reliability.singleRunHint')"
+            :link-label="$t('reliability.link')"
+            link-to="/verlaesslichkeit"
+            :dismiss-label="$t('reliability.dismiss')"
+          />
           <!-- Report Header -->
           <header class="report-header-block">
             <div class="report-meta">
@@ -125,6 +133,7 @@
               </ul>
               <div v-if="(methodology.already_in_material || []).length" class="methodology-material">
                 <h3 class="methodology-subtitle">{{ $t('step4.methodologyAlreadyInMaterial') }}</h3>
+                <p class="material-in-hint">{{ $t('reliability.inMaterialHint') }}</p>
                 <ul>
                   <li v-for="(item, i) in methodology.already_in_material" :key="i" class="material-item">
                     <p class="material-item__claim">
@@ -599,6 +608,7 @@ import { getAgentLog, getConsoleLog, getReport } from '../api/report'
 import { startEnsemble, listEnsembles } from '../api/ensemble'
 import MobileStickyBar from './MobileStickyBar.vue'
 import ConfirmSheet from './ConfirmSheet.vue'
+import ReliabilityHint from './ReliabilityHint.vue'
 
 const { t } = useI18n()
 
@@ -768,6 +778,10 @@ const runCountLabel = computed(() => {
     ? t('step4.scenarioFromOneRun')
     : t('step4.scenarioFromNRuns', { count })
 })
+
+const isSingleRun = computed(
+  () => methodology.value != null && (methodology.value.run_count ?? 1) === 1,
+)
 
 const agentTypesLabel = computed(() => {
   const types = methodology.value?.agent_types || []
@@ -2800,6 +2814,12 @@ watch(() => props.reportId, (newId) => {
   margin: 1.1rem 0 0.4rem 0;
 }
 
+.material-in-hint {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-warning-text);
+}
 .methodology-material ul {
   margin: 0;
   padding-left: 0;
