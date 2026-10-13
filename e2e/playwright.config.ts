@@ -122,7 +122,7 @@ export default defineConfig({
   webServer: liveBase
     ? undefined
     : {
-        command: `npx vite build && npx vite preview --port ${PORT} --strictPort`,
+        command: `npx vite build && npx vite preview --host 127.0.0.1 --port ${PORT} --strictPort`,
         cwd: path.join(__dirname, '../frontend'),
         url: `http://127.0.0.1:${PORT}`,
         reuseExistingServer: !process.env.CI,
