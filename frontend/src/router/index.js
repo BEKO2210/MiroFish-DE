@@ -8,6 +8,7 @@ import InteractionView from '../views/InteractionView.vue'
 import RunView from '../views/RunView.vue'
 import HistoryView from '../views/HistoryView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import EnsembleView from '../views/EnsembleView.vue'
 
 const routes = [
   {
@@ -51,6 +52,12 @@ const routes = [
     path: '/interaction/:reportId',
     name: 'Interaction',
     component: InteractionView,
+    props: true
+  },
+  {
+    path: '/ensemble/:ensembleId',
+    name: 'Ensemble',
+    component: EnsembleView,
     props: true
   }
 ]

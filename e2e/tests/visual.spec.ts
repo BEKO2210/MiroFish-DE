@@ -10,6 +10,21 @@ test.describe('Visuell', () => {
       await preparePage(page)
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await settle(page)
+      if (route.startsWith('/report/')) {
+        await page.waitForSelector('.methodology-card', { timeout: 15000 })
+        await page.waitForSelector('.ensemble-list a, .report-action', { timeout: 10000 }).catch(() => {})
+        await settle(page)
+      }
+      if (route.startsWith('/ensemble/')) {
+        await page.waitForSelector('.page .title', { timeout: 15000 })
+        // Tabelle und Karten beide im DOM — nur die sichtbare Variante abwarten
+        await page
+          .locator('.results--cards:visible .card__title, .results--table:visible tbody th')
+          .filter({ hasText: 'Dominanz' })
+          .first()
+          .waitFor({ timeout: 15000 })
+        await settle(page)
+      }
       // Animierte Canvas/Pulse abwarten bis disabled
       await page.emulateMedia({ reducedMotion: 'reduce' })
 

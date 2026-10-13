@@ -4,7 +4,8 @@
       <div v-if="open" class="backdrop" @click.self="$emit('close')">
         <section class="sheet" role="alertdialog" aria-modal="true" :aria-label="title">
           <h2 class="sheet__title">{{ title }}</h2>
-          <p class="sheet__text">{{ text }}</p>
+          <p v-if="text" class="sheet__text">{{ text }}</p>
+          <div v-if="$slots.default" class="sheet__body"><slot /></div>
           <div class="sheet__actions">
             <button type="button" class="btn" :disabled="busy" @click="$emit('close')">{{ t('confirm.cancel') }}</button>
             <button type="button" class="btn btn--confirm" :class="{ 'btn--danger': danger }" :disabled="busy" @click="$emit('confirm')">
@@ -29,6 +30,7 @@ defineEmits(['confirm', 'close'])
 .sheet { width: 100%; max-width: 440px; background: var(--color-bg-surface-raised); color: var(--color-text-primary); border-radius: 20px 20px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,.2); }
 .sheet__title { font-family: var(--font-heading); font-size: 19px; margin: 0 0 6px; }
 .sheet__text { margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: var(--color-text-secondary); }
+.sheet__body { margin: 0 0 18px; }
 .sheet__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btn { min-height: 48px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .btn--confirm { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }

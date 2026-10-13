@@ -40,6 +40,12 @@
               <button type="button" class="report-action" @click="printReport">
                 {{ $t('step4.printPdf') }}
               </button>
+              <button
+                v-if="isComplete && simulationId"
+                type="button"
+                class="report-action"
+                @click="openEnsembleSheet"
+              >{{ $t('ensemble.start') }}</button>
             </div>
           </header>
 
@@ -119,9 +125,28 @@
               <div v-if="(methodology.already_in_material || []).length" class="methodology-material">
                 <h3 class="methodology-subtitle">{{ $t('step4.methodologyAlreadyInMaterial') }}</h3>
                 <ul>
-                  <li v-for="(item, i) in methodology.already_in_material" :key="i">
-                    <span class="methodology-overlap mono">{{ Math.round((item.overlap || 0) * 100) }}%</span>
-                    {{ item.claim }}
+                  <li v-for="(item, i) in methodology.already_in_material" :key="i" class="material-item">
+                    <p class="material-item__claim">
+                      <span class="methodology-overlap mono">{{ Math.round(((item.overlap ?? item.coverage ?? item.ratio) || 0) * 100) }}%</span>
+                      {{ item.claim || item.text }}
+                      <span v-if="item.count > 1" class="material-item__count">×{{ item.count }}</span>
+                    </p>
+                    <p v-if="item.source" class="material-item__source">{{ $t('step4.methodologyMaterialSource', { source: item.source }) }}</p>
+                    <details v-if="item.snippet" class="material-item__snip">
+                      <summary>{{ $t('step4.methodologyMaterialSnippet') }}</summary>
+                      <p>{{ item.snippet }}</p>
+                    </details>
+                  </li>
+                </ul>
+              </div>
+              <div v-if="ensembleList.length" class="ensemble-list">
+                <h3 class="methodology-subtitle">{{ $t('ensemble.listTitle') }}</h3>
+                <ul>
+                  <li v-for="ens in ensembleList" :key="ens.ensemble_id">
+                    <router-link :to="{ name: 'Ensemble', params: { ensembleId: ens.ensemble_id } }">
+                      {{ ens.ensemble_id }}
+                      <span class="muted">· {{ $t('ensemble.status.' + (ens.status || 'queued')) }} · {{ ens.runs }}×{{ ens.hours }}h</span>
+                    </router-link>
                   </li>
                 </ul>
               </div>
@@ -456,8 +481,51 @@
     <MobileStickyBar
       v-if="isComplete"
       :primary-label="$t('step4.zurTiefeninteraktion')"
+      :secondary-label="simulationId ? $t('ensemble.startShort') : ''"
       @primary-click="goToInteraction"
+      @secondary-click="openEnsembleSheet"
     />
+
+    <ConfirmSheet
+      :open="ensembleSheetOpen"
+      :title="t('ensemble.startTitle')"
+      :text="t('ensemble.startHint')"
+      :confirm-label="t('ensemble.startConfirm')"
+      :busy="ensembleStarting"
+      @confirm="startEnsembleRun"
+      @close="ensembleSheetOpen = false"
+    >
+      <div class="ens-form">
+        <fieldset class="ens-field">
+          <legend>{{ t('ensemble.runsLabel') }}</legend>
+          <div class="ens-pills">
+            <button
+              v-for="n in [5, 10, 20]"
+              :key="n"
+              type="button"
+              class="ens-pill"
+              :class="{ 'is-on': ensembleRuns === n }"
+              @click="ensembleRuns = n"
+            >{{ n }}</button>
+          </div>
+        </fieldset>
+        <label class="ens-field">
+          <span>{{ t('ensemble.hoursLabel') }}</span>
+          <input v-model.number="ensembleHours" type="number" min="1" max="168" class="ens-input" />
+        </label>
+        <fieldset class="ens-field">
+          <legend>{{ t('ensemble.variantsLabel') }}</legend>
+          <label class="ens-check"><input type="checkbox" checked disabled /> {{ t('ensemble.variantBaseline') }}</label>
+          <label class="ens-check"><input v-model="ensembleIsolated" type="checkbox" /> {{ t('ensemble.variantIsolated') }}</label>
+          <label class="ens-check"><input v-model="ensembleNull" type="checkbox" /> {{ t('ensemble.variantNull') }}</label>
+          <label v-for="at in agentTypeOptions" :key="at" class="ens-check">
+            <input v-model="ensembleWithout" type="checkbox" :value="'without:' + at" />
+            {{ t('ensemble.variantWithout', { type: at }) }}
+          </label>
+        </fieldset>
+        <p class="ens-eta">{{ t('ensemble.estimate', { time: estimateLabel }) }}</p>
+      </div>
+    </ConfirmSheet>
   </div>
 </template>
 
@@ -466,7 +534,9 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } f
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { getAgentLog, getConsoleLog, getReport } from '../api/report'
+import { startEnsemble, listEnsembles } from '../api/ensemble'
 import MobileStickyBar from './MobileStickyBar.vue'
+import ConfirmSheet from './ConfirmSheet.vue'
 
 const { t } = useI18n()
 
@@ -491,6 +561,80 @@ const printReport = () => {
   window.print()
 }
 
+const ensembleSheetOpen = ref(false)
+const ensembleStarting = ref(false)
+const ensembleRuns = ref(10)
+const ensembleHours = ref(24)
+const ensembleIsolated = ref(true)
+const ensembleNull = ref(true)
+const ensembleWithout = ref([])
+const ensembleList = ref([])
+
+const agentTypeOptions = computed(() => {
+  const types = methodology.value?.agent_types || []
+  return [...new Set(types.map((x) => x.type).filter(Boolean))]
+})
+
+const estimateSeconds = computed(() => {
+  const variants = 1 + (ensembleIsolated.value ? 1 : 0) + (ensembleNull.value ? 1 : 0) + ensembleWithout.value.length
+  // Rough client-side preview; server returns authoritative estimate_seconds
+  return Math.max(60, Math.round(ensembleRuns.value * ensembleHours.value * variants * 12))
+})
+
+const estimateLabel = computed(() => {
+  const s = estimateSeconds.value
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  if (h > 0) return t('ensemble.durationHm', { h, m })
+  return t('ensemble.durationM', { m: Math.max(1, m) })
+})
+
+const openEnsembleSheet = () => {
+  if (!props.simulationId) return
+  ensembleSheetOpen.value = true
+}
+
+const startEnsembleRun = async () => {
+  if (!props.simulationId) return
+  ensembleStarting.value = true
+  try {
+    const variants = ['baseline']
+    if (ensembleIsolated.value) variants.push('isolated')
+    if (ensembleNull.value) variants.push('null_model')
+    variants.push(...ensembleWithout.value)
+    const res = await startEnsemble({
+      simulation_id: props.simulationId,
+      runs: ensembleRuns.value,
+      hours: ensembleHours.value,
+      variants,
+    })
+    const id = res?.data?.ensemble_id
+    ensembleSheetOpen.value = false
+    if (id) router.push({ name: 'Ensemble', params: { ensembleId: id } })
+  } catch (e) {
+    emit('add-log', e.message || String(e))
+  } finally {
+    ensembleStarting.value = false
+  }
+}
+
+const loadEnsembleList = async () => {
+  if (!props.simulationId) return
+  try {
+    const res = await listEnsembles(props.simulationId)
+    ensembleList.value = Array.isArray(res?.data) ? res.data : []
+  } catch (e) {
+    ensembleList.value = []
+  }
+}
+
+watch(
+  () => props.simulationId,
+  (id) => {
+    if (id && isComplete.value) loadEnsembleList()
+  },
+)
+
 const runCountLabel = computed(() => {
   const n = methodology.value?.run_count
   if (n == null && !isComplete.value) return ''
@@ -514,6 +658,7 @@ const loadMethodology = async () => {
     if (data?.methodology) {
       methodology.value = data.methodology
     }
+    await loadEnsembleList()
   } catch (e) {
     /* Methodik optional — Bericht bleibt lesbar */
   }
@@ -1995,6 +2140,8 @@ const renderMarkdown = (content) => {
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+  // Standalone **Zeile** → echte Zwischenüberschrift (nicht erst per CSS)
+  html = html.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
     const level = Math.floor(indent.length / 2)
@@ -2011,9 +2158,10 @@ const renderMarkdown = (content) => {
   html = html.replace(/<ol class="md-ol">\s+/g, '<ol class="md-ol">')
   html = html.replace(/\s+<\/ul>/g, '</ul>')
   html = html.replace(/\s+<\/ol>/g, '</ol>')
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  html = html.replace(/_(.+?)_/g, '<em>$1</em>')
+  // Inline-Fett/Kursiv nach Block-Konvertierung — bleibt im Absatz
+  html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+  html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>')
   html = html.replace(/^---$/gm, '<hr class="md-hr">')
   html = html.replace(/\n\n/g, '</p><p class="md-p">')
   html = html.replace(/\n/g, '<br>')
@@ -2028,6 +2176,10 @@ const renderMarkdown = (content) => {
   html = html.replace(/<p class="md-p">(<br>\s*)+(<ul|<ol|<blockquote|<pre|<hr)/g, '$2')
   html = html.replace(/(<br>\s*){2,}/g, '<br>')
   html = html.replace(/(<\/ol>|<\/ul>|<\/blockquote>)<br>(<p|<div)/g, '$1$2')
+  // h4 die in p landeten herauslösen
+  html = html.replace(/<p class="md-p">(<h4\b[^>]*>[\s\S]*?<\/h4>)<\/p>/g, '$1')
+  html = html.replace(/<p class="md-p">([\s\S]*?)<h4\b/g, '<p class="md-p">$1</p><h4')
+  html = html.replace(/<\/h4><\/p>/g, '</h4>')
 
   const tokens = html.split(/(<ol class="md-ol">(?:<li class="md-oli"[^>]*>[\s\S]*?<\/li>)+<\/ol>)/g)
   let olCounter = 0
@@ -2525,9 +2677,35 @@ watch(() => props.reportId, (newId) => {
 
 .methodology-material ul {
   margin: 0;
-  padding-left: 1.1rem;
+  padding-left: 0;
+  list-style: none;
   font-size: 0.875rem;
   line-height: 1.5;
+}
+
+.material-item {
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.material-item:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.material-item__claim { margin: 0 0 4px; color: var(--color-text-primary); }
+.material-item__count { color: var(--color-text-muted); margin-left: 4px; }
+.material-item__source { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
+.material-item__snip summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+}
+.material-item__snip p {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  background: var(--color-bg-surface-subtle);
+  border-radius: 8px;
+  color: var(--color-text-secondary);
 }
 
 .methodology-overlap {
@@ -2535,6 +2713,66 @@ watch(() => props.reportId, (newId) => {
   margin-right: 0.35rem;
   font-size: 0.8rem;
 }
+
+.ensemble-list ul {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+.ensemble-list li { margin: 0 0 6px; }
+.ensemble-list a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-brand-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.ensemble-list .muted { color: var(--color-text-muted); font-weight: 400; }
+
+.ens-form { display: grid; gap: 14px; }
+.ens-field { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; font-size: 14px; color: var(--color-text-secondary); }
+.ens-field legend, .ens-field > span { font-weight: 600; color: var(--color-text-primary); }
+.ens-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.ens-pill {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ens-pill.is-on {
+  background: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
+.ens-input {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface-raised);
+  color: inherit;
+  font: inherit;
+  max-width: 120px;
+}
+.ens-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  color: var(--color-text-primary);
+}
+.ens-check input { width: 20px; height: 20px; }
+.ens-eta { margin: 0; font-size: 13px; color: var(--color-text-muted); }
 
 .report-id {
   font-size: 11px;
@@ -2727,29 +2965,6 @@ watch(() => props.reportId, (newId) => {
 .generated-content :deep(.md-p) {
   margin: 0 0 1em;
   color: var(--color-text-primary);
-}
-
-.generated-content :deep(p:has(> strong:only-child)) {
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: var(--line-height-heading);
-  letter-spacing: -0.015em;
-  color: var(--color-text-primary);
-  margin-top: 1.75em;
-  margin-bottom: 0.45em;
-}
-
-.generated-content :deep(> strong) {
-  display: block;
-  font-family: var(--font-heading);
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: var(--line-height-heading);
-  letter-spacing: -0.015em;
-  color: var(--color-text-primary);
-  margin-top: 1.75em;
-  margin-bottom: 0.45em;
 }
 
 .generated-content :deep(p:last-child) {
