@@ -57,3 +57,12 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
    - Beginn: „Am Mittwoch, 15. März, hat die Umpflanzung von 13 Spitzahorn-Bäumen begonnen“.
    - Durchführung: „Noch bis Freitag werden die Bäume von einer Spezialfirma an drei verschiedene öffentliche Plätze
      in Kehl umgesetzt.“
+
+## Primärergebnis (einheitlich für alle 8 Fälle)
+
+Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder
+Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. Fenster: 22.02.2017 bis 08.03.2017.
+
+Ergebnis: **Nein** (`eingetreten: false`), begründet durch die dokumentierte Negativsuche in Nr. 7 (Suchläufe, abgerufene
+Berichte [1], [2], [3], [6]; kein datierter Beleg einer ablehnenden Stellungnahme eines organisierten Akteurs im Fenster).
+Einschränkung: Die Nein-Kodierung beruht auf Quellenlücke, nicht auf Beleg der Abwesenheit.

@@ -96,19 +96,30 @@ Entfernt: Neuausleihen „ab sofort“ nicht mehr möglich und Rücknahmefrist (
 Hinweis: Der Förderverein hatte sich schon am 10.02.2023 ([5], vor T0) öffentlich enttäuscht geäußert; Frage 3 zählt daher
 nur Äußerungen nach T0 ([6], [7]).
 
-## Kodierbuch-Eintrag Primärergebnis
+## Primärergebnis (einheitlich für alle 8 Fälle)
 
 | Feld | Inhalt |
 |---|---|
 | Ergebnis-ID | `primaer` |
 | Primär | ja |
-| Ergebnisfrage | Nimmt der Stadtrat den Schließungsbeschluss binnen 14 Tagen förmlich zurück, setzt ihn aus oder ändert ihn inhaltlich? |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
 | Zeitfenster | 14.02.2023 bis 28.02.2023 |
-| Ja-Kriterium | Ratsbeschluss oder Bekanntmachung der Stadt belegt Rücknahme, Aussetzung oder inhaltliche Änderung im Fenster |
-| Nein-Kriterium | Keine solche Belegstelle; [1] und [6] (13./17.03.2023) behandeln die Schließung weiter als beschlossen („jüngst gebilligt“) |
+| Ja-Kriterium | Datierte Veröffentlichung (Pressemitteilung, Website, Zeitungsbericht mit wörtlicher Aussage) eines organisierten Akteurs im Fenster, die die Maßnahme ausdrücklich ablehnt oder kritisiert |
+| Nein-Kriterium | Dokumentierte Suche ohne datierten Beleg im Fenster |
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
-| Quellen | Pressemitteilungen der Stadt, Ratsinformationssystem, Lokalpresse |
-| Beispiele | Ja: Rat beschließt, die Bücherei vorläufig offen zu halten. Nein: Bücherei wird geschlossen, nur Protest und Petition werden berichtet. |
+| Quellen | Pressemitteilungen, Websites der Akteure, Lokalpresse, Amtsblätter |
 
-Ergebnis: Nein (`eingetreten: false`). Einschränkung: Für 01.03.–12.03.2023 liegen keine eigenen Quellen vor; die Nein-Kodierung stützt
-sich darauf, dass spätere Quellen die Schließung ohne Änderung nennen.
+Ergebnis: **Nein** (`eingetreten: false`).
+
+Begründung: Die datierten Stellungnahmen liegen außerhalb des Fensters: Förderverein probiblio e.V. am 10.02.2023 ([5], vor T0)
+und am 13.03.2023 ([7]: „So weit – so frustrierend für uns alle.“, Tag 27) sowie 17.03.2023 ([6], Tag 31). Die Petition ([6]: „fast 500“
+Unterstützer) ist erst am 17.03.2023 belegt, ihr Start ist undatiert; die Straßensammlung lag laut [7] vor der Ratssitzung.
+
+Dokumentierte Suchläufe am 14.10.2026: erneuter Abruf von [1], [5], [6], [7]; Abruf der Startseite probiblio.de (kein Eintrag
+aus dem Fenster); Websuche nach `Niederkassel Stadtteilbücherei Schließung Februar 2023 Förderverein probiblio Stellungnahme
+Fraktion Kritik` (lieferte nur die Quellen [3], [5], [6] und eine nicht datierte Fraktionsangabe, die nicht als Beleg übernommen
+wurde); Ratsprotokoll und Berichte vom 14./15.02.2023 waren nicht auffindbar. Einschränkung: Die Nein-Kodierung beruht auf
+Quellenlücke, nicht auf Beleg der Abwesenheit; vermutlich zu konservativ.
+
+Die frühere Primärfrage (förmliche Rücknahme/Änderung des Beschlusses binnen 14 Tagen) bleibt als explorative Frage
+`beschluss_aufgehoben` erhalten: Nein. Belege: [1] und [6] (13./17.03.2023: Schließung weiter als beschlossen).

@@ -106,18 +106,26 @@ Entfernt als nicht ≤ T0 belegt: „Ob und wann abgerissen wird, ist offen“; 
 Bundestagsabgeordneter des Wahlkreises (hätte Frage 5 vorweggenommen); genaue Fördersumme 5,1 Mio. (erst [5], 12.04.2023;
 jetzt „rund 5 Mio.“ nach [1]); „Breitensport, Schwimmkurse“ (erst [2]).
 
-## Kodierbuch-Eintrag Primärergebnis
+## Primärergebnis (einheitlich für alle 8 Fälle)
 
 | Feld | Inhalt |
 |---|---|
 | Ergebnis-ID | `primaer` |
 | Primär | ja |
-| Ergebnisfrage | Hebt der Gemeinderat den Schließungsbeschluss binnen 14 Tagen förmlich auf, setzt ihn aus oder ändert ihn inhaltlich (förmliche institutionelle Reaktion des Beschlussorgans)? |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
 | Zeitfenster | 02.03.2023 bis 16.03.2023 |
-| Ja-Kriterium | Sitzungsprotokoll, Beschlussbekanntmachung oder Pressebericht belegt einen förmlichen Gegenbeschluss, eine Aussetzung oder inhaltliche Änderung im Fenster |
-| Nein-Kriterium | Keine solche Belegstelle; spätere Quellen ([8], [9], [12]) zeigen, dass der Beschluss unverändert fortgalt |
+| Ja-Kriterium | Datierte Veröffentlichung (Pressemitteilung, Website, Zeitungsbericht mit wörtlicher Aussage) eines organisierten Akteurs im Fenster, die die Maßnahme ausdrücklich ablehnt oder kritisiert |
+| Nein-Kriterium | Dokumentierte Suche ohne datierten Beleg im Fenster |
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
-| Quellen | Protokolle, Bekanntmachungen, Lokalpresse, Mitteilungen der Gemeinde |
-| Beispiele | Ja: Gemeinderat setzt die Schließung in einer Sondersitzung aus. Nein: Beschluss bleibt bestehen, nur Proteste werden berichtet. |
+| Quellen | Pressemitteilungen, Websites der Akteure, Lokalpresse, Amtsblätter |
 
-Ergebnis: Nein (`eingetreten: false`).
+Ergebnis: **Ja** (`eingetreten: true`).
+
+Belegstelle: [2] Münchner Merkur, 03.03.2023 (Tag 1 nach T0): „‚Das ist niederschmetternd‘, sagte Martin Nowak, Leiter der
+Schwimmabteilung des TSV Eintracht Karlsfeld. Die Entscheidung sei ‚ein Schlag ins Gesicht‘.“ Der Akteur ist ein Verein
+(Abteilung des TSV Eintracht Karlsfeld) und lehnt die Schließung ab. Ergänzend: DLRG „sehr große Probleme“, Wasserwacht
+„besorgt“ (ebenfalls [2]).
+
+Die frühere Primärfrage (förmliche Aufhebung/Aussetzung des Beschlusses binnen 14 Tagen) bleibt als explorative Frage
+`beschluss_aufgehoben` erhalten: Nein. Belege: [8], [9], [12] (Beschluss galt weiter, kein Aufhebungs- oder
+Aussetzungsbeleg).

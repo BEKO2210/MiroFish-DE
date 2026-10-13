@@ -78,18 +78,31 @@ Parteizugehörigkeit der Bürgermeisterin und Fraktionsliste, Förderverein der 
 besuchen den Unterricht im bestehenden Schulgebäude“ (alle nur aus Quellen nach T0 oder ohne Beleg). Die Petition [5] liegt vor T0
 und zählt weiterhin nicht als Reaktion auf den Beschluss.
 
-## Kodierbuch-Eintrag Primärergebnis
+## Primärergebnis (einheitlich für alle 8 Fälle)
 
 | Feld | Inhalt |
 |---|---|
 | Ergebnis-ID | `primaer` |
 | Primär | ja |
-| Ergebnisfrage | Hebt der Stadtrat den Schließungsbeschluss binnen 14 Tagen förmlich auf, setzt ihn aus oder ändert ihn inhaltlich? |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
 | Zeitfenster | 28.08.2025 bis 11.09.2025 |
-| Ja-Kriterium | Ratsbeschluss, Bekanntmachung der Stadt oder Pressebericht belegt Aufhebung, Aussetzung oder inhaltliche Änderung im Fenster |
-| Nein-Kriterium | Keine solche Belegstelle; [1] bestätigt, dass der Beschluss „weiterhin gültig“ blieb, [6] zeigt die nächste Ratsbefassung erst am 04.12.2025 |
+| Ja-Kriterium | Datierte Veröffentlichung (Pressemitteilung, Website, Zeitungsbericht mit wörtlicher Aussage) eines organisierten Akteurs im Fenster, die die Maßnahme ausdrücklich ablehnt oder kritisiert |
+| Nein-Kriterium | Dokumentierte Suche ohne datierten Beleg im Fenster |
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
-| Quellen | Bekanntmachungen der Stadt, Ratsinformationssystem, Lokalpresse, Rundfunk |
-| Beispiele | Ja: Rat beschließt, die Schließung zu verschieben. Nein: Beschluss bleibt, Eltern protestieren. |
+| Quellen | Pressemitteilungen, Websites der Akteure, Lokalpresse, Amtsblätter |
 
-Ergebnis: Nein (`eingetreten: false`).
+Ergebnis: **Nein** (`eingetreten: false`).
+
+Begründung: Die Bürgerinitiative ist laut [2] „daraufhin“ gegründet worden, aber ohne Datum; [7] (Volksstimme, 18.09.2025, Tag 21)
+nennt das Bürgerbegehren „angestrebt“ und die „teilweise heftigen Reaktionen von Eltern“ in der Sitzung am 28.08.2025 – das sind
+Äußerungen Einzelner in der Sitzung, keine datierte Veröffentlichung eines organisierten Akteurs im Fenster. Die Petition [5]
+(07.–25.08.2025) liegt vor T0.
+
+Dokumentierte Suchläufe am 14.10.2026: erneuter Abruf von [2], [4], [5], [7] (Volksstimme-Kommentar, openPetition-Seite; keine
+Stellungnahme zwischen 28.08. und 11.09.2025); Stadtseiten [1], [6]; Websuche nach `Klein Wanzleben Grundschule Schließung
+Stadtrat 28.08.2025 Bürgerinitiative Stellungnahme September 2025 Fraktion Ortschaftsrat` (nannte „Stellungnahmen im September
+2025“ ohne Beleg; nicht übernommen); PDF der Stadt nicht lesbar. Einschränkung: Die Nein-Kodierung beruht auf Quellenlücke, nicht
+auf Beleg der Abwesenheit; vermutlich zu konservativ, da die Bürgerinitiative wahrscheinlich im Fenster auftrat.
+
+Die frühere Primärfrage (förmliche Aufhebung/Änderung des Beschlusses binnen 14 Tagen) bleibt als explorative Frage
+`beschluss_aufgehoben` erhalten: Nein. Belege: [1] („bleibt weiterhin gültig“), [6] (nächste Ratsbefassung 04.12.2025).

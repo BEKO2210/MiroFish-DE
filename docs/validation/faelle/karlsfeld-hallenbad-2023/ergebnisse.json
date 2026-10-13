@@ -4,6 +4,15 @@
     "primaer": true,
     "t0": "2023-03-02",
     "zeitfenster": "T0 bis T0+14 Tage (bis 16.03.2023)",
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "eingetreten": true,
+    "quelle": "2 (Münchner Merkur, 03.03.2023: Leiter der Schwimmabteilung des TSV Eintracht Karlsfeld, „ein Schlag ins Gesicht“)"
+  },
+  {
+    "id": "beschluss_aufgehoben",
+    "primaer": false,
+    "t0": "2023-03-02",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 16.03.2023)",
     "text_de": "Innerhalb von 14 Tagen nach T0 hebt der Gemeinderat den Schließungsbeschluss förmlich auf, setzt ihn aus oder ändert ihn inhaltlich.",
     "eingetreten": false,
     "quelle": "3 (Beschluss 02.03.2023); 8, 9, 12 (Beschluss galt weiter, kein Aufhebungs- oder Aussetzungsbeleg)"

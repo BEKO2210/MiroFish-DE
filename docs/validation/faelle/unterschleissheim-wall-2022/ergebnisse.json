@@ -4,6 +4,15 @@
     "primaer": true,
     "t0": "2022-11-30",
     "zeitfenster": "T0 bis T0+14 Tage (bis 14.12.2022)",
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "eingetreten": true,
+    "quelle": "2 (BUND Naturschutz, Ortsgruppe Schleißheim, Offener Brief vom 06.12.2022)"
+  },
+  {
+    "id": "beschluss_aufgehoben",
+    "primaer": false,
+    "t0": "2022-11-30",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 14.12.2022)",
     "text_de": "Innerhalb von 14 Tagen nach T0 hebt der Stadtrat oder ein Ausschuss den Rodungsbeschluss förmlich auf, setzt ihn aus oder ändert die Planung zugunsten des Baumerhalts.",
     "eingetreten": false,
     "quelle": "1 (12.01.2023: Beschlusslage unverändert), 6 (04.02.2023: Beschluss mit 21 zu 9 bestätigt, Rodung bleibt)"

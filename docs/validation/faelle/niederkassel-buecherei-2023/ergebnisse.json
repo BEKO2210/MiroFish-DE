@@ -4,6 +4,15 @@
     "primaer": true,
     "t0": "2023-02-14",
     "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "eingetreten": false,
+    "quelle": "7 und 6 (frühester datierter Beleg 13.03.2023, außerhalb des Fensters); dokumentierte Negativsuche"
+  },
+  {
+    "id": "beschluss_aufgehoben",
+    "primaer": false,
+    "t0": "2023-02-14",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",
     "text_de": "Innerhalb von 14 Tagen nach T0 nimmt der Stadtrat den Schließungsbeschluss förmlich zurück, setzt ihn aus oder ändert ihn inhaltlich.",
     "eingetreten": false,
     "quelle": "1, 6 (13./17.03.2023: Schließung weiter als beschlossen bzw. „jüngst gebilligt“; kein Rücknahmebeleg)"

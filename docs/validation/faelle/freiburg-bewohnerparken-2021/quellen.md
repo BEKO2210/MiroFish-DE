@@ -51,3 +51,13 @@ Alle Quellen wurden am 14.10.2026 tatsächlich abgerufen. Kurze wörtliche Beleg
      Anwohnerparken März 2022 Klage`.
    - Der erste belegte Rechtsbehelf datiert auf 01.04.2022 [5], der belegte interfraktionelle Antrag auf erneute
      Beratung auf 15.06.2022 [7]. Beides liegt außerhalb des Dreimonatsfensters.
+
+## Primärergebnis (einheitlich für alle 8 Fälle)
+
+Frage: Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder
+Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. Fenster: 14.12.2021 bis 28.12.2021.
+
+Ergebnis: **Ja** (`eingetreten: true`).
+
+Belegstelle: [3] Amtsblatt Nr. 806, 17.12.2021 (Tag 3 nach T0), Fraktionsbeitrag der CDU: „Unlogisch, undurchdacht,
+unfair“ und „Diese Gebührenerhebung nach Zufallsprinzip ist grob ungerecht“.

@@ -16,7 +16,7 @@ Vor jedem Lauf wird das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werk
 
 ## Kodierbuch und Verblindung
 
-Das Kodierbuch wird von einer Person vor dem ersten Simulationslauf erstellt. Es enthält genau ein binäres Primärergebnis, zum Beispiel „Innerhalb von 14 Tagen erfolgt eine förmliche institutionelle Reaktion“, mit Positiv- und Negativbeispielen, Zeitgrenze, Entscheidungskriterien und zulässigen Quellen. In `ergebnisse.json` trägt genau dieser Eintrag `"primaer": true`; weitere Fragen sind ausschließlich explorativ.
+Das Kodierbuch wird von einer Person vor dem ersten Simulationslauf erstellt. Es enthält genau ein binäres Primärergebnis, im Pilot für alle Fälle einheitlich „Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.“, mit Positiv- und Negativbeispielen, Zeitgrenze, Entscheidungskriterien und zulässigen Quellen. In `ergebnisse.json` trägt genau dieser Eintrag `"primaer": true`; weitere Fragen sind ausschließlich explorativ.
 
 Zwei Personen kodieren unabhängig die reale Akte, ohne Simulationsausgaben oder Armzuordnung zu sehen. Danach wird Cohen's Kappa berechnet und Dissens adjudiziert. Dieselben Personen kodieren die Simulationsausgaben blind gegen Arm und reale Akte. Die Zuordnung von Fällen, Armen und Seeds wird erst nach Abschluss der Kodierung aufgedeckt. Bei Kappa unter 0,6 gilt das Ergebnis als nicht hinreichend messbar.
 
@@ -33,6 +33,26 @@ Kodierbuch-Vorlage:
 | Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
 | Quellen | zulässige Quellentypen |
 | Beispiele | mindestens ein Ja- und ein Nein-Beispiel |
+
+### Kodierbuch-Eintrag Primärergebnis (gilt für alle 8 Pilotfälle)
+
+| Feld | Inhalt |
+|---|---|
+| Ergebnis-ID | `primaer` |
+| Primär | ja (genau einmal je Fall; in `ergebnisse.json` als einzige Frage `"primaer": true`) |
+| Ergebnisfrage | Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme. |
+| Zeitgrenze | T0 (Tag des Beschlusses) bis T0 + 14 Tage, beide Tage eingeschlossen; maßgeblich ist das Veröffentlichungsdatum der Stellungnahme, nicht das Abrufdatum |
+| Ja-Kriterium | Mindestens eine datierte Veröffentlichung im Fenster (Pressemitteilung, Website oder Amtsblatt-Beitrag des Akteurs, offener Brief oder wörtliches Zitat eines benannten Vertreters in einem Pressebericht), die die Maßnahme ausdrücklich ablehnt oder scharf kritisiert. Mit wörtlicher Belegstelle und Datum in `quellen.md` |
+| Nein-Kriterium | Dokumentierte Suche (abgerufene Quellen und Suchläufe in `quellen.md`) ohne datierten Beleg im Fenster. Quellenlücke bleibt als Einschränkung vermerkt |
+| Zulässige Quellen | Eigene Veröffentlichungen der Akteure (auch Eigendarstellung), Lokalpresse, Rundfunk, Amtsblatt und Fraktionsbeiträge, Pressemitteilungen von Stadt und Fraktionen. Ergebnisse von Websuchen allein zählen nicht als Beleg |
+| Nicht zulässig | Äußerungen Einzelner ohne Akteurszugehörigkeit (z. B. einzelne Eltern oder Bürger), Reaktionen vor T0, undatierte Belege, bloße Besorgnis ohne Ablehnung der Maßnahme, Debattenbeiträge in der Beschlusssitzung ohne eigene Veröffentlichung |
+| Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
+| Positivbeispiele | Karlsfeld: Leiter der TSV-Schwimmabteilung am 03.03.2023, „ein Schlag ins Gesicht“. Neuwied: AfD-Fraktion, Pressemitteilung vom 16.11.2025. Unterschleißheim: Offener Brief BUND Naturschutz vom 06.12.2022 |
+| Negativbeispiele | Niederkassel: Stellungnahmen des Fördervereins erst am 13.03.2023 (Tag 27) bzw. vor T0. Wanzleben: Bürgerinitiative nur undatiert belegt, Kommentar erst am Tag 21; Kehl: dokumentierte Negativsuche |
+
+Die frühere Primärfrage „Beschluss binnen 14 Tagen förmlich aufgehoben oder geändert“ war in den fünf zuerst erfassten Fällen (Karlsfeld, Neuwied, Niederkassel, Unterschleißheim, Wanzleben) durchgehend „Nein“ und taugt ohne Streuung nicht als Messgröße; sie bleibt als explorative Frage `beschluss_aufgehoben` (ohne `primaer`) erhalten.
+
+**Basisrate:** Das Primärergebnis ist in 5 von 8 Fällen „Ja“ (62,5 %; Freiburg, Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ein Skill-Vergleich muss diese Basisrate schlagen (Brier-Skill gegenüber der konstanten Vorhersage 0,625). Bei nur 8 Fällen ist die Basisrate extrem ungenau (Wilson-95-%-Intervall etwa 31–86 %) und die Streuung nur grob; der Pilot erlaubt keine Kalibrierungsaussage. Die drei „Nein“-Kodierungen (Kehl, Niederkassel, Wanzleben) beruhen auf Quellenlücken und können zu konservativ sein; Medienverzerrung begünstigt laute Reaktionen.
 
 ## Arme und Durchführung
 
