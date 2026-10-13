@@ -523,6 +523,51 @@
             {{ t('ensemble.variantWithout', { type: at }) }}
           </label>
         </fieldset>
+        <fieldset class="ens-field ens-custom">
+          <legend>{{ t('ensemble.customQuestionsTitle') }}</legend>
+          <p class="ens-custom__hint">{{ t('ensemble.customQuestionsHint') }}</p>
+          <div v-for="(row, i) in customOutcomes" :key="i" class="ens-custom__row">
+            <label class="ens-custom__text">
+              <span class="sr-only">{{ t('ensemble.customQuestionLabel', { n: i + 1 }) }}</span>
+              <input
+                v-model="row.text"
+                type="text"
+                maxlength="200"
+                class="ens-custom__input"
+                :class="{ 'is-invalid': row.text.trim().length > 200 }"
+                :placeholder="t('ensemble.customQuestionPlaceholder')"
+              />
+              <span class="ens-custom__count" :class="{ 'is-warn': row.text.length >= 180 }">{{ row.text.length }}/200</span>
+            </label>
+            <div class="ens-custom__polarity" role="group" :aria-label="t('ensemble.customPolarityLabel')">
+              <button
+                type="button"
+                class="ens-pill ens-pill--sm"
+                :class="{ 'is-on': row.polarity === 'presence' }"
+                @click="row.polarity = 'presence'"
+              >{{ t('ensemble.customPolarityPresence') }}</button>
+              <button
+                type="button"
+                class="ens-pill ens-pill--sm"
+                :class="{ 'is-on': row.polarity === 'absence' }"
+                @click="row.polarity = 'absence'"
+              >{{ t('ensemble.customPolarityAbsence') }}</button>
+            </div>
+            <button
+              type="button"
+              class="ens-custom__remove"
+              :aria-label="t('ensemble.customQuestionsRemove')"
+              @click="removeCustomOutcome(i)"
+            >×</button>
+          </div>
+          <button
+            v-if="customOutcomes.length < 6"
+            type="button"
+            class="ens-custom__add"
+            @click="addCustomOutcome"
+          >{{ t('ensemble.customQuestionsAdd') }}</button>
+          <p v-if="customOutcomesError" class="ens-custom__error" role="alert">{{ customOutcomesError }}</p>
+        </fieldset>
         <p class="ens-eta">{{ t('ensemble.estimate', { time: estimateLabel }) }}</p>
       </div>
     </ConfirmSheet>
@@ -569,6 +614,25 @@ const ensembleIsolated = ref(true)
 const ensembleNull = ref(true)
 const ensembleWithout = ref([])
 const ensembleList = ref([])
+const customOutcomes = ref([])
+const customOutcomesError = ref('')
+
+const addCustomOutcome = () => {
+  if (customOutcomes.value.length >= 6) return
+  customOutcomes.value.push({ text: '', polarity: 'presence' })
+}
+const removeCustomOutcome = (i) => {
+  customOutcomes.value.splice(i, 1)
+  customOutcomesError.value = ''
+}
+const buildCustomOutcomesPayload = () => {
+  const rows = customOutcomes.value
+    .map((r) => ({ text_de: (r.text || '').trim(), polarity: r.polarity === 'absence' ? 'absence' : 'presence' }))
+    .filter((r) => r.text_de.length > 0)
+  if (rows.length > 6) return { error: t('ensemble.customTooMany'), rows: [] }
+  if (rows.some((r) => r.text_de.length > 200)) return { error: t('ensemble.customTooLong'), rows: [] }
+  return { error: '', rows }
+}
 
 const agentTypeOptions = computed(() => {
   const types = methodology.value?.agent_types || []
@@ -591,23 +655,33 @@ const estimateLabel = computed(() => {
 
 const openEnsembleSheet = () => {
   if (!props.simulationId) return
+  customOutcomes.value = []
+  customOutcomesError.value = ''
   ensembleSheetOpen.value = true
 }
 
 const startEnsembleRun = async () => {
   if (!props.simulationId) return
+  const { error, rows } = buildCustomOutcomesPayload()
+  if (error) {
+    customOutcomesError.value = error
+    return
+  }
+  customOutcomesError.value = ''
   ensembleStarting.value = true
   try {
     const variants = ['baseline']
     if (ensembleIsolated.value) variants.push('isolated')
     if (ensembleNull.value) variants.push('null_model')
     variants.push(...ensembleWithout.value)
-    const res = await startEnsemble({
+    const payload = {
       simulation_id: props.simulationId,
       runs: ensembleRuns.value,
       hours: ensembleHours.value,
       variants,
-    })
+    }
+    if (rows.length) payload.custom_outcomes = rows
+    const res = await startEnsemble(payload)
     const id = res?.data?.ensemble_id
     ensembleSheetOpen.value = false
     if (id) router.push({ name: 'Ensemble', params: { ensembleId: id } })
@@ -2773,6 +2847,69 @@ watch(() => props.reportId, (newId) => {
 }
 .ens-check input { width: 20px; height: 20px; }
 .ens-eta { margin: 0; font-size: 13px; color: var(--color-text-muted); }
+.ens-custom__hint { margin: 0; font-size: 13px; line-height: 1.45; color: var(--color-text-muted); font-weight: 400; }
+.ens-custom__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.ens-custom__text { display: grid; gap: 4px; grid-column: 1 / -1; }
+.ens-custom__input {
+  min-height: 44px;
+  width: 100%;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface-raised);
+  color: inherit;
+  font: inherit;
+  box-sizing: border-box;
+}
+.ens-custom__input.is-invalid { border-color: var(--color-error-text); }
+.ens-custom__count { font-size: 12px; color: var(--color-text-muted); justify-self: end; }
+.ens-custom__count.is-warn { color: var(--color-warning-text); }
+.ens-custom__polarity { display: flex; flex-wrap: wrap; gap: 8px; }
+.ens-pill--sm { font-size: 13px; padding: 0 12px; }
+.ens-custom__remove {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 12px;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ens-custom__add {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px dashed var(--color-border-default);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  justify-self: start;
+}
+.ens-custom__error { margin: 0; font-size: 13px; color: var(--color-error-text); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .report-id {
   font-size: 11px;
