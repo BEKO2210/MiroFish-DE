@@ -38,7 +38,14 @@ VARIANT_LABELS = {
     "baseline": ("Basislauf", "Baseline"),
     "isolated": ("Ohne Vernetzung", "Isolated"),
     "null_model": ("Nullmodell", "Null model"),
+    "null_document": ("Nullmodell Dokument", "Null model (document)"),
+    "null_personas": ("Nullmodell Personas", "Null model (personas)"),
 }
+# Erster Versuch plus zwei Wiederholungen eines fehlgeschlagenen Stapels.
+BATCH_ATTEMPTS = 3
+NULL_DOCUMENT_ARMS = frozenset({"null_model", "null_document"})
+NULL_PERSONA_ARMS = frozenset({"null_personas"})
+NULL_ARMS = NULL_DOCUMENT_ARMS | NULL_PERSONA_ARMS
 
 MAX_ENSEMBLE_HOURS = 336
 MAX_CUSTOM_OUTCOMES = 20
@@ -76,8 +83,190 @@ def newcombe_difference_interval(
     return max(-1.0, lower), min(1.0, upper)
 
 
-def _round(value: float) -> float:
-    return round(float(value), 4)
+def exact_mcnemar_p(baseline_only: int, variant_only: int) -> float:
+    """Zweiseitiger exakter McNemar über die diskordanten Paare.
+
+    Doppelte untere Binomialwahrscheinlichkeit bei p = 1/2, bei 1 gekappt.
+    0 gegen 5 → 0,0625; 1 gegen 6 → 0,125; 7 gegen 0 → 0,015625.
+    """
+    discordant = int(baseline_only) + int(variant_only)
+    if discordant <= 0:
+        return 1.0
+    smaller = min(int(baseline_only), int(variant_only))
+    tail = sum(math.comb(discordant, index) for index in range(smaller + 1))
+    return min(1.0, 2.0 * tail / (2 ** discordant))
+
+
+def paired_difference_interval(
+    baseline_only: int,
+    variant_only: int,
+    n_pairs: int,
+    z: float = Z_95,
+) -> Tuple[float, float]:
+    """Wald-Intervall der gepaarten Differenz (Variante − Basis) = (c − b) / n."""
+    if n_pairs <= 0:
+        return 0.0, 0.0
+    difference = (variant_only - baseline_only) / n_pairs
+    numerator = (baseline_only + variant_only) - (variant_only - baseline_only) ** 2 / n_pairs
+    standard_error = math.sqrt(max(0.0, numerator)) / n_pairs
+    lower = difference - z * standard_error
+    upper = difference + z * standard_error
+    return max(-1.0, lower), min(1.0, upper)
+
+
+def holm_adjust(p_values: Sequence[float]) -> List[float]:
+    """Holm-Adjustierung, monoton in der aufsteigend sortierten p-Reihenfolge."""
+    count = len(p_values)
+    if not count:
+        return []
+    adjusted = [1.0] * count
+    order = sorted(range(count), key=lambda index: (float(p_values[index]), index))
+    running = 0.0
+    for rank, index in enumerate(order):
+        corrected = min(1.0, (count - rank) * float(p_values[index]))
+        running = max(running, corrected)
+        adjusted[index] = running
+    return adjusted
+
+
+def _usable_pair_flag(row: Optional[Dict[str, Any]], outcome_id: str) -> Optional[bool]:
+    if not isinstance(row, dict):
+        return None
+    judgment = row.get(outcome_id)
+    if not isinstance(judgment, dict) or "yes" not in judgment:
+        return None
+    if judgment.get("unclassified") or judgment.get("disputed"):
+        return None
+    return bool(judgment.get("yes"))
+
+
+def paired_outcome_table(
+    baseline_runs: Sequence[Dict[str, Any]],
+    variant_runs: Sequence[Dict[str, Any]],
+    outcome_id: str,
+) -> Dict[str, int]:
+    """2×2-Tafel über denselben Laufindex. Unklassifizierte oder strittige Seiten bleiben ungepaart."""
+    both_yes = baseline_only = variant_only = both_no = unpaired = 0
+    for index in range(max(len(baseline_runs), len(variant_runs))):
+        left = _usable_pair_flag(
+            baseline_runs[index] if index < len(baseline_runs) else None, outcome_id
+        )
+        right = _usable_pair_flag(
+            variant_runs[index] if index < len(variant_runs) else None, outcome_id
+        )
+        if left is None or right is None:
+            unpaired += 1
+            continue
+        if left and right:
+            both_yes += 1
+        elif left:
+            baseline_only += 1
+        elif right:
+            variant_only += 1
+        else:
+            both_no += 1
+    return {
+        "both_yes": both_yes,
+        "baseline_only": baseline_only,
+        "variant_only": variant_only,
+        "both_no": both_no,
+        "n_pairs": both_yes + baseline_only + variant_only + both_no,
+        "unpaired": unpaired,
+    }
+
+
+def canonical_outcome_rows(checklist: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Absence-Gegenstücke mit counter_outcome_id in die Presence-Zeile falten."""
+    by_id = {str(item.get("id")): item for item in checklist}
+    folded: Dict[str, List[str]] = {}
+    skip = set()
+    for item in checklist:
+        outcome_id = str(item.get("id"))
+        counter = str(item.get("counter_outcome_id") or "")
+        polarity = item.get("polarity") or infer_polarity(
+            f"{item.get('text_de', '')} {item.get('definition', '')}"
+        )
+        if polarity != "absence" or counter not in by_id or counter == outcome_id:
+            continue
+        counter_item = by_id[counter]
+        counter_polarity = counter_item.get("polarity") or infer_polarity(
+            f"{counter_item.get('text_de', '')} {counter_item.get('definition', '')}"
+        )
+        if counter_polarity == "absence":
+            continue
+        folded.setdefault(counter, []).append(outcome_id)
+        skip.add(outcome_id)
+    rows = []
+    for item in checklist:
+        outcome_id = str(item.get("id"))
+        if outcome_id in skip:
+            continue
+        rows.append({
+            "outcome_id": outcome_id,
+            "collapsed_outcome_ids": list(folded.get(outcome_id, [])),
+        })
+    return rows
+
+
+def resolve_primary_outcome_id(
+    checklist: Sequence[Dict[str, Any]], requested: Optional[str]
+) -> str:
+    """Gewählte ID, sonst das erste eigene Ergebnis, sonst das erste automatische."""
+    ids = [str(item.get("id")) for item in checklist]
+    if requested:
+        if requested not in ids:
+            raise ValueError(f"primary_outcome_id nicht in der Checkliste: {requested}")
+        return requested
+    for item in checklist:
+        if item.get("source") == "user":
+            return str(item["id"])
+    if not ids:
+        raise ValueError("Checkliste enthält kein Ergebnis")
+    return ids[0]
+
+
+def median_character_count(lengths: Sequence[int]) -> int:
+    """Median; bei gerader Anzahl der gerundete Mittelwert der beiden mittleren Werte."""
+    ordered = sorted(int(value) for value in lengths)
+    if not ordered:
+        return 0
+    middle = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[middle]
+    return int(round((ordered[middle - 1] + ordered[middle]) / 2))
+
+
+def null_arm(key: str) -> Optional[str]:
+    """null_model bleibt der Alias von null_document."""
+    if key in NULL_DOCUMENT_ARMS:
+        return "null_document"
+    if key in NULL_PERSONA_ARMS:
+        return "null_personas"
+    return None
+
+
+def execution_variant_keys(keys: Sequence[str]) -> List[str]:
+    """null_personas liest die Basis-Transkripte und läuft deshalb nicht vor baseline."""
+    ordered = [str(key) for key in keys]
+    if "baseline" in ordered and "null_personas" in ordered:
+        if ordered.index("null_personas") < ordered.index("baseline"):
+            ordered.remove("null_personas")
+            ordered.insert(ordered.index("baseline") + 1, "null_personas")
+    return ordered
+
+
+def _normalized_span(text: str) -> str:
+    return " ".join(str(text or "").split()).casefold()
+
+
+def span_in_text(span: str, text: str) -> bool:
+    """Wörtliche Spanne nach Whitespace-Normalisierung, ohne Großschreibung."""
+    normalized = _normalized_span(span)
+    return bool(normalized) and normalized in _normalized_span(text)
+
+
+def _round(value: float, digits: int = 4) -> float:
+    return round(float(value), digits)
 
 
 def cohens_kappa(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, Any]:
@@ -119,6 +308,7 @@ def combine_rater_results(
         oid = str(item["id"])
         left = rater_a.get(oid, {"yes": False, "evidence": [], "unclassified": True})
         right = rater_b.get(oid, {"yes": False, "evidence": [], "unclassified": True})
+        edges = _merge_mechanism_edges(left, right)
         if left.get("unclassified") or right.get("unclassified"):
             combined[oid] = {
                 "yes": False,
@@ -127,22 +317,41 @@ def combine_rater_results(
                 "disputed": False,
                 "raters": {"a": left, "b": right},
             }
-            continue
-        disputed = bool(left.get("yes")) != bool(right.get("yes"))
-        yes = bool(left.get("yes") and right.get("yes"))
-        evidence = []
-        if yes:
-            for rater, judgment in (("a", left), ("b", right)):
-                for raw in judgment.get("evidence", []):
-                    evidence.append({**raw, "rater": rater})
-        combined[oid] = {
-            "yes": yes,
-            "evidence": evidence,
-            "unclassified": False,
-            "disputed": disputed,
-            "raters": {"a": left, "b": right},
-        }
+        else:
+            disputed = bool(left.get("yes")) != bool(right.get("yes"))
+            yes = bool(left.get("yes") and right.get("yes"))
+            evidence = []
+            if yes:
+                for rater, judgment in (("a", left), ("b", right)):
+                    for raw in judgment.get("evidence", []):
+                        evidence.append({**raw, "rater": rater})
+            combined[oid] = {
+                "yes": yes,
+                "evidence": evidence,
+                "unclassified": False,
+                "disputed": disputed,
+                "raters": {"a": left, "b": right},
+            }
+        if edges or "mechanism_edges" in left or "mechanism_edges" in right:
+            combined[oid]["mechanism_edges"] = edges
     return combined
+
+
+def _merge_mechanism_edges(
+    left: Dict[str, Any], right: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    merged: List[Dict[str, Any]] = []
+    seen = set()
+    for judgment in (left, right):
+        for edge in judgment.get("mechanism_edges") or []:
+            if not isinstance(edge, dict):
+                continue
+            marker = (edge.get("platform"), edge.get("post_id"), edge.get("text"))
+            if marker in seen:
+                continue
+            seen.add(marker)
+            merged.append(edge)
+    return merged
 
 
 ABSENCE_RE = re.compile(r"\b(?:nicht|kein(?:e|en|er|es)?|bleibt\s+aus)\b", re.IGNORECASE)
@@ -620,6 +829,27 @@ def load_simulation_posts(
     return result
 
 
+def baseline_transcript_lengths(ensemble_dir: Path) -> List[int]:
+    """Zeichen der Basis-Beiträge je Lauf, Startbeiträge ausgenommen."""
+    baseline = Path(ensemble_dir) / "baseline"
+    if not baseline.is_dir():
+        return []
+    run_dirs = []
+    for path in baseline.glob("run_*"):
+        try:
+            index = int(path.name.split("_", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        run_dirs.append((index, path))
+    lengths = []
+    for _, run_dir in sorted(run_dirs):
+        config = _read_json(run_dir / "simulation_config.json")
+        initial = (config.get("event_config") or {}).get("initial_posts") or []
+        posts = load_simulation_posts(run_dir, initial)
+        lengths.append(sum(len(str(post.get("text") or "")) for post in posts))
+    return lengths
+
+
 def structural_interaction_evidence(
     posts: Sequence[Dict[str, Any]],
     side_a_agent_ids: Sequence[Any],
@@ -653,13 +883,175 @@ def structural_interaction_evidence(
     return evidence
 
 
+def _merge_profile_persona(
+    records: Dict[Any, Dict[str, str]], profile_id: Any, persona: str, name: str
+) -> None:
+    if profile_id is None:
+        return
+    wanted = str(profile_id).strip()
+    if not wanted:
+        return
+    for record in records.values():
+        if str(record.get("agent_id")) != wanted:
+            continue
+        if persona and len(persona) > len(record.get("persona") or ""):
+            record["persona"] = persona
+        if name and not record.get("name"):
+            record["name"] = name
+        return
+
+
+def persona_records(context: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Dieselben Akteure wie die Simulation: Typ, Name und Persona-Text."""
+    config = context.get("config") or {}
+    records: Dict[Any, Dict[str, str]] = {}
+    order: List[Any] = []
+    for index, agent in enumerate(config.get("agent_configs") or []):
+        if not isinstance(agent, dict):
+            continue
+        agent_id = agent.get("agent_id")
+        key = agent_id if agent_id is not None else f"anon-{index}"
+        order.append(key)
+        records[key] = {
+            "agent_id": "" if agent_id is None else str(agent_id),
+            "name": str(agent.get("entity_name") or agent.get("name") or "").strip(),
+            "group": str(agent.get("entity_type") or "").strip(),
+            "persona": str(
+                agent.get("persona") or agent.get("bio") or agent.get("summary") or ""
+            ).strip(),
+        }
+    sim_dir = context.get("sim_dir")
+    if sim_dir:
+        reddit_path = Path(sim_dir) / "reddit_profiles.json"
+        if reddit_path.is_file():
+            try:
+                profiles = json.loads(reddit_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                profiles = []
+            if isinstance(profiles, list):
+                for profile in profiles:
+                    if not isinstance(profile, dict):
+                        continue
+                    _merge_profile_persona(
+                        records,
+                        profile.get("agent_id", profile.get("user_id")),
+                        str(profile.get("persona") or profile.get("bio") or "").strip(),
+                        str(profile.get("name") or "").strip(),
+                    )
+        twitter_path = Path(sim_dir) / "twitter_profiles.csv"
+        if twitter_path.is_file():
+            try:
+                _fields, rows = _read_twitter_csv(twitter_path)
+            except OSError:
+                rows = []
+            for row in rows:
+                _merge_profile_persona(
+                    records,
+                    row.get("agent_id") or row.get("user_id"),
+                    str(row.get("user_char") or row.get("description") or "").strip(),
+                    str(row.get("name") or "").strip(),
+                )
+    return [records[key] for key in order]
+
+
+def opening_post_texts(context: Dict[str, Any]) -> List[str]:
+    posts = ((context.get("config") or {}).get("event_config") or {}).get("initial_posts") or []
+    texts = []
+    for post in posts:
+        if isinstance(post, dict):
+            text = str(post.get("content") or "").strip()
+        else:
+            text = str(post or "").strip()
+        if text:
+            texts.append(text)
+    return texts
+
+
+def build_null_arm_prompt(
+    arm: str,
+    *,
+    document: str,
+    question: str,
+    hours: int,
+    personas: Sequence[Dict[str, Any]] = (),
+    initial_posts: Sequence[str] = (),
+    target_characters: Optional[int] = None,
+) -> str:
+    """Dokument und Frage; null_personas zusätzlich Personas, Startbeiträge, Länge, Gruppen."""
+    resolved = null_arm(arm) or "null_document"
+    parts = [
+        f"Eingabematerial:\n{document}",
+        f"Frage: {question}",
+        f"Zeitraum: {hours} Stunden.",
+        "Erzähle einen möglichen Verlauf innerhalb dieses Zeitraums.",
+    ]
+    if resolved != "null_personas":
+        return "\n\n".join(parts)
+    lines = []
+    groups: List[str] = []
+    for persona in personas:
+        name = str(persona.get("name") or "").strip()
+        group = str(persona.get("group") or "").strip()
+        text = str(persona.get("persona") or "").strip()
+        if group and group not in groups:
+            groups.append(group)
+        label = name or group or "Akteur"
+        group_bit = f" ({group})" if group and name else ""
+        lines.append(f"- {label}{group_bit}: {text or 'keine weitere Persona'}")
+    parts.append("Personas:\n" + ("\n".join(lines) if lines else "- keine"))
+    openings = [str(item).strip() for item in initial_posts if str(item).strip()]
+    parts.append(
+        "Startbeiträge:\n" + (
+            "\n".join(f"- {item}" for item in openings) if openings else "- keine"
+        )
+    )
+    if groups:
+        parts.append(
+            "Jede der folgenden Akteursgruppen muss im Verlauf vorkommen: "
+            + ", ".join(groups) + "."
+        )
+    if target_characters is not None:
+        parts.append(
+            f"Schreibe ungefähr {int(target_characters)} Zeichen, "
+            "orientiert am Median der Basis-Transkripte."
+        )
+    return "\n\n".join(parts)
+
+
+def _evidence_pairs(raw: Dict[str, Any]) -> List[Tuple[str, str]]:
+    snippet = str(raw.get("snippet") or raw.get("span") or raw.get("text_span") or "")
+    entries = raw.get("evidence")
+    if isinstance(entries, list) and entries and all(isinstance(item, dict) for item in entries):
+        pairs = []
+        for entry in entries:
+            post_id = entry.get("post_id", entry.get("id"))
+            span = entry.get("snippet") or entry.get("span") or entry.get("text_span") or snippet
+            if post_id is not None:
+                pairs.append((str(post_id), str(span or "")))
+        return pairs
+    evidence_ids = raw.get("post_ids", entries)
+    if isinstance(evidence_ids, str):
+        evidence_ids = [evidence_ids]
+    pairs = []
+    if isinstance(evidence_ids, list):
+        for post_id in evidence_ids:
+            if isinstance(post_id, dict):
+                identifier = post_id.get("post_id", post_id.get("id"))
+                span = post_id.get("snippet") or post_id.get("span") or snippet
+                if identifier is not None:
+                    pairs.append((str(identifier), str(span or "")))
+            else:
+                pairs.append((str(post_id), snippet))
+    return pairs
+
+
 def verify_classification_evidence(
     classification: Any,
     posts: Sequence[Dict[str, Any]],
     checklist: Sequence[Dict[str, Any]],
     run_number: int,
 ) -> Dict[str, Dict[str, Any]]:
-    """Ja nur akzeptieren, wenn mindestens eine genannte ID wirklich existiert."""
+    """Ja nur mit vorhandener Beitrags-ID und wörtlicher Spanne in genau diesem Beitrag."""
     if isinstance(classification, dict):
         rows = classification.get("results", classification.get("outcomes", []))
     else:
@@ -668,7 +1060,9 @@ def verify_classification_evidence(
     by_outcome = {
         str(row.get("outcome_id")): row for row in rows if isinstance(row, dict)
     }
-    by_id = {str(post["post_id"]): post for post in posts}
+    posts_by_id: Dict[str, List[Dict[str, Any]]] = {}
+    for post in posts:
+        posts_by_id.setdefault(str(post["post_id"]), []).append(post)
     verified: Dict[str, Dict[str, Any]] = {}
     for item in checklist:
         outcome_id = str(item["id"])
@@ -678,16 +1072,42 @@ def verify_classification_evidence(
             continue
         answer = raw.get("yes", raw.get("answer", False))
         yes = answer is True or str(answer).strip().casefold() in {"ja", "yes", "true", "1"}
-        evidence_ids = raw.get("post_ids", raw.get("evidence", []))
-        if isinstance(evidence_ids, str):
-            evidence_ids = [evidence_ids]
         evidence = []
-        for post_id in evidence_ids if isinstance(evidence_ids, list) else []:
-            found = by_id.get(str(post_id))
-            if found:
-                evidence.append({"run": run_number, **found})
+        for post_id, span in _evidence_pairs(raw):
+            match = next(
+                (
+                    post for post in posts_by_id.get(post_id, [])
+                    if span_in_text(span, str(post.get("text") or ""))
+                ),
+                None,
+            )
+            if match is not None:
+                evidence.append({
+                    "run": run_number,
+                    **match,
+                    "span": _normalized_span(span),
+                })
         verified[outcome_id] = {"yes": bool(yes and evidence), "evidence": evidence}
     return verified
+
+
+def chat_json_with_retries(
+    llm: Any, messages: Sequence[Dict[str, str]], **kwargs: Any
+) -> Tuple[Any, Optional[Any], List[str]]:
+    """Fehlgeschlagenen Stapel bis zu zweimal wiederholen. Der Lauf bleibt danach auswertbar."""
+    errors: List[str] = []
+    raw = None
+    for _ in range(BATCH_ATTEMPTS):
+        try:
+            if hasattr(llm, "last_raw_response"):
+                llm.last_raw_response = None
+            payload = llm.chat_json(messages, **kwargs)
+            raw = getattr(llm, "last_raw_response", None) or payload
+            return payload, raw, errors
+        except Exception as error:
+            raw = getattr(llm, "last_raw_response", None)
+            errors.append(str(error))
+    return None, raw, errors
 
 
 def _render_post(post: Dict[str, Any]) -> str:
@@ -833,6 +1253,7 @@ class EnsembleService:
         variants: Any,
         start_hour: int = 7,
         custom_outcomes: Any = None,
+        primary_outcome_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         if not isinstance(simulation_id, str) or not simulation_id.startswith("sim_"):
             raise ValueError("simulation_id muss mit sim_ beginnen")
@@ -852,6 +1273,13 @@ class EnsembleService:
             raise ValueError("start_hour muss zwischen 0 und 23 liegen")
         variants = validate_variants(variants)
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
+        if primary_outcome_id is not None:
+            if not isinstance(primary_outcome_id, str) or not primary_outcome_id.strip():
+                raise ValueError("primary_outcome_id muss eine Ergebnis-ID sein")
+            primary_outcome_id = primary_outcome_id.strip()
+            known_custom = {item["id"] for item in custom_outcomes}
+            if primary_outcome_id.startswith("c") and primary_outcome_id not in known_custom:
+                raise ValueError(f"primary_outcome_id nicht vorhanden: {primary_outcome_id}")
         source = Path(Config.UPLOAD_FOLDER) / "simulations" / simulation_id
         required = ("simulation_config.json", "reddit_profiles.json", "twitter_profiles.csv", "state.json")
         missing = [name for name in required if not (source / name).is_file()]
@@ -906,6 +1334,7 @@ class EnsembleService:
             ],
             "checklist": [],
             "custom_outcomes": custom_outcomes,
+            "primary_outcome_id": primary_outcome_id,
             "results": {},
             "comparisons": [],
             "reliability": {},
@@ -1052,8 +1481,8 @@ class EnsembleService:
         seconds_per_round = sum(samples) / len(samples) if samples else 40.0
         minutes = int((config.get("time_config") or {}).get("minutes_per_round") or 60)
         rounds = max(1, hours * 60 // max(minutes, 1))
-        simulation_variants = sum(1 for key in variants if key != "null_model")
-        null_runs = runs if "null_model" in variants else 0
+        simulation_variants = sum(1 for key in variants if null_arm(key) is None)
+        null_runs = runs * sum(1 for key in variants if null_arm(key))
         return max(1, math.ceil(seconds_per_round * (rounds * runs * simulation_variants + null_runs)))
 
     def _create_checklist(self, state: Dict[str, Any], context: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -1136,18 +1565,34 @@ class EnsembleService:
             ))
         return mark_checklist_material(checklist, material, initial, quote_checks)
 
-    def _null_narrative(self, state: Dict[str, Any], context: Dict[str, Any], seed: int) -> str:
+    def _null_narrative(
+        self,
+        state: Dict[str, Any],
+        context: Dict[str, Any],
+        seed: int,
+        arm: str = "null_document",
+        target_characters: Optional[int] = None,
+    ) -> str:
+        resolved = null_arm(arm) or "null_document"
+        prompt = build_null_arm_prompt(
+            resolved,
+            document=str(context.get("extracted_text") or ""),
+            question=str(state.get("question") or ""),
+            hours=int(state.get("hours") or 0),
+            personas=persona_records(context) if resolved == "null_personas" else (),
+            initial_posts=opening_post_texts(context) if resolved == "null_personas" else (),
+            target_characters=target_characters if resolved == "null_personas" else None,
+        )
+        max_tokens = 4000
+        if resolved == "null_personas" and target_characters is not None:
+            max_tokens = max(1, math.ceil(int(target_characters) / 3))
         return self._llm().chat(
             [
                 {"role": "system", "content": "Schreibe eine plausible Verlaufserzählung, keine Analyse der Simulation."},
-                {"role": "user", "content": (
-                    f"Eingabematerial:\n{context['extracted_text']}\n\n"
-                    f"Frage: {state['question']}\nZeitraum: {state['hours']} Stunden. "
-                    "Erzähle einen möglichen Verlauf innerhalb dieses Zeitraums."
-                )},
+                {"role": "user", "content": prompt},
             ],
             temperature=0.7,
-            max_tokens=4000,
+            max_tokens=max_tokens,
             seed=seed,
         )
 
@@ -1258,8 +1703,9 @@ class EnsembleService:
             "Ein konkreter aufgeführter Punkt kann zugleich ein allgemeineres positives Ereignis "
             "belegen; verwende dann dieselben Beitrags-IDs für alle passenden outcome_ids. "
             "Nenne ausschließlich vorhandene IDs und liefere genau eine Zeile je outcome_id. "
+            "yes=true nur zusammen mit einer kurzen wörtlichen Textspanne aus dem genannten Beitrag. "
             "JSON: {\"results\":[{\"outcome_id\":\"o1\",\"yes\":true,"
-            "\"post_ids\":[\"twitter:1\"]}]}.\n\n"
+            "\"post_ids\":[\"twitter:1\"],\"snippet\":\"wörtliche Spanne\"}]}.\n\n"
             f"Zu prüfende positive Ereignisse:\n{checklist}\n\nBeiträge:\n"
         )
         system = "Klassifiziere streng nur anhand der gelieferten Beiträge."
@@ -1293,30 +1739,29 @@ class EnsembleService:
                 "post_count": len({str(post.get('post_id')) for post in batch}),
                 "estimated_input_tokens": estimate_tokens(messages),
             }
-            try:
-                if hasattr(llm, "last_raw_response"):
-                    llm.last_raw_response = None
-                payload = llm.chat_json(
-                    messages,
-                    temperature=0,
-                    max_tokens=output_tokens,
-                    max_attempts=2,
-                    seed=seed,
-                )
+            payload, raw, errors = chat_json_with_retries(
+                llm,
+                messages,
+                temperature=0,
+                max_tokens=output_tokens,
+                max_attempts=2,
+                seed=seed,
+            )
+            audit["attempts"] = (len(errors) + 1) if payload is not None else len(errors)
+            audit["raw_response"] = raw
+            if payload is None:
+                verified = {
+                    str(item["id"]): {"yes": False, "evidence": []}
+                    for item in checklist_items
+                }
+                audit["error"] = errors[-1] if errors else "Stapel fehlgeschlagen"
+                audit["errors"] = errors
+            else:
                 verified = verify_classification_evidence(
                     payload, batch, checklist_items, run_number
                 )
-                audit["raw_response"] = getattr(llm, "last_raw_response", None) or payload
                 audit["parsed_response"] = payload
-                audit["verified"] = verified
-            except Exception as error:
-                verified = {
-                    str(item["id"]): {"yes": False, "evidence": [], "unclassified": True}
-                    for item in checklist_items
-                }
-                audit["raw_response"] = getattr(llm, "last_raw_response", None)
-                audit["error"] = str(error)
-                audit["verified"] = verified
+            audit["verified"] = verified
             audits.append(audit)
             batch_results.append(verified)
 
@@ -1365,6 +1810,7 @@ class EnsembleService:
             else:
                 yes = positive_found
                 evidence = positive_evidence
+            structural: List[Dict[str, Any]] = []
             if item.get("kind") == "interaction":
                 groups = interaction_groups.get(oid, {})
                 structural = structural_interaction_evidence(
@@ -1375,20 +1821,18 @@ class EnsembleService:
                 )
                 interaction_checks[oid] = {
                     "structural_evidence": structural,
-                    "accepted": bool(yes and structural),
+                    "mechanism_edges": structural,
+                    "accepted": bool(yes),
                     "note": (
-                        "Kein struktureller Beleg zwischen den zugeordneten Gruppen; "
-                        "Interaktion wird als Nein gewertet."
+                        "Keine DB-Kante zwischen den zugeordneten Gruppen; "
+                        "mechanism_edges bleibt leer. Das Ergebnis folgt der Textspanne."
                         if not structural else
-                        "Struktureller Beleg zwischen den zugeordneten Gruppen vorhanden."
+                        "DB-Kante liegt als mechanism_edges vor und ist nicht das Ergebnis."
                     ),
                 }
-                if not structural:
-                    yes = False
-                    evidence = []
-                elif yes:
-                    evidence = structural
             combined[oid] = {"yes": yes, "evidence": evidence}
+            if item.get("kind") == "interaction":
+                combined[oid]["mechanism_edges"] = structural
 
         audit_document = {
             "run": run_number,
@@ -1465,50 +1909,62 @@ class EnsembleService:
         seed: int,
         run_number: int,
         llm: Any,
+        variant_key: str = "null_model",
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist = "\n".join(
             f"{o['id']}: {_positive_event_text(o) if (o.get('polarity') or infer_polarity(str(o))) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
             for o in state["checklist"]
         )
-        try:
-            payload = llm.chat_json(
-                [
-                    {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
-                    {"role": "user", "content": (
-                        "Prüfe die aufgeführten positiven Ereignisse. JSON: {\"results\":[{"
-                        "\"outcome_id\":\"o1\",\"yes\":true,\"snippet\":\"wörtliche kurze "
-                        "Textstelle\"}]}. Ja erfordert eine echte Textstelle.\n\n"
-                        f"Ereignisse:\n{checklist}\n\nErzählung:\n{narrative}"
-                    )},
-                ],
-                temperature=0,
-                max_tokens=3000,
-                max_attempts=2,
-                seed=seed,
-            )
-            parse_error = None
-        except Exception as error:
-            payload = {}
-            parse_error = str(error)
+        messages = [
+            {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
+            {"role": "user", "content": (
+                "Prüfe die aufgeführten positiven Ereignisse. JSON: {\"results\":[{"
+                "\"outcome_id\":\"o1\",\"yes\":true,\"snippet\":\"wörtliche kurze "
+                "Textstelle\"}]}. Ja erfordert eine wörtliche Textspanne, die das Ereignis trägt, "
+                "auch bei Interaktion. Die Datenbankkante ist nicht das Ergebnis.\n\n"
+                f"Ereignisse:\n{checklist}\n\nErzählung:\n{narrative}"
+            )},
+        ]
+        payload, raw, errors = chat_json_with_retries(
+            llm,
+            messages,
+            temperature=0,
+            max_tokens=3000,
+            max_attempts=2,
+            seed=seed,
+        )
+        parse_error = errors[-1] if payload is None else None
         rows = payload.get("results", []) if isinstance(payload, dict) else []
         by_id = {str(r.get("outcome_id")): r for r in rows if isinstance(r, dict)}
         positive: Dict[str, Tuple[bool, str]] = {}
         for outcome in state["checklist"]:
-            raw = by_id.get(outcome["id"])
-            if parse_error or not isinstance(raw, dict):
+            raw_row = by_id.get(outcome["id"])
+            if parse_error or not isinstance(raw_row, dict):
                 positive[outcome["id"]] = (False, "")
                 continue
-            answer = raw.get("yes", False)
-            snippet = " ".join(str(raw.get("snippet") or "").split())
-            valid = bool(snippet and snippet.casefold() in " ".join(narrative.split()).casefold())
-            positive[outcome["id"]] = (bool(answer is True and valid), snippet)
+            answer = raw_row.get("yes", False)
+            snippet = " ".join(str(raw_row.get("snippet") or "").split())
+            valid = bool(answer is True and span_in_text(snippet, narrative))
+            positive[outcome["id"]] = (valid, snippet if valid else "")
 
         result = {}
         for outcome in state["checklist"]:
-            raw = by_id.get(outcome["id"])
+            raw_row = by_id.get(outcome["id"])
             counter = str(outcome.get("counter_outcome_id") or "")
-            if parse_error or not isinstance(raw, dict) or (counter and not isinstance(by_id.get(counter), dict)):
-                result[outcome["id"]] = {"yes": False, "evidence": [], "unclassified": True}
+            kind = outcome.get("kind") or infer_kind(
+                f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
+            )
+            interaction = kind == "interaction"
+            # Ein geparster Stapel ohne Zeile bleibt unklassifiziert. Nach ausgeschöpften
+            # Wiederholungen zählt der Lauf weiter, nur ohne Beleg.
+            if not parse_error and (
+                not isinstance(raw_row, dict)
+                or (counter and not isinstance(by_id.get(counter), dict))
+            ):
+                record: Dict[str, Any] = {"yes": False, "evidence": [], "unclassified": True}
+                if interaction:
+                    record["mechanism_edges"] = []
+                result[outcome["id"]] = record
                 continue
             positive_found, snippet = positive.get(outcome["id"], (False, ""))
             if counter:
@@ -1517,24 +1973,25 @@ class EnsembleService:
                 f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
             )) == "absence"
             yes = not positive_found if absence else positive_found
-            if (outcome.get("kind") or infer_kind(
-                f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
-            )) == "interaction":
-                yes = False
-            result[outcome["id"]] = {
+            record = {
                 "yes": yes,
                 "evidence": ([{
                     "run": run_number,
-                    "platform": "null_model",
+                    "platform": variant_key,
                     "post_id": f"null:{run_number}",
                     "agent": "Hauptmodell",
                     "text": ("kein passendes Ereignis in der geprüften Erzählung" if absence else snippet),
+                    "span": snippet,
                 }] if yes else []),
             }
+            if interaction:
+                record["mechanism_edges"] = []
+            result[outcome["id"]] = record
         audit = {
             "batches": [{
                 "batch": 1,
-                "raw_response": payload if not parse_error else None,
+                "attempts": (len(errors) + 1) if payload is not None else len(errors),
+                "raw_response": raw if not parse_error else None,
                 "error": parse_error,
                 "verified": result,
             }],
@@ -1549,10 +2006,11 @@ class EnsembleService:
         seed: int,
         run_number: int,
         run_dir: Optional[Path] = None,
+        variant_key: str = "null_model",
     ) -> Dict[str, Dict[str, Any]]:
         primary = self._llm()
         result_a, audit_a = self._classify_narrative_once(
-            state, narrative, seed, run_number, primary
+            state, narrative, seed, run_number, primary, variant_key
         )
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
@@ -1563,7 +2021,7 @@ class EnsembleService:
             secondary_setup_error = ""
         second_seed = seed + 1_000_003
         result_b, audit_b = self._classify_narrative_once(
-            state, narrative, second_seed, run_number, secondary
+            state, narrative, second_seed, run_number, secondary, variant_key
         )
         if secondary_setup_error:
             audit_b["fallback_reason"] = (
@@ -1574,7 +2032,7 @@ class EnsembleService:
             secondary = primary
             seed_fallback = True
             result_b, audit_b = self._classify_narrative_once(
-                state, narrative, second_seed, run_number, secondary
+                state, narrative, second_seed, run_number, secondary, variant_key
             )
             audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
         combined = combine_rater_results(result_a, result_b, state["checklist"])
@@ -1652,6 +2110,10 @@ class EnsembleService:
                     "ci_high": _round(high),
                     "evidence": evidence,
                 }
+                if any("mechanism_edges" in (row.get(oid) or {}) for row in runs):
+                    results[key][oid]["mechanism_edge_runs"] = sum(
+                        1 for row in classified_runs if row.get(oid, {}).get("mechanism_edges")
+                    )
         state["results"] = results
         state["consistency_warnings"] = consistency_warnings
         reliability = {}
@@ -1673,27 +2135,83 @@ class EnsembleService:
             metric["label"] = reliability_label(metric["kappa"])
             reliability[oid] = metric
         state["reliability"] = reliability
+        rows = canonical_outcome_rows(state.get("checklist") or [])
+        folded_into = {
+            collapsed: row["outcome_id"]
+            for row in rows
+            for collapsed in row["collapsed_outcome_ids"]
+        }
+        for item in state.get("checklist") or []:
+            target = folded_into.get(str(item.get("id")))
+            if target:
+                item["collapsed_into"] = target
+            else:
+                item.pop("collapsed_into", None)
+        if state.get("checklist"):
+            state["primary_outcome_id"] = resolve_primary_outcome_id(
+                state["checklist"], state.get("primary_outcome_id") or None
+            )
+        primary = str(state.get("primary_outcome_id") or "")
         comparisons = []
-        baseline = results.get("baseline", {})
+        baseline_runs = per_run.get("baseline", [])
+        marginal_baseline = results.get("baseline", {})
         for variant in state["variants"]:
             key = variant["key"]
             if key == "baseline":
                 continue
-            for outcome in state["checklist"]:
-                oid = outcome["id"]
-                value, base = results[key][oid], baseline[oid]
-                low, high = newcombe_difference_interval(
+            variant_runs = per_run.get(key, [])
+            for row in rows:
+                oid = row["outcome_id"]
+                table = paired_outcome_table(baseline_runs, variant_runs, oid)
+                value = results[key][oid]
+                base = marginal_baseline[oid]
+                newcombe_low, newcombe_high = newcombe_difference_interval(
                     value["yes"], value["n"], base["yes"], base["n"]
+                )
+                paired_low, paired_high = paired_difference_interval(
+                    table["baseline_only"], table["variant_only"], table["n_pairs"]
+                )
+                confirmatory = primary == oid or primary in row["collapsed_outcome_ids"]
+                diff = (
+                    (table["variant_only"] - table["baseline_only"]) / table["n_pairs"]
+                    if table["n_pairs"] else 0.0
                 )
                 comparisons.append({
                     "variant": key,
                     "outcome_id": oid,
-                    "diff": _round(value["rate"] - base["rate"]),
-                    "ci_low": _round(low),
-                    "ci_high": _round(high),
+                    "collapsed_outcome_ids": row["collapsed_outcome_ids"],
+                    "role": "confirmatory" if confirmatory else "exploratory",
+                    "table": table,
+                    "diff": _round(diff),
+                    "ci_low": _round(paired_low),
+                    "ci_high": _round(paired_high),
+                    "mcnemar_p": _round(exact_mcnemar_p(
+                        table["baseline_only"], table["variant_only"]
+                    ), 6),
+                    "newcombe": {
+                        "ci_low": _round(newcombe_low),
+                        "ci_high": _round(newcombe_high),
+                    },
                     "unreliable": reliability.get(oid, {}).get("label") == "nicht messbar",
                 })
+        family = [
+            comparison for comparison in comparisons
+            if comparison["role"] == "exploratory" and comparison["table"]["n_pairs"] > 0
+        ]
+        adjusted = holm_adjust([comparison["mcnemar_p"] for comparison in family])
+        for comparison, holm_p in zip(family, adjusted):
+            comparison["holm_p"] = _round(holm_p, 6)
+        for comparison in comparisons:
+            comparison.setdefault("holm_p", None)
         state["comparisons"] = comparisons
+        state["analysis"] = {
+            "primary_outcome_id": primary,
+            "confirmatory": "exact_mcnemar",
+            "paired_interval": "wald",
+            "sensitivity": "newcombe_method_10",
+            "exploratory_correction": "holm",
+            "exploratory_m": len(family),
+        }
 
     def _cancelled(self, state: Dict[str, Any]) -> bool:
         fresh = self._load(state["ensemble_id"])
@@ -1725,7 +2243,7 @@ class EnsembleService:
                         run_dir = self._path(ensemble_id) / key / f"run_{run_number}"
                         state["current"] = {"variant": key, "run": run_number, "round": 0}
                         self._save(state)
-                        if key == "null_model":
+                        if null_arm(key):
                             narrative_path = run_dir / "narrative.txt"
                             if not narrative_path.is_file():
                                 raise FileNotFoundError(f"Gespeicherte Erzählung fehlt: {narrative_path}")
@@ -1735,6 +2253,7 @@ class EnsembleService:
                                 seed,
                                 run_number,
                                 run_dir,
+                                key,
                             )
                         else:
                             config = _read_json(run_dir / "simulation_config.json")
@@ -1792,12 +2311,16 @@ class EnsembleService:
                 self._save(state)
                 context = load_simulation_context(state["simulation_id"])
                 state["checklist"] = self._create_checklist(state, context)
+                state["primary_outcome_id"] = resolve_primary_outcome_id(
+                    state["checklist"], state.get("primary_outcome_id") or None
+                )
                 self._save(state)
                 source = Path(context["sim_dir"])
                 per_run: Dict[str, List[Dict[str, Any]]] = {}
+                variant_by_key = {item["key"]: item for item in state["variants"]}
 
-                for variant in state["variants"]:
-                    key = variant["key"]
+                for key in execution_variant_keys([item["key"] for item in state["variants"]]):
+                    variant = variant_by_key[key]
                     variant["status"] = "running"
                     per_run[key] = []
                     self._save(state)
@@ -1808,12 +2331,19 @@ class EnsembleService:
                         run_dir = self._path(ensemble_id) / key / f"run_{run_number}"
                         state["current"] = {"variant": key, "run": run_number, "round": 0}
                         self._save(state)
-                        if key == "null_model":
+                        if null_arm(key):
                             run_dir.mkdir(parents=True, exist_ok=False)
-                            narrative = self._null_narrative(state, context, seed)
+                            target_characters = None
+                            if null_arm(key) == "null_personas":
+                                target_characters = median_character_count(
+                                    baseline_transcript_lengths(self._path(ensemble_id))
+                                )
+                            narrative = self._null_narrative(
+                                state, context, seed, key, target_characters
+                            )
                             (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
                             classified = self._classify_narrative(
-                                state, narrative, seed, run_number, run_dir
+                                state, narrative, seed, run_number, run_dir, key
                             )
                         else:
                             config = prepare_run_directory(
@@ -1903,10 +2433,17 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         raise ValueError("Mehrfachlauf ist noch nicht abgeschlossen")
     labels = {item["key"]: item["label_de"] for item in state["variants"]}
     outcomes = {item["id"]: item for item in state["checklist"]}
+    folded = {
+        item["id"] for item in state["checklist"] if item.get("collapsed_into")
+    }
+    primary = state.get("primary_outcome_id")
+    primary_text = outcomes.get(primary, {}).get("text_de", primary or "—")
     lines = [
         "## Mehrfachlauf",
         "",
-        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden.",
+        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden. "
+        "Die Anteile sind Anteile der Seeds dieses Aufbaus.",
+        f"Primärergebnis (konfirmatorisch): {primary_text}.",
         "",
         "| Variante | Ergebnis | Ja / N | Strittig | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
         "|---|---|---:|---:|---:|---:|",
@@ -1914,10 +2451,18 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
     for variant in state["variants"]:
         key = variant["key"]
         for oid, value in state["results"].get(key, {}).items():
+            if oid in folded:
+                continue
             outcome = outcomes.get(oid, {"text_de": oid})
+            counterparts = [
+                outcomes[other]["text_de"]
+                for other in outcomes
+                if outcomes[other].get("collapsed_into") == oid
+            ]
+            suffix = f" (mit Gegenstück: {'; '.join(counterparts)})" if counterparts else ""
             marker = " †" if outcome.get("in_material") else ""
             lines.append(
-                f"| {labels[key]} | {outcome['text_de']}{marker} | {value['yes']} / {value['n']} | "
+                f"| {labels[key]} | {outcome['text_de']}{suffix}{marker} | {value['yes']} / {value['n']} | "
                 f"{value.get('disputed', 0)} | "
                 f"{value.get('unclassified', 0)} | "
                 f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%}) |"
@@ -1947,21 +2492,43 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             "",
             "### Unterschiede gegenüber dem Basislauf",
             "",
-            "| Variante | Ergebnis | Differenz (95-%-Newcombe-Intervall) |",
-            "|---|---|---:|",
+            "Paartafel über denselben Laufindex: a beide Ja, b nur Basis, c nur Variante, d beide Nein. "
+            "Konfirmatorisch ist der exakte McNemar-Test des Primärergebnisses mit gepaartem Wald-Intervall. "
+            "Explorative Zeilen tragen Holm-korrigierte p-Werte. Newcombe-Methode 10 ist die Sensitivität "
+            "unter unabhängigen Seeds.",
+            "",
+            "| Variante | Ergebnis | Rolle | Paare (a, b, c, d) | Differenz (gepaartes 95-%-Intervall) | McNemar p | Holm p | Newcombe (Sensitivität) |",
+            "|---|---|---|---:|---:|---:|---:|---:|",
         ])
+        role_labels = {"confirmatory": "konfirmatorisch", "exploratory": "explorativ"}
         for comparison in state["comparisons"]:
             outcome = outcomes.get(comparison["outcome_id"], {"text_de": comparison["outcome_id"]})
+            table = comparison.get("table") or {}
+            pairs = (
+                f"{table.get('n_pairs', 0)} ({table.get('both_yes', 0)}, "
+                f"{table.get('baseline_only', 0)}, {table.get('variant_only', 0)}, "
+                f"{table.get('both_no', 0)})"
+            )
             if comparison.get("unreliable"):
-                value = "Nicht deuten – unzuverlässige Klassifikation"
+                diff = "Nicht deuten – unzuverlässige Klassifikation"
             else:
-                value = (
+                diff = (
                     f"{comparison['diff']:+.1%} ({comparison['ci_low']:+.1%} bis "
                     f"{comparison['ci_high']:+.1%})"
                 )
+            holm = comparison.get("holm_p")
+            holm_text = "—" if holm is None else f"{holm:.4f}"
+            mcnemar = comparison.get("mcnemar_p")
+            mcnemar_text = "—" if mcnemar is None else f"{mcnemar:.4f}"
+            newcombe = comparison.get("newcombe") or {}
+            if "ci_low" in newcombe:
+                newcombe_text = f"{newcombe['ci_low']:+.1%} bis {newcombe['ci_high']:+.1%}"
+            else:
+                newcombe_text = "—"
             lines.append(
-                f"| {labels.get(comparison['variant'], comparison['variant'])} | {outcome['text_de']} | "
-                f"{value} |"
+                f"| {labels.get(comparison['variant'], comparison['variant'])} | "
+                f"{outcome['text_de']} | {role_labels.get(comparison.get('role'), comparison.get('role') or '')} | "
+                f"{pairs} | {diff} | {mcnemar_text} | {holm_text} | {newcombe_text} |"
             )
     material = [item for item in state["checklist"] if item.get("in_material")]
     if material:
@@ -1971,18 +2538,24 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         ])
         for item in material:
             lines.append(f"- {item['text_de']}: {item['material_snippet']}")
-    if "null_model" in state.get("results", {}):
+    null_keys = [key for key in state.get("results", {}) if null_arm(key)]
+    if null_keys:
         lines.extend([
             "",
-            "Das Nullmodell erzeugt ohne Agenteninteraktion eine einzelne Verlaufserzählung je Seed; "
-            "Unterschiede zur Basis zeigen deshalb nicht allein einen kausalen Vernetzungseffekt.",
+            "Nullarme erzeugen je Seed eine Erzählung ohne Schwarm. "
+            "`null_document` und der Alias `null_model` sehen Dokument und Frage. "
+            "`null_personas` sieht zusätzlich dieselben Personas und Startbeiträge, "
+            "trifft jede Akteursgruppe und zielt auf den Median der Basis-Zeichenlänge. "
+            "Interaktion wird in den Nullarmen aus dem Text kodiert. "
+            "DB-Kanten stehen getrennt als `mechanism_edges` und sind nicht das Ergebnis.",
         ])
     lines.extend([
         "",
         "### Grenzen",
         "",
-        "Die Intervalle quantifizieren Streuung zwischen diesen Modellläufen, nicht Unsicherheit über die reale Welt. "
-        "Newcombe-Intervalle der Variantenunterschiede behandeln die Läufe als unabhängig. "
+        "Die Intervalle quantifizieren Streuung zwischen diesen Seeds, nicht Unsicherheit über die reale Welt. "
+        "Das gepaarte Wald-Intervall und der exakte McNemar-Test folgen dem gemeinsamen Seed je Laufindex. "
+        "Newcombe-Methode 10 setzt unabhängige Stichproben voraus und ist nur eine Sensitivität. "
         "Gemeinsame Modellfehler, unvollständiges Material und Klassifikationsfehler bleiben bestehen.",
     ])
     return "\n".join(lines) + "\n"

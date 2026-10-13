@@ -1,7 +1,7 @@
 # Validierung V1–V4
 
 Umsetzung der Roadmap-Stufen **V1 (ehrlicher Bericht)**, **V2 (Reproduzierbarkeit)**,
-**V3 (Mehrfachlauf)** und **V4 (Gegenproben)** (Stand 13.10.2026).
+**V3 (Mehrfachlauf)** und **V4 (Gegenproben)** (Stand 13.10.2026; Auswertung und Nullmodell 14.10.2026).
 
 ## Was V1 leistet
 
@@ -28,8 +28,9 @@ cd e2e && PW_PORT=4175 npx playwright test
 
 Gezielte Unit-Tests: `tests/test_report_validation.py` (Umformulierung Bürgerentscheid vs. Material, neutrale
 Gegenprobe, Fixtures `tests/fixtures/report_musterstadt.md` + `musterstadt-eingabe.txt`, Mini-DB-Methodik, Manifest)
-und `tests/test_ensemble.py` (Wilson/Newcombe, Checklisten-Parsing, Belegprüfung, Akteursentfernung,
-Zustandsmaschine mit gemocktem Runner).
+und `tests/test_ensemble.py` (Wilson/Newcombe, exakter McNemar, gepaartes Wald-Intervall, Holm, Paarbildung,
+Stapelwiederholung, Textspanne, `null_personas`-Prompt, Checklisten-Parsing, Akteursentfernung, Zustandsmaschine
+mit gemocktem Runner).
 
 Manuell: Bericht neu erzeugen; Methodik-Zahlen müssen zur DB passen; Export-ZIP öffnen und `manifest.json` / `events.jsonl` prüfen.
 
@@ -63,10 +64,12 @@ Uhrzeit; weitere Runden addieren `minutes_per_round`, einschließlich des Tagesw
 Aktivitätsfenster und Aktionslogs dieselbe simulierte Uhrzeit.
 
 Nach jedem Lauf werden die Beiträge unmittelbar aus `twitter_simulation.db` und `reddit_simulation.db` gelesen. Der
-Klassifikator erhält keine Berichte. Ein Ja zählt nur, wenn das Modell mindestens eine vorhandene, plattformqualifizierte
-Beitrags-ID wie `twitter:17` nennt. Unbekannte IDs verwerfen das Ja. Startbeiträge werden anhand von Autor und Text aus
-der Auswertungsmenge entfernt. Dadurch können vorgegebene Aussagen nicht allein durch ihre technische Einspeisung als
-Simulationsergebnis zählen.
+Klassifikator erhält keine Berichte. Ein Ja zählt nur, wenn das Modell eine vorhandene, plattformqualifizierte
+Beitrags-ID wie `twitter:17` nennt und eine wörtliche Textspanne liefert, die nach Leerraum-Normalisierung und ohne
+Rücksicht auf Groß- und Kleinschreibung in genau diesem Beitrag steht. Unbekannte IDs und Spannen, die nur in einem
+anderen Beitrag vorkommen, verwerfen das Ja. Dieselbe Spannenregel gilt in den Nullarmen gegen die Erzählung.
+Startbeiträge werden anhand von Autor und Text aus der Auswertungsmenge entfernt. Dadurch können vorgegebene Aussagen
+nicht allein durch ihre technische Einspeisung als Simulationsergebnis zählen.
 
 `POST /api/ensemble/start` akzeptiert optional bis zu 20 eigene Ergebnisfragen als
 `custom_outcomes: [{"text_de": "…", "polarity": "presence|absence", "kind": "event|interaction"}]`.
@@ -74,6 +77,11 @@ Simulationsergebnis zählen.
 abgeleitet. Die Punkte werden mit IDs `c1` bis `c6` an die automatische Checkliste angehängt. Jeder Checklistenpunkt
 weist seine Herkunft als `source: "auto"` oder `source: "user"` aus. Eigene Punkte durchlaufen denselben
 Materialabgleich, dieselbe Belegprüfung und dieselbe Klassifikation wie automatisch erzeugte Punkte.
+
+`POST /api/ensemble/start` akzeptiert optional `primary_outcome_id`. Ohne Angabe wird nach dem Erzeugen der Checkliste
+das erste eigene Ergebnis (`source: user`) gewählt, sonst das erste automatische. Eine unbekannte ID bricht den Lauf ab.
+Nur dieses Primärergebnis ist konfirmatorisch; die übrigen Vergleiche sind explorativ. Ist die gewählte ID ein
+Abwesenheitsgegenstück, das in die Presence-Zeile gefaltet wird, ist diese kanonische Zeile konfirmatorisch.
 
 ## V3c: Zuverlässigkeit des Messinstruments
 
@@ -83,10 +91,12 @@ Ist das Zweitmodell leer konfiguriert, nicht initialisierbar oder bei allen Klas
 wird das Hauptmodell mit einem anderen Seed verwendet. `classification.json` enthält Modell, Seed, Rohantwort,
 geprüfte Belege und Urteil beider Bewerter sowie das gemeinsame Endurteil.
 
-Das Endurteil ist nur dann Ja, wenn beide Bewerter nach der bestehenden Belegprüfung Ja urteilen. Ja/Nein-Dissens ist
-`disputed`, nicht Nein, und wird ebenso wie `unclassified` aus `n`, Rate und Wilson-Intervall ausgeschlossen.
-`results.<variante>.<ergebnis>.disputed` weist diese Fälle separat aus. Nicht klassifizierbare Urteile eines Bewerters
-ergeben weiterhin `unclassified`.
+Das Endurteil ist nur dann Ja, wenn beide Bewerter nach der Belegprüfung Ja urteilen. Ja/Nein-Dissens ist
+`disputed`, nicht Nein, und wird ebenso wie `unclassified` aus `n`, Rate, Wilson-Intervall und Paartafel ausgeschlossen.
+`results.<variante>.<ergebnis>.disputed` weist diese Fälle separat aus. Fehlt in einer erfolgreich geparsten
+Stapelantwort die Zeile eines Ergebnisses, bleibt dieses Ergebnis `unclassified`. Ein Stapel, der nach drei Versuchen
+weiterhin keine parsebare Antwort liefert, ist kein `unclassified`: ohne positiven Textbeleg bleibt der Lauf in `n`
+(Anwesenheit → Nein, Abwesenheit ohne positiven Beleg → Ja).
 
 Über alle Varianten und Läufe werden je Ergebnis die binären, auf beiden Seiten klassifizierten Urteilspaare
 zusammengeführt. `reliability.<outcome_id>` enthält Prozent-Übereinstimmung (`agreement`), Cohen's Kappa (`kappa`),
@@ -108,10 +118,14 @@ Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dab
 - `without:<AgentTyp>`: Alle Agenten des Typs werden aus beiden Profildateien und der Aktivitätskonfiguration entfernt.
   Ihre Startbeiträge entfallen ebenfalls; verbleibende IDs werden lückenlos neu nummeriert, weil OASIS an mehreren
   Stellen fortlaufende IDs voraussetzt.
-- `null_model`: Keine OASIS-Simulation. Das Hauptmodell erhält Eingabedokument, Frage und Zeitraum und schreibt pro Seed
-  eine Verlaufserzählung. Die Checkliste wird gegen diese Erzählung klassifiziert; als Beleg gilt nur eine tatsächlich
-  enthaltene Textstelle. Das Nullmodell zeigt, welche Ergebnisse bereits ein einzelner Erzähler ohne Agenteninteraktion
-  produziert.
+- `null_document`: Keine OASIS-Simulation. Das Hauptmodell erhält Eingabedokument, Frage und Zeitraum und schreibt pro
+  Seed eine Verlaufserzählung. Die Checkliste wird gegen diese Erzählung mit derselben Spannenregel klassifiziert.
+  Der Arm zeigt, welche Ergebnisse bereits ein einzelner Erzähler ohne Agenten produziert.
+- `null_model`: Alias von `null_document`. Der gespeicherte Schlüssel bleibt, damit ältere Starts weiter funktionieren.
+- `null_personas`: Ebenfalls eine Erzählung ohne Schwarm, zusätzlich mit denselben Personas und Startbeiträgen. Die
+  Ausgabelänge zielt auf den Median der Zeichen der Basis-Transkripte (Startbeiträge nicht mitgezählt; bei gerader
+  Anzahl der gerundete Mittelwert der beiden mittleren Längen). Jede Akteursgruppe muss im Verlauf vorkommen. Steht
+  `null_personas` vor `baseline`, läuft sie unmittelbar danach, weil sie die Basis-Transkripte liest.
 
 Die Isolationsentscheidung folgt der OASIS-Implementierung: `Platform.update_rec_table` befüllt die Empfehlungstabellen;
 `REFRESH`, `TREND` und Such-/Interaktionsaktionen machen diese Inhalte für Agenten nutzbar. OASIS bietet Random-, Reddit-,
@@ -120,17 +134,39 @@ Empfehlungsoption zweckentfremdet, sondern die Sichtbarkeit an der Aktionsgrenze
 
 ## Statistik
 
-Für jedes Ergebnis und jede Variante werden `Ja`, `N`, Anteil und ein zweiseitiges 95-%-Wilson-Score-Intervall ohne
-Kontinuitätskorrektur ausgegeben. Bei `N = 0` ist das technische Intervall `[0, 0]`; `N` umfasst nur Läufe mit
-übereinstimmendem, klassifiziertem Doppelurteil und kann daher kleiner als `runs` sein. Variantenunterschiede sind
-`Anteil(Variante) − Anteil(baseline)`. Das 95-%-Intervall der Differenz wird nach Newcombe, Methode 10, aus den vier
-Wilson-Grenzen zusammengesetzt und auf `[-1, 1]` begrenzt. Die reine Python-Implementierung wird gegen bekannte
-Zahlenwerte getestet.
+Je Ergebnis und Variante bleiben `Ja`, `N`, Anteil und ein zweiseitiges 95-%-Wilson-Score-Intervall ohne
+Kontinuitätskorrektur die Randverteilung. Bei `N = 0` ist das technische Intervall `[0, 0]`. `N` umfasst nur Läufe mit
+übereinstimmendem, klassifiziertem Doppelurteil und kann daher kleiner als `runs` sein. `disputed` und `unclassified`
+zählen nicht in `N`.
 
-Der deterministische Markdown-Abschnitt **„Mehrfachlauf“** enthält die Ergebnistabelle einschließlich strittiger und
-unklassifizierter Läufe, Wilson-Intervalle, die Zuverlässigkeit je Ergebnis, Hinweise auf bereits im Material vorhandene
-Punkte, den Nullmodell-Vergleich und feste Grenzen. Nicht messbare Ergebnisse werden nicht interpretiert. Dafür wird
-kein weiteres Modell aufgerufen.
+Die Inferenz folgt dem gepaarten Design (gemeinsamer Seed je Laufindex). Für jedes kanonische Ergebnis und jede
+Nicht-Basis-Variante speichert der Vergleich die 2×2-Tafel `table`: `both_yes` (a), `baseline_only` (b),
+`variant_only` (c), `both_no` (d), `n_pairs`, `unpaired`. Gepaart wird nur, wenn beide Seiten am selben Index
+klassifiziert und weder `disputed` noch `unclassified` sind.
+
+Konfirmatorisch ist der exakte zweiseitige McNemar-Test (`mcnemar_p`, verdoppelte untere Binomialwahrscheinlichkeit
+bei p = 1/2) für das Primärergebnis in jeder Nicht-Basis-Variante. `role` ist dann `confirmatory`, `holm_p` bleibt
+leer. Alle übrigen Ergebnis×Variante-Vergleiche sind `exploratory`. Für diese Familie mit `n_pairs > 0` wird die
+Holm-Korrektur ausgewiesen (`holm_p`, `analysis.exploratory_m`). Leere Paartafeln bleiben explorativ und gehen nicht
+in die Familie ein.
+
+Das gepaarte Differenzintervall (Variante − Basis) = (c − b) / n ist ein Wald-Intervall mit
+SE = sqrt((b + c) − (c − b)² / n) / n und demselben z wie das Wilson-Intervall. Es liegt in `diff`, `ci_low` und
+`ci_high` des Vergleichs, ist auf [-1, 1] begrenzt und bei `n_pairs = 0` gleich [0, 0]. Die Oberfläche liest diese
+Grenzen; enthält das Intervall die 0, erscheint weiterhin „kein belastbarer Unterschied“. Der gespeicherte
+konfirmatorische Test ist `mcnemar_p`. Newcombe, Methode 10, steht nur unter `newcombe` als Sensitivität unter der
+Annahme unabhängiger Stichproben. `analysis` hält `confirmatory: exact_mcnemar`, `paired_interval: wald`,
+`sensitivity: newcombe_method_10` und `exploratory_correction: holm`.
+
+Logische Gegenstücke (`counter_outcome_id` eines `absence`-Punkts auf einen `presence`-Punkt) werden in der Inferenz
+zu einer Zeile zusammengelegt (`collapsed_outcome_ids`, am Abwesenheitspunkt `collapsed_into`). Die Randverteilungen
+beider IDs bleiben in `results`. Die Warnung bei doppeltem Ja beider Gegenstücke bleibt.
+
+Der deterministische Markdown-Abschnitt **„Mehrfachlauf“** nennt das Primärergebnis, überspringt gefaltete
+Abwesenheitszeilen und zeigt Paartafel, gepaartes Wald-Intervall, McNemar, Holm und Newcombe als Sensitivität, dazu
+Wilson-Intervalle der Randverteilung, strittige und unklassifizierte Läufe, die Zuverlässigkeit je Ergebnis, Hinweise
+auf bereits im Material vorhandene Punkte und die Nullarme. Nicht messbare Ergebnisse werden nicht interpretiert.
+Dafür wird kein weiteres Modell aufgerufen.
 
 ## Rechenzeit und Betrieb
 
@@ -146,8 +182,9 @@ Es wird kein automatischer echter Testlauf gestartet.
 ## Grenzen von V3/V4
 
 - Mehr Seeds messen Modell- und Aktionsstreuung, nicht die Trefferwahrscheinlichkeit in der realen Welt.
-- Gleiche Profile und dasselbe Hauptmodell erzeugen abhängige systematische Fehler, auch wenn die statistischen
-  Differenzintervalle unabhängige Binomialstichproben voraussetzen.
+- Gleiche Profile und dasselbe Hauptmodell erzeugen abhängige systematische Fehler. Der konfirmatorische Test und das
+  Wald-Intervall nutzen die Paarung über den gemeinsamen Seed. Newcombe-Methode 10 setzt unabhängige Stichproben voraus
+  und ist nur die Sensitivität.
 - Modellanbieter können Seeds ignorieren oder trotz Seed nicht vollständig deterministisch rechnen.
 - Die automatische Checkliste und Klassifikation können relevante Ereignisse auslassen oder falsch einordnen. Die
   geprüften Beitrags-IDs machen positive Urteile auditierbar, ersetzen aber keine fachliche Blindbewertung.
@@ -177,9 +214,11 @@ Formulierungen mit „nicht“, „keine/kein“ oder „bleibt aus“ abgeleite
 nach dem positiven Gegenereignis; nur wenn es in keinem vollständig klassifizierten Stapel belegt ist, lautet das
 Ergebnis Ja. Der Auditbeleg nennt dann „kein passender Beitrag in N geprüften Beiträgen“.
 
-Eine nach zwei Inhaltsversuchen nicht parsebare Stapelantwort wird nicht mehr als Nein behandelt. Der betreffende Lauf
-ist für das Ergebnis `unclassified`, wird aus `n` und damit aus Anteil und Wilson-Intervall entfernt und separat unter
-`results.<variant>.<outcome>.unclassified` sowie in der Berichtstabelle ausgewiesen.
+Ein Stapel wird bis zu zweimal wiederholt (drei Versuche). Liefert er danach keine parsebare Antwort, fällt der Lauf
+nicht aus `N`: ohne positiven Textbeleg bleibt er in Anteil und Wilson-Intervall (Anwesenheit → Nein, Abwesenheit ohne
+positiven Beleg → Ja). Fehlt in einer erfolgreich geparsten Antwort die Zeile eines Ergebnisses, bleibt dieses Ergebnis
+`unclassified`, zählt nicht in `N` und erscheint unter `results.<variant>.<outcome>.unclassified` sowie in der
+Berichtstabelle. `classification.json` hält je Stapel `attempts`, die Rohantwort und den Fehler fest.
 
 Bestehende Ensembles können mit `POST /api/ensemble/<id>/reclassify` ohne neue Simulation ausgewertet werden. Der
 Hintergrundlauf liest ausschließlich die gespeicherten SQLite-Datenbanken beziehungsweise Nullmodell-Erzählungen,
@@ -195,13 +234,13 @@ bei älteren Checklisten werden Formulierungen mit „zwischen … und“, „De
 `entity_type` und `entity_name` die vorhandenen Agenten-IDs den zwei genannten Seiten zu. Zuordnung, Modellantwort,
 strukturelle Funde und Entscheidung stehen in `classification.json`.
 
-Ein semantischer Texttreffer allein genügt für Interaktionen nicht mehr. Zusätzlich muss die OASIS-SQLite-DB eine
-direkte Verbindung zwischen Agenten der beiden zugeordneten Seiten enthalten: einen Reddit-Datensatz aus `comment`
-mit `post_id`, einen Twitter-Post mit `original_post_id` (Quote/Repost) oder eine von der verwendeten OASIS-Version
-gespeicherte Reply-/Parent-Post-Verknüpfung. Kommentare werden mit der qualifizierten ID
-`reddit:comment:<comment_id>` ebenfalls dem Textklassifikator vorgelegt. Getrennte `CREATE_POST`-Beiträge beider
-Seiten sind kein struktureller Beleg und führen mit einem entsprechenden Audit-Hinweis zu Nein. Das Nullmodell hat
-keine solche DB-Verbindung; Interaktionsergebnisse sind dort deshalb Nein.
+Das Ergebnis einer Interaktion ist in allen Armen die Textspanne: Ja nur, wenn sie im genannten Beitrag beziehungsweise
+in der Erzählung steht. Eine OASIS-SQLite-Kante zwischen den zugeordneten Seiten — Reddit-Kommentar mit `post_id`,
+Twitter-Post mit `original_post_id` (Quote/Repost) oder eine gespeicherte Reply-/Parent-Verknüpfung — liegt als eigene
+Mechanismusvariable `mechanism_edges` am Urteil und wird in `mechanism_edge_runs` gezählt. Sie dreht das Ja nicht um
+und ersetzt den Textbeleg nicht. Getrennte `CREATE_POST`-Beiträge beider Seiten erzeugen keine Kante. Kommentare
+werden mit der qualifizierten ID `reddit:comment:<comment_id>` dem Textklassifikator vorgelegt. In den Nullarmen ist
+`mechanism_edges` leer; die Interaktion wird aus dem Erzähltext kodiert.
 
 Ein `absence`-Punkt nennt bei der Erzeugung in `counter_outcome_id` den passenden `presence`-Punkt derselben
 Checkliste, sofern es ihn gibt. Verifizierte Belege dieses Gegenpunkts werden stapelübergreifend ebenfalls als Beleg
@@ -210,8 +249,10 @@ offizielle Medien-Stellungnahme nicht gleichzeitig als Ja gewertet werden. Nach 
 Aggregation dennoch alle explizit verknüpften Presence-/Absence-Paare. Etwaige doppelte Ja-Wertungen werden mit
 Variante, Lauf und beiden Ergebnis-IDs unter `consistency_warnings` im Ensemble-Ergebnis ausgewiesen.
 
-Regressionstests decken das konkrete Paar o2/o6 aus `ens_9c4647555d4b`, eine isolierte DB ohne Kommentare, eine
-Basis-DB mit gruppenübergreifendem Kommentar sowie die Konsistenzwarnung ab.
+Regressionstests decken das konkrete Paar o2/o6 aus `ens_9c4647555d4b`, die Trennung von Texturteil und
+`mechanism_edges` (Kante ohne Spanne bleibt Nein; Nullarm kodiert Interaktion aus dem Text), die Konsistenzwarnung,
+bekannte McNemar- und Holm-Werte, die Paarbildung über den Laufindex, die Stapelwiederholung mit Verbleib in `N`, die
+Textspannenregel und den `null_personas`-Prompt ab.
 
 Zusätzliche Regressionstests decken bekannte Cohen-Kappa-Werte und die Grenzfälle ohne Varianz bzw. ohne Paare, die
 konservative Zwei-Ja-Regel, die Abgrenzung `disputed` zu Nein, den Ausschluss strittiger Läufe aus `n`, die
