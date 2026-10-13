@@ -23,6 +23,24 @@ ARM_LABELS = {"baseline": "Schwarm (S)", "null_document": "Dokument-Nullmodell (
               "null_personas": "Persona-Nullmodell (P)", "isolated": "Isoliert"}
 TERMINAL_ENSEMBLE_STATUSES = {"completed", "failed", "cancelled"}
 BOOTSTRAP_SEED, BOOTSTRAP_SAMPLES = 20261014, 10_000
+ENSEMBLE_RESUME_ATTEMPTS = 2
+CALIBRATION_MIN_CASES = 25
+CALIBRATION_PILOT_NOTE = "Unter 25 Fällen nicht als Bestehen zählen"
+METRICS_NOTE = "Sammel-Brier über alle messbaren Ergebnisse, nicht zitierfähig"
+_HORIZON_WORDS = {
+    "ein": 1, "eine": 1, "einen": 1, "zwei": 2, "drei": 3, "vier": 4, "fünf": 5,
+    "fuenf": 5, "sechs": 6, "sieben": 7, "acht": 8, "neun": 9, "zehn": 10,
+    "elf": 11, "zwölf": 12, "zwoelf": 12, "vierzehn": 14,
+}
+_HORIZON_HOURS = {
+    "tag": 24, "tage": 24, "tagen": 24,
+    "woche": 168, "wochen": 168,
+    "monat": 720, "monate": 720, "monaten": 720,
+}
+_HORIZON_RE = re.compile(
+    r"(?i)(?<!\w)(\d+|ein|eine|einen|zwei|drei|vier|fünf|fuenf|sechs|sieben|acht|neun|zehn|"
+    r"elf|zwölf|zwoelf|vierzehn)\s+(tag|tage|tagen|woche|wochen|monat|monate|monaten)\b"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RESULTS_DIR = REPOSITORY_ROOT / "docs" / "validation" / "ergebnisse"
 
@@ -103,13 +121,36 @@ def load_outcomes(case_dir: Path) -> List[Dict[str, Any]]:
             raise ValueError(f"primaer in ergebnisse.json[{index}] muss boolesch sein")
         seen.add(text)
         primary_count += int(primary)
-    if primary_count > 1:
-        raise ValueError("ergebnisse.json darf höchstens eine Frage mit primaer: true enthalten")
+    if primary_count != 1:
+        raise ValueError("ergebnisse.json muss genau eine Frage mit primaer: true enthalten")
     return outcomes
 
 
 def blind_custom_outcomes(outcomes: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
-    return [{"text_de": str(outcome["text_de"]).strip()} for outcome in outcomes]
+    blinded = []
+    for outcome in outcomes:
+        item = {"text_de": str(outcome["text_de"]).strip()}
+        polarity = str(outcome.get("polarity") or "").strip().lower()
+        if polarity in {"presence", "absence"}:
+            item["polarity"] = polarity
+        blinded.append(item)
+    return blinded
+
+
+def outcome_horizon_hours(outcome: Dict[str, Any]) -> Optional[int]:
+    """Längstes im Fragetext oder Zeitfenster genanntes Fenster, in Stunden."""
+    found = []
+    for key in ("zeitfenster", "text_de"):
+        for match in _HORIZON_RE.finditer(str(outcome.get(key) or "")):
+            raw = match.group(1).casefold()
+            number = int(raw) if raw.isdigit() else _HORIZON_WORDS[raw]
+            found.append(number * _HORIZON_HOURS[match.group(2).casefold()])
+    return max(found) if found else None
+
+
+def beyond_simulated_horizon(outcome: Dict[str, Any], hours: int) -> bool:
+    horizon = outcome_horizon_hours(outcome)
+    return horizon is not None and horizon > hours
 
 
 def parse_arms(value: Any) -> List[str]:
@@ -141,33 +182,65 @@ def case_identity(case_dir: Path, *, location: Optional[str] = None,
             "topic": str(topic or field("Thema") or (heading.group(1) if heading else case_dir.name))}
 
 
-def check_contamination(identity: Dict[str, str], llm: Any = None) -> Dict[str, Any]:
-    """Konfiguriertes Hauptmodell kalt, ohne Werkzeuge und ohne Ausgang fragen."""
-    if llm is None:
-        from app.utils.llm_client import LLMClient
-        llm = LLMClient()
-    prompt = ("Kennst du den folgenden realen kommunalpolitischen Fall aus deinem Vorwissen? "
-              "Nutze keine Werkzeuge und recherchiere nicht. Antworte nur als JSON mit kennt "
-              "(boolesch) und begruendung (kurzer Text).\n"
-              f"Ort: {identity['location']}\nJahr: {identity['year']}\nThema: {identity['topic']}\n"
-              "Der Ausgang wird absichtlich nicht genannt.")
-    try:
-        if callable(llm) and not hasattr(llm, "chat_json"):
-            answer, model = llm(identity, prompt), getattr(llm, "model", "injected-checker")
-        else:
-            answer = llm.chat_json([{"role": "system", "content": "Prüfe nur vorhandenes Fallwissen."},
-                                    {"role": "user", "content": prompt}],
-                                   temperature=0, max_tokens=300, seed=BOOTSTRAP_SEED)
-            model = getattr(llm, "model", "configured-main-model")
-    except Exception as error:
-        raise ApiError(f"Kontaminationsprüfung mit dem Hauptmodell fehlgeschlagen: {error}") from error
+def _contamination_prompt(identity: Dict[str, str], material: Optional[str]) -> List[tuple]:
+    identity_prompt = (
+        "Kennst du den folgenden realen kommunalpolitischen Fall aus deinem Vorwissen? "
+        "Nutze keine Werkzeuge und recherchiere nicht. Antworte nur als JSON mit kennt "
+        "(boolesch) und begruendung (kurzer Text).\n"
+        f"Ort: {identity['location']}\nJahr: {identity['year']}\nThema: {identity['topic']}\n"
+        "Der Ausgang wird absichtlich nicht genannt."
+    )
+    prompts = [("identity", identity_prompt)]
+    if material is not None:
+        prompts.append(("material",
+                        "Kennst du den realen Fall, der in dem folgenden Bogen beschrieben wird, "
+                        "aus deinem Vorwissen? Der Text ist der Wortlaut, den die Simulation sieht. "
+                        "Nutze keine Werkzeuge und recherchiere nicht. Antworte nur als JSON mit kennt "
+                        "(boolesch) und begruendung (kurzer Text).\n"
+                        f"{material}\nDer Ausgang wird absichtlich nicht genannt."))
+    return prompts
+
+
+def _read_contamination_answer(answer: Any) -> bool:
     if not isinstance(answer, dict):
         raise ValueError("Kontaminationsprüfung lieferte kein JSON-Objekt")
     known = answer.get("kennt", answer.get("known"))
     if not isinstance(known, bool):
         raise ValueError("Kontaminationsprüfung muss 'kennt' als booleschen Wert liefern")
-    return {"checked_at": datetime.now(timezone.utc).isoformat(), "model": str(model),
-            "identity": identity, "known": known, "answer": answer}
+    return known
+
+
+def check_contamination(identity: Dict[str, str], llm: Any = None,
+                       *, material: Optional[str] = None) -> Dict[str, Any]:
+    """Hauptmodell kalt zum echten Fall und, getrennt, zum Bogenwortlaut fragen."""
+    if llm is None:
+        from app.utils.llm_client import LLMClient
+        llm = LLMClient()
+    answers: Dict[str, Any] = {}
+    known_flags: Dict[str, bool] = {}
+    model = "configured-main-model"
+    try:
+        for kind, prompt in _contamination_prompt(identity, material):
+            if callable(llm) and not hasattr(llm, "chat_json"):
+                answer = llm(identity, prompt)
+                model = str(getattr(llm, "model", "injected-checker"))
+            else:
+                answer = llm.chat_json(
+                    [{"role": "system", "content": "Prüfe nur vorhandenes Fallwissen."},
+                     {"role": "user", "content": prompt}],
+                    temperature=0, max_tokens=300, seed=BOOTSTRAP_SEED)
+                model = str(getattr(llm, "model", "configured-main-model"))
+            known_flags[kind] = _read_contamination_answer(answer)
+            answers[kind] = answer
+    except (ApiError, ValueError):
+        raise
+    except Exception as error:
+        raise ApiError(f"Kontaminationsprüfung mit dem Hauptmodell fehlgeschlagen: {error}") from error
+    return {"checked_at": datetime.now(timezone.utc).isoformat(), "model": model,
+            "identity": identity, "known": any(known_flags.values()),
+            "identity_known": known_flags.get("identity"),
+            "material_known": known_flags.get("material"),
+            "answer": answers.get("identity"), "material_answer": answers.get("material")}
 
 
 def _new_state(case_name: str, base: str, runs: int, hours: int, arms: Sequence[str]) -> Dict[str, Any]:
@@ -271,6 +344,7 @@ def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_pa
             raise
         state["ensemble_id"] = started["ensemble_id"]
         _save_state(state_path, state)
+    resumes = 0
     while True:
         ensemble = client.get(f"/api/ensemble/{state['ensemble_id']}")
         status = ensemble.get("status")
@@ -278,6 +352,10 @@ def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_pa
             state["ensemble_completed"] = True
             _save_state(state_path, state)
             return ensemble
+        if status == "failed" and resumes < ENSEMBLE_RESUME_ATTEMPTS:
+            resumes += 1
+            client.post(f"/api/ensemble/{state['ensemble_id']}/resume", timeout=120)
+            continue
         if status in TERMINAL_ENSEMBLE_STATUSES:
             raise ApiError(str(ensemble.get("error") or f"Ensemble endete mit {status}"))
         sleep(poll_interval)
@@ -337,6 +415,40 @@ def metric_set(probabilities: Sequence[float], actual: Sequence[int]) -> Dict[st
             "log_score": _rounded(log_score(probabilities, actual))}
 
 
+def _primary_s_vs_p(ensemble: Dict[str, Any], primary_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Gepaarte Seed-Tafel des Primärergebnisses, Abstand als Anteil S minus Anteil P."""
+    if not primary_id:
+        return None
+    for item in ensemble.get("comparisons") or []:
+        if item.get("variant") != "null_personas":
+            continue
+        ids = {str(item.get("outcome_id"))}
+        ids.update(str(value) for value in item.get("collapsed_outcome_ids") or [])
+        if str(primary_id) not in ids or not isinstance(item.get("table"), dict):
+            continue
+        table = {
+            key: int(item["table"].get(key) or 0)
+            for key in ("both_yes", "baseline_only", "variant_only", "both_no", "n_pairs", "unpaired")
+        }
+        distance = None if table["n_pairs"] <= 0 else round(
+            (table["baseline_only"] - table["variant_only"]) / table["n_pairs"], 6)
+        return {"table": table, "distance": distance}
+    return None
+
+
+def contaminated_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]],
+                             contamination: Dict[str, Any], *, runs: int, hours: int,
+                             arms: Sequence[str]) -> Dict[str, Any]:
+    return {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
+            "hours": hours, "arms": list(arms), "primary_outcome_id": primary_outcome_id(outcomes),
+            "contaminated": True, "contamination_check": contamination,
+            "simulation_id": None, "ensemble_id": None,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "rows": [], "metrics": {}, "primary_metrics": {}, "metrics_citable": False,
+            "metrics_note": METRICS_NOTE, "primary_s_vs_p": None,
+            "aborted_before_prepare": True}
+
+
 def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemble: Dict[str, Any],
                       *, runs: int, hours: int, arms: Optional[Sequence[str]] = None,
                       contamination: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -356,14 +468,17 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
             if not isinstance(value, dict):
                 raise ValueError(f"Variantenresultat {arm} fehlt für {outcome_id}")
             arm_values[arm] = {key: value.get(key, 0) for key in ("yes", "n", "rate", "disputed", "unclassified")}
-        rel, in_material = reliability.get(outcome_id) or {}, bool(item.get("in_material", False))
+        rel = reliability.get(outcome_id) or {}
+        in_material = outcome.get("in_material") is True or bool(item.get("in_material", False))
+        beyond = beyond_simulated_horizon(outcome, hours)
         kappa = rel.get("kappa")
-        measurable = (isinstance(kappa, (int, float)) and float(kappa) >= .6 and not in_material
+        measurable = (isinstance(kappa, (int, float)) and not isinstance(kappa, bool)
+                      and float(kappa) >= .6 and not in_material and not beyond
                       and all(int(value.get("n") or 0) > 0 for value in arm_values.values()))
         rows.append({"outcome_id": outcome_id, "question": text,
                      "primary": outcome.get("primaer") is True,
                      "actual": int(outcome["eingetreten"]), "source": outcome.get("quelle"),
-                     "in_material": in_material, "arms": arm_values,
+                     "in_material": in_material, "beyond_horizon": beyond, "arms": arm_values,
                      "reliability": {key: rel.get(key) for key in ("agreement", "kappa", "n_pairs", "label")},
                      "measurable": measurable})
     def metrics(selected: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
@@ -371,13 +486,15 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
         return {arm: metric_set([float(row["arms"][arm]["rate"]) for row in selected], actual) for arm in arms}
     scored = [row for row in rows if row["measurable"]]
     primary = [row for row in scored if row["primary"]]
+    primary_id = next((row["outcome_id"] for row in rows if row["primary"]), None)
     return {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
-            "hours": hours, "arms": arms,
-            "primary_outcome_id": next((row["outcome_id"] for row in rows if row["primary"]), None),
+            "hours": hours, "arms": arms, "primary_outcome_id": primary_id,
             "contaminated": bool((contamination or {}).get("known", False)),
             "contamination_check": contamination, "simulation_id": ensemble.get("simulation_id"),
             "ensemble_id": ensemble.get("ensemble_id"), "generated_at": datetime.now(timezone.utc).isoformat(),
-            "rows": rows, "metrics": metrics(scored), "primary_metrics": metrics(primary)}
+            "rows": rows, "metrics": metrics(scored), "primary_metrics": metrics(primary),
+            "metrics_citable": False, "metrics_note": METRICS_NOTE,
+            "primary_s_vs_p": _primary_s_vs_p(ensemble, primary_id)}
 
 
 def _display(value: Any, percent: bool = False) -> str:
@@ -401,13 +518,15 @@ def case_markdown(result: Dict[str, Any]) -> str:
         values = [f"{row['arms'][arm]['yes']}/{row['arms'][arm]['n']} ({float(row['arms'][arm]['rate']):.1%})" for arm in arms]
         lines.append(f"| {_escape(row['question'])} | {'primär' if row['primary'] else 'explorativ'} | {row['actual']} | "
                      + " | ".join(values) + f" | {_display(row['reliability'].get('kappa'))} |")
-    lines += ["", "## Brier-Score je Arm", "", "| Arm | alle messbaren Ergebnisse | Primärergebnis |", "|---|---:|---:|"]
+    lines += ["", "## Brier-Score je Arm", "", METRICS_NOTE, "",
+              "| Arm | Sammel-Brier (nicht zitierfähig) | Primärergebnis |", "|---|---:|---:|"]
     for arm in arms:
         lines.append(f"| {ARM_LABELS[arm]} | {_display(result['metrics'][arm]['brier'])} | "
                      f"{_display(result['primary_metrics'][arm]['brier'])} |")
     lines += ["", "Das Primärergebnis ist konfirmatorisch; alle anderen Ergebnisse sind explorativ. "
-              "Punkte mit Kappa < 0,6, ohne klassifizierte Läufe oder bereits im T0-Material enthaltene "
-              "Punkte werden nicht gescored."]
+              "Punkte mit Kappa < 0,6, ohne definiertes Kappa, ohne klassifizierte Läufe, mit Fenster "
+              "jenseits der simulierten Stunden oder mit in_material in der Akte werden nicht gescored. "
+              "Der Sammel-Brier ist nicht zitierfähig."]
     return "\n".join(lines) + "\n"
 
 
@@ -465,22 +584,45 @@ def _summary_group(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
                     "value": _rounded(None if not denominator else 1 - float(brier[arm]) / denominator),
                     "ci_95": _bootstrap_skill_ci(losses, arm, "null_document")}
     calibration = {}
+    pilot = len(observations) < CALIBRATION_MIN_CASES
     for arm in arms:
         slope = calibration_slope([item["p"][arm] for item in observations],
                                   [item["actual"] for item in observations]) if len(observations) >= 8 else None
         calibration[arm] = {"slope": _rounded(slope),
-                            "note": None if len(observations) >= 8 else "Pilot, keine Kalibrierungsaussage"}
+                            "note": CALIBRATION_PILOT_NOTE if pilot else None}
     interval = (skill.get("baseline_vs_null_document") or {}).get("ci_95")
-    slope = (calibration.get("baseline") or {}).get("slope")
+    skill_above = None if interval is None else interval["low"] > 0
+    skill_below = None if interval is None else interval["high"] < 0
     kappas = [item["kappa"] for item in observations]
-    checks = {"skill_interval_above_zero": None if interval is None else interval["low"] > 0,
-              "calibration_slope_0_5_to_1_5": None if slope is None else .5 <= slope <= 1.5,
+    checks = {"skill_interval_above_zero": skill_above,
+              "skill_interval_below_zero": skill_below,
               "kappa_at_least_0_6": None if not kappas else min(kappas) >= .6}
-    status = ("nicht bestanden" if any(value is False for value in checks.values())
-              else "nicht prüfbar" if any(value is None for value in checks.values())
-              else "bestanden")
+    if not pilot:
+        slope = (calibration.get("baseline") or {}).get("slope")
+        checks["calibration_slope_0_5_to_1_5"] = None if slope is None else .5 <= slope <= 1.5
+    decisive = {key: value for key, value in checks.items() if key != "skill_interval_below_zero"}
+    if skill_below is True:
+        status = "nicht bestanden"
+    elif any(value is False for value in decisive.values()):
+        status = "nicht bestanden"
+    elif any(value is None for value in decisive.values()):
+        status = "nicht prüfbar"
+    else:
+        status = "bestanden"
+    distances = []
+    paired_cases = []
+    for result in results:
+        row = next((item for item in result.get("rows", []) if item.get("primary") and item.get("measurable")), None)
+        distance = (result.get("primary_s_vs_p") or {}).get("distance")
+        if row and isinstance(distance, (int, float)) and not isinstance(distance, bool):
+            distances.append(float(distance))
+            paired_cases.append({"case": result.get("case"),
+                                 "table": result["primary_s_vs_p"].get("table"),
+                                 "distance": round(float(distance), 6)})
     return {"case_count": len(results), "scored_primary_cases": len(observations), "arms": arms,
             "brier": brier, "brier_ci_95": brier_ci, "skill": skill, "calibration": calibration,
+            "s_vs_p": {"mean_distance": _rounded(sum(distances) / len(distances)) if distances else None,
+                       "ci_95": bootstrap_mean_ci(distances), "cases": paired_cases},
             "minimum_kappa": _rounded(min(kappas)) if kappas else None,
             "preregistered_criterion": {"status": status, "checks": checks}}
 
@@ -507,17 +649,30 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         cal = group["calibration"][arm]
         interval = group["brier_ci_95"][arm]
         rendered = f"{interval['low']:.4f}–{interval['high']:.4f}" if interval else "–"
-        lines.append(f"| {ARM_LABELS[arm]} | {_display(group['brier'][arm])} | {rendered} | "
-                     f"{cal['note'] or _display(cal['slope'])} |")
+        slope_cell = _display(cal["slope"])
+        if cal.get("note"):
+            slope_cell = f"{slope_cell} ({cal['note']})"
+        lines.append(f"| {ARM_LABELS[arm]} | {_display(group['brier'][arm])} | {rendered} | {slope_cell} |")
     lines += ["", "## Skill gegen Dokument-Nullmodell (D)", "",
               "| Kontrast | Skill | 95-%-Fall-Bootstrap-KI |", "|---|---:|---:|"]
     for name, item in group["skill"].items():
         interval = item["ci_95"]
         rendered = f"{interval['low']:.4f}–{interval['high']:.4f}" if interval else "–"
         lines.append(f"| {name} | {_display(item['value'])} | {rendered} |")
+    contrast = group.get("s_vs_p") or {}
+    contrast_interval = contrast.get("ci_95")
+    contrast_rendered = (f"{contrast_interval['low']:.4f}–{contrast_interval['high']:.4f}"
+                         if contrast_interval else "–")
+    lines += ["", "## Abstand Schwarm (S) gegen Persona-Nullmodell (P)", "",
+              "Mittlerer gepaarter Abstand des Primärergebnisses (Anteil S minus Anteil P) über Fälle, "
+              "mit Fall-Bootstrap.", "",
+              f"Mittel: {_display(contrast.get('mean_distance'))}, 95-%-KI: {contrast_rendered}.", ""]
     criterion = group["preregistered_criterion"]
-    lines += ["", "## Vorab-Kriterium", "", f"**{criterion['status']}**: Skill-Intervall vollständig über 0, "
-              "Kalibrierungssteigung in [0,5; 1,5] und Kappa ≥ 0,6.", "",
+    lines += ["## Vorab-Kriterium", "",
+              f"**{criterion['status']}**. Der Pilotstatus hängt am Skill-Intervall S gegen D "
+              "(vollständig über 0) und an Kappa ≥ 0,6. Liegt das Skill-Intervall ganz unter 0, "
+              "ist der Status nicht bestanden, auch ohne Kalibrierungssteigung. "
+              f"Die Steigung zählt unter {CALIBRATION_MIN_CASES} Fällen nicht als Bestehen.", "",
               f"Kontaminierte Fälle ({summary['contaminated']['case_count']}): "
               + (", ".join(summary["contaminated_cases"]) or "keine")
               + ". Sie sind aus der Hauptauswertung ausgeschlossen und im JSON getrennt ausgewiesen."]
@@ -530,7 +685,8 @@ def update_summary(results_dir: Path) -> Dict[str, Any]:
         if path.name == "GESAMT.json" or path.name.endswith(".state.json"):
             continue
         payload = _load_json(path)
-        if isinstance(payload, dict) and payload.get("schema_version") == 2 and payload.get("rows"):
+        if isinstance(payload, dict) and payload.get("schema_version") == 2 and (
+                payload.get("rows") or payload.get("contaminated")):
             results.append(payload)
     summary = build_summary(results)
     _write_json_atomic(results_dir / "GESAMT.json", summary)
@@ -538,7 +694,7 @@ def update_summary(results_dir: Path) -> Dict[str, Any]:
     return summary
 
 
-def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 168,
+def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
                   arms: Sequence[str] = DEFAULT_ARMS, base: str = "http://127.0.0.1:5002",
                   results_dir: Path = DEFAULT_RESULTS_DIR, client: Optional[ApiClient] = None,
                   contamination_checker: Any = None, location: Optional[str] = None,
@@ -556,9 +712,22 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 168,
     state_path = results_dir / f"{case_dir.name}.state.json"
     state = load_or_create_state(state_path, case_dir.name, base, runs, hours, arms)
     if not state.get("contamination_check"):
+        material = (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
         state["contamination_check"] = check_contamination(
-            case_identity(case_dir, location=location, year=year, topic=topic), contamination_checker)
+            case_identity(case_dir, location=location, year=year, topic=topic),
+            contamination_checker, material=material)
         _save_state(state_path, state)
+    if state["contamination_check"].get("known") is True:
+        result = contaminated_case_result(
+            case_dir.name, outcomes, state["contamination_check"], runs=runs, hours=hours, arms=arms)
+        _write_json_atomic(results_dir / f"{case_dir.name}.json", result)
+        _write_text_atomic(results_dir / f"{case_dir.name}.md",
+                           f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
+                           "Kontaminationsprüfung: **kennt den Fall**. "
+                           "Die Simulation wurde vor der Vorbereitung abgebrochen.\n")
+        update_summary(results_dir)
+        raise ValueError(f"Fall {case_dir.name} ist kontaminiert (Kaltfrage kennt: true); "
+                         "Simulation vor der Vorbereitung abgebrochen")
     api = client or ApiClient(base)
     prepare_simulation(api, case_dir, state_path, state, sleep=sleep, poll_interval=poll_interval)
     ensemble = run_ensemble(api, outcomes, state_path, state, sleep=sleep, poll_interval=poll_interval)
@@ -574,7 +743,7 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("case_dir", type=Path, help="Ordner mit ausgangslage.md, verlauf.md und ergebnisse.json")
     parser.add_argument("--runs", type=int, default=10)
-    parser.add_argument("--hours", type=int, default=168)
+    parser.add_argument("--hours", type=int, default=336)
     parser.add_argument("--arms", default=",".join(DEFAULT_ARMS), help="Kommagetrennte V5-Arme")
     parser.add_argument("--base", default="http://127.0.0.1:5002")
     parser.add_argument("--ort", dest="location")

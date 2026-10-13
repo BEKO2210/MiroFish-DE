@@ -126,8 +126,8 @@ weiterhin keine parsebare Antwort liefert, ist kein `unclassified`: ohne positiv
 Über alle Varianten und Läufe werden je Ergebnis die binären, auf beiden Seiten klassifizierten Urteilspaare
 zusammengeführt. `reliability.<outcome_id>` enthält Prozent-Übereinstimmung (`agreement`), Cohen's Kappa (`kappa`),
 Paarzahl (`n_pairs`) und die Bewertung `messbar` (Kappa ≥ 0,6), `unsicher` (0,4 ≤ Kappa < 0,6) oder
-`nicht messbar` (Kappa < 0,4). Bei zwei identischen konstanten Urteilsreihen wird das mathematisch sonst undefinierte
-Kappa für diese Anzeige als 1,0 behandelt; ohne auswertbares Paar als 0,0. Vergleiche nicht messbarer Ergebnisse tragen
+`nicht messbar` (Kappa < 0,4 oder Kappa nicht definiert). Bei zwei identischen konstanten Urteilsreihen ist Kappa
+nicht definiert (`null`) und die Bewertung nicht messbar; ohne auswertbares Paar bleibt Kappa 0,0. Vergleiche nicht messbarer Ergebnisse tragen
 `unreliable: true` und werden im Markdown-Bericht ausdrücklich nicht gedeutet. Die Doppelbewertung und
 Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dabei keine Simulationen neu gestartet.
 
@@ -290,13 +290,12 @@ Das vorregistrierte Studiendesign steht in `docs/validation/PROTOKOLL-V5.md`.
 
 ```bash
 cd backend
-python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --runs 10 --hours 336 \
-  --ort Beispielstadt --jahr 2025 --thema Bäderschließung
+python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --runs 10 --hours 336
 ```
 
-Der Standardwert von `--hours` bleibt aus Kompatibilitäts- und Laufzeitgründen 168. Für die in der neutralen Frage
-genannten ersten zwei Wochen sind 336 Stunden anzugeben. `--base` zeigt standardmäßig auf
-`http://127.0.0.1:5002`.
+Der Standardwert von `--hours` ist 336, also die in der neutralen Frage genannten ersten zwei Wochen. `--base` zeigt
+standardmäßig auf `http://127.0.0.1:5002`. Ort, Jahr und Thema für die Kaltfrage kommen aus dem Bogen (`Ort:`, `Jahr:`,
+`Thema:` oder Überschrift), nicht aus einem Beispielort.
 
 Die Standardarme sind `baseline` (S), `null_document` (D) und `null_personas` (P). Mit
 `--arms baseline,null_document,null_personas,isolated` kommt der explorative Isolationsarm hinzu. Ein älteres Backend,
@@ -304,17 +303,21 @@ das D oder P noch nicht unterstützt, führt zu einer verständlichen Aktualisie
 nicht still auf das frühere, methodisch nicht vergleichbare `null_model` zurückgebogen.
 
 Das Skript lädt als einziges Dokument `ausgangslage.md` hoch und verwendet immer die neutrale Frage „Wie reagieren
-Bürgerinnen, Vereine, Medien und Politik in den ersten zwei Wochen nach der Bekanntgabe?“. Es erzeugt Ontologie und
-Graph, legt die Simulation an und wartet bis zum Ende der Vorbereitung. Noch vor diesen Modellaufrufen fragt es das
-konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge anhand von Ort, Jahr und Thema nach Fallkenntnis. Der
-Ausgang wird nicht genannt. Anfrageparameter und Antwort stehen im Resume-State und im Fallergebnis. Bekannte Fälle
-tragen `contaminated: true` und werden in der Gesamtauswertung separat geführt.
+Bürgerinnen, Vereine, Medien und Politik in den ersten zwei Wochen nach der Bekanntgabe?“. Noch vor Ontologie,
+Vorbereitung und Ensemble fragt es das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge zweimal: einmal
+anhand von Ort, Jahr und Thema, einmal anhand des Bogenwortlauts, den die Simulation sieht. Der Ausgang wird nicht
+genannt. Antwortet eine der beiden Fragen mit `kennt: true`, bricht das Skript vor `prepare_simulation` ab, schreibt
+den Fall als `contaminated: true` und startet keine Simulation. Unbekannte Fälle laufen weiter. Kontaminierte Fälle
+bleiben in der Gesamtauswertung eine eigene Gruppe.
 
-Die Texte `text_de` aus `ergebnisse.json` gehen als eigene Ergebnisfragen ein. Optional markiert genau ein Eintrag
-`"primaer": true`; dessen stabile ID sendet das Werkzeug als `primary_outcome_id` im Start-POST. Mehrere Markierungen
-werden vor jedem API-Aufruf abgewiesen. `eingetreten`, `verlauf.md` und Quellen werden niemals gesendet. Erst nach dem
-Ensemble verbindet das Skript die Häufigkeiten mit den dokumentierten Wahrheitswerten. Das Primärergebnis wird
-konfirmatorisch, alle übrigen Fragen werden getrennt als explorativ ausgewiesen.
+Die Texte `text_de` aus `ergebnisse.json` gehen als eigene Ergebnisfragen ein. Genau ein Eintrag muss `"primaer": true`
+tragen; fehlt die Markierung oder ist sie mehrfach gesetzt, bricht das Werkzeug vor jedem API-Aufruf ab. Die stabile ID
+geht als `primary_outcome_id` in den Start-POST. Ein gesetztes `polarity` (`presence` oder `absence`) wird mitgeschickt;
+ohne dieses Feld bleibt die Frage Anwesenheit, auch wenn der Text „nicht“ enthält. `in_material: true` in der Akte
+erzwingt `measurable: false`. `eingetreten`, `verlauf.md` und Quellen werden niemals gesendet. Erst nach dem Ensemble
+verbindet das Skript die Häufigkeiten mit den dokumentierten Wahrheitswerten. Das Primärergebnis wird konfirmatorisch,
+alle übrigen Fragen werden getrennt als explorativ ausgewiesen. Fragen, deren Fenster länger ist als die simulierten
+Stunden, werden nicht gescored. Der Sammel-Brier über alle messbaren Ergebnisse ist nicht zitierfähig.
 
 Die API akzeptiert für Ensembles nun 1 bis 336 Stunden und bis zu 20 eigene Ergebnisfragen. An der Zeitachse war keine
 weitere technische Grenze nötig: `total_simulation_hours` wird in die kopierte Laufkonfiguration geschrieben, die
@@ -331,7 +334,9 @@ abgewiesen, damit keine Ergebnisse verschiedener Konfigurationen vermischt werde
 Die fallbezogenen Dateien `docs/validation/ergebnisse/<fall>.md` und `.json` enthalten je eigener Frage den echten
 Wert, `yes/n` und Rate je Arm sowie Übereinstimmung, Cohen's Kappa und Messbarkeitslabel der
 Doppelbewertung. Strittige beziehungsweise unklassifizierte Einzelläufe stehen separat und zählen wie in V3 nicht zu
-`n`. Fragen mit `n = 0`, Kappa unter 0,6 oder `in_material: true` werden ausgewiesen, aber nicht gescored.
+`n`. Fragen mit `n = 0`, Kappa unter 0,6, nicht definiertem Kappa, `in_material: true` oder einem Fenster jenseits der
+simulierten Stunden werden ausgewiesen, aber nicht gescored. Je Fall liegt die gepaarte Seed-Tafel des Primärergebnisses
+S gegen P bei; `GESAMT` mittelt den Abstand über Fälle und bootstrappt Fälle.
 
 Für die verbleibenden, gepaarten Fragen werden berechnet:
 
@@ -346,7 +351,6 @@ die Seed-Häufigkeit des messbaren Primärergebnisses ein. Ausgegeben werden Bri
 niemals Fragen oder Seeds. Kontaminierte Fälle bilden eine eigene Gruppe.
 
 Die Kalibrierungssteigung wird ohne Statistikbibliothek per logistischer Regression von Ereignissen auf den Logit der
-Arm-Häufigkeit geschätzt. Bei weniger als acht auswertbaren Fällen erscheint fest „Pilot, keine
-Kalibrierungsaussage“. Das vorab registrierte Kriterium wird als „bestanden“, „nicht bestanden“ oder „nicht prüfbar“
-ausgegeben: Das Skill-Intervall S gegen D muss vollständig über 0 liegen, die Steigung von S in [0,5; 1,5] und das
-Kappa des Primärergebnisses mindestens 0,6. Die konfirmatorische Stichprobe umfasst mindestens 25 Fälle.
+Arm-Häufigkeit geschätzt und unter 25 Fällen nur mit dem Hinweis ausgewiesen, dass sie nicht als Bestehen zählt. Der
+Pilotstatus hängt am Skill-Intervall S gegen D und an Kappa ≥ 0,6. Liegt das Skill-Intervall ganz unter 0, ist der
+Status „nicht bestanden“, auch wenn die Steigung fehlt. Ab 25 Fällen gilt zusätzlich die Steigung von S in [0,5; 1,5].

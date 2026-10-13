@@ -41,8 +41,9 @@ VARIANT_LABELS = {
     "null_document": ("Nullmodell Dokument", "Null model (document)"),
     "null_personas": ("Nullmodell Personas", "Null model (personas)"),
 }
-# Erster Versuch plus zwei Wiederholungen eines fehlgeschlagenen Stapels.
+# Erster Versuch plus zwei Wiederholungen eines fehlgeschlagenen Stapels oder Seeds.
 BATCH_ATTEMPTS = 3
+SEED_ATTEMPTS = 3
 NULL_DOCUMENT_ARMS = frozenset({"null_model", "null_document"})
 NULL_PERSONA_ARMS = frozenset({"null_personas"})
 NULL_ARMS = NULL_DOCUMENT_ARMS | NULL_PERSONA_ARMS
@@ -183,15 +184,11 @@ def canonical_outcome_rows(checklist: Sequence[Dict[str, Any]]) -> List[Dict[str
     for item in checklist:
         outcome_id = str(item.get("id"))
         counter = str(item.get("counter_outcome_id") or "")
-        polarity = item.get("polarity") or infer_polarity(
-            f"{item.get('text_de', '')} {item.get('definition', '')}"
-        )
+        polarity = stored_polarity(item)
         if polarity != "absence" or counter not in by_id or counter == outcome_id:
             continue
         counter_item = by_id[counter]
-        counter_polarity = counter_item.get("polarity") or infer_polarity(
-            f"{counter_item.get('text_de', '')} {counter_item.get('definition', '')}"
-        )
+        counter_polarity = stored_polarity(counter_item)
         if counter_polarity == "absence":
             continue
         folded.setdefault(counter, []).append(outcome_id)
@@ -280,16 +277,16 @@ def cohens_kappa(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, Any]:
     right_yes = sum(1 for _, right in pairs if right) / n
     expected = left_yes * right_yes + (1.0 - left_yes) * (1.0 - right_yes)
     if math.isclose(expected, 1.0):
-        # Kappa ist bei identischen konstanten Reihen mathematisch undefiniert. Für die
-        # Messinstrument-Anzeige behandeln wir vollständige Identität als perfekt, jede
-        # (nur theoretisch mögliche) Abweichung dagegen als keine Übereinstimmung.
-        kappa = 1.0 if math.isclose(agreement, 1.0) else 0.0
+        # Beide Reihen sind konstant. Der Zufall ist dann 1, Kappa ist nicht definiert.
+        kappa = None
     else:
-        kappa = (agreement - expected) / (1.0 - expected)
-    return {"agreement": _round(agreement), "kappa": _round(kappa), "n_pairs": n}
+        kappa = _round((agreement - expected) / (1.0 - expected))
+    return {"agreement": _round(agreement), "kappa": kappa, "n_pairs": n}
 
 
-def reliability_label(kappa: float) -> str:
+def reliability_label(kappa: Optional[float]) -> str:
+    if not isinstance(kappa, (int, float)) or isinstance(kappa, bool):
+        return "nicht messbar"
     if kappa >= 0.6:
         return "messbar"
     if kappa >= 0.4:
@@ -363,8 +360,15 @@ INTERACTION_RE = re.compile(
 
 
 def infer_polarity(text: str) -> str:
-    """Alte Checklisten anhand eindeutig negativer Formulierungen migrieren."""
+    """Alte Hilfsfunktion. Die Wertung liest Polarität nur aus dem Feld polarity."""
     return "absence" if ABSENCE_RE.search(text or "") else "presence"
+
+
+def stored_polarity(item: Any) -> str:
+    """Polarität nur aus dem expliziten Feld. Ohne Feld bleibt es Anwesenheit."""
+    raw = item.get("polarity") if isinstance(item, dict) else None
+    polarity = str(raw or "").strip().lower()
+    return polarity if polarity in {"presence", "absence"} else "presence"
 
 
 def infer_kind(text: str) -> str:
@@ -410,8 +414,7 @@ def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
         if not text or key in seen:
             continue
         seen.add(key)
-        supplied = str(raw.get("polarity") or "").strip().lower() if isinstance(raw, dict) else ""
-        polarity = supplied if supplied in {"presence", "absence"} else infer_polarity(f"{text} {definition}")
+        polarity = stored_polarity(raw) if isinstance(raw, dict) else "presence"
         supplied_kind = str(raw.get("kind") or "").strip().lower() if isinstance(raw, dict) else ""
         kind = supplied_kind if supplied_kind in {"event", "interaction"} else infer_kind(
             f"{text} {definition}"
@@ -474,7 +477,7 @@ def validate_custom_outcomes(payload: Any) -> List[Dict[str, Any]]:
             "id": f"c{index}",
             "text_de": text,
             "definition": text,
-            "polarity": polarity or infer_polarity(text),
+            "polarity": polarity or "presence",
             "kind": kind or infer_kind(text),
             "source": "user",
         })
@@ -1385,9 +1388,7 @@ class EnsembleService:
         )
         for item in state["checklist"]:
             item["source"] = item.get("source") or "auto"
-            item["polarity"] = item.get("polarity") or infer_polarity(
-                f"{item.get('text_de', '')} {item.get('definition', '')}"
-            )
+            item["polarity"] = stored_polarity(item)
             item["kind"] = item.get("kind") or infer_kind(
                 f"{item.get('text_de', '')} {item.get('definition', '')}"
             )
@@ -1407,6 +1408,35 @@ class EnsembleService:
         thread = threading.Thread(
             target=self._run_reclassification, args=(ensemble_id,), daemon=True
         )
+        with self._threads_lock:
+            self._threads[ensemble_id] = thread
+        thread.start()
+        return {"ensemble_id": ensemble_id, "status": "queued"}
+
+    def resume(self, ensemble_id: str) -> Dict[str, Any]:
+        """Fehlgeschlagenes oder unvollständiges Ensemble am letzten Seed fortsetzen."""
+        state = self._load(ensemble_id)
+        if not state:
+            raise FileNotFoundError(ensemble_id)
+        if state.get("status") == "completed":
+            return {"ensemble_id": ensemble_id, "status": "completed"}
+        if state.get("status") == "cancelled":
+            raise RuntimeError("Abgebrochenes Ensemble wird nicht fortgesetzt")
+        with self._threads_lock:
+            alive = self._threads.get(ensemble_id)
+            if alive is not None and alive.is_alive():
+                raise RuntimeError("Ensemble wird bereits verarbeitet")
+        state["status"] = "queued"
+        state["error"] = None
+        state["finished_at"] = None
+        state["cancel_requested"] = False
+        state["current"] = None
+        state["current_runner_id"] = None
+        for variant in state["variants"]:
+            if variant.get("status") != "completed":
+                variant["status"] = "queued"
+        self._save(state)
+        thread = threading.Thread(target=self._run_ensemble, args=(ensemble_id,), daemon=True)
         with self._threads_lock:
             self._threads[ensemble_id] = thread
         thread.start()
@@ -1685,9 +1715,7 @@ class EnsembleService:
         checklist_items = [
             dict(
                 item,
-                polarity=item.get("polarity") or infer_polarity(
-                    f"{item.get('text_de', '')} {item.get('definition', '')}"
-                ),
+                polarity=stored_polarity(item),
                 kind=item.get("kind") or infer_kind(
                     f"{item.get('text_de', '')} {item.get('definition', '')}"
                 ),
@@ -1912,7 +1940,7 @@ class EnsembleService:
         variant_key: str = "null_model",
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist = "\n".join(
-            f"{o['id']}: {_positive_event_text(o) if (o.get('polarity') or infer_polarity(str(o))) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
+            f"{o['id']}: {_positive_event_text(o) if stored_polarity(o) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
             for o in state["checklist"]
         )
         messages = [
@@ -1969,9 +1997,7 @@ class EnsembleService:
             positive_found, snippet = positive.get(outcome["id"], (False, ""))
             if counter:
                 positive_found = positive_found or positive.get(counter, (False, ""))[0]
-            absence = (outcome.get("polarity") or infer_polarity(
-                f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
-            )) == "absence"
+            absence = stored_polarity(outcome) == "absence"
             yes = not positive_found if absence else positive_found
             record = {
                 "yes": yes,
@@ -2062,9 +2088,7 @@ class EnsembleService:
                 for outcome in state["checklist"]:
                     counter = str(outcome.get("counter_outcome_id") or "")
                     if (
-                        (outcome.get("polarity") or infer_polarity(
-                            f"{outcome.get('text_de', '')} {outcome.get('definition', '')}"
-                        )) == "absence"
+                        stored_polarity(outcome) == "absence"
                         and counter
                         and row.get(outcome["id"], {}).get("yes")
                         and row.get(counter, {}).get("yes")
@@ -2298,6 +2322,71 @@ class EnsembleService:
             with self._threads_lock:
                 self._threads.pop(ensemble_id, None)
 
+    def _completed_seed_result(self, run_dir: Path) -> Optional[Dict[str, Any]]:
+        path = run_dir / "classification.json"
+        if not path.is_file():
+            return None
+        payload = _read_json(path)
+        result = payload.get("result") if isinstance(payload, dict) else None
+        return result if isinstance(result, dict) else None
+
+    def _execute_seed(
+        self,
+        state: Dict[str, Any],
+        context: Dict[str, Any],
+        source: Path,
+        ensemble_id: str,
+        key: str,
+        run_number: int,
+        seed: int,
+        run_dir: Path,
+    ) -> Dict[str, Any]:
+        if null_arm(key):
+            run_dir.mkdir(parents=True, exist_ok=False)
+            target_characters = None
+            if null_arm(key) == "null_personas":
+                target_characters = median_character_count(
+                    baseline_transcript_lengths(self._path(ensemble_id))
+                )
+            narrative = self._null_narrative(
+                state, context, seed, key, target_characters
+            )
+            (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
+            return self._classify_narrative(
+                state, narrative, seed, run_number, run_dir, key
+            )
+        config = prepare_run_directory(
+            source, run_dir, key, state["hours"], state.get("start_hour", 7)
+        )
+        runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
+        state["current_runner_id"] = runner_id
+        self._save(state)
+        runner_state = self._runner().start_simulation(
+            simulation_id=runner_id,
+            platform="parallel",
+            seed=seed,
+            simulation_dir=str(run_dir),
+            keep_alive=False,
+        )
+        while _runner_status(runner_state) not in TERMINAL_RUNNER_STATES:
+            if self._cancelled(state):
+                try:
+                    self._runner().stop_simulation(runner_id)
+                finally:
+                    raise InterruptedError
+            state["current"]["round"] = int(getattr(runner_state, "current_round", 0) or 0)
+            self._save(state)
+            time.sleep(self.poll_interval)
+            runner_state = self._runner().get_run_state(runner_id)
+        if _runner_status(runner_state) != "completed":
+            raise RuntimeError(
+                getattr(runner_state, "error", None)
+                or f"Simulationslauf endete mit {_runner_status(runner_state)}"
+            )
+        initial = (config.get("event_config") or {}).get("initial_posts") or []
+        posts = load_simulation_posts(run_dir, initial)
+        return self._classify_posts(state, posts, seed, run_number, run_dir)
+
     def _run_ensemble(self, ensemble_id: str) -> None:
         state = self._load(ensemble_id)
         if not state:
@@ -2310,7 +2399,8 @@ class EnsembleService:
                 state["status"] = "running"
                 self._save(state)
                 context = load_simulation_context(state["simulation_id"])
-                state["checklist"] = self._create_checklist(state, context)
+                if not state.get("checklist"):
+                    state["checklist"] = self._create_checklist(state, context)
                 state["primary_outcome_id"] = resolve_primary_outcome_id(
                     state["checklist"], state.get("primary_outcome_id") or None
                 )
@@ -2324,6 +2414,7 @@ class EnsembleService:
                     variant["status"] = "running"
                     per_run[key] = []
                     self._save(state)
+                    attempts = state.setdefault("seed_attempts", {})
                     for run_number in range(1, state["runs"] + 1):
                         if self._cancelled(state):
                             raise InterruptedError
@@ -2331,65 +2422,60 @@ class EnsembleService:
                         run_dir = self._path(ensemble_id) / key / f"run_{run_number}"
                         state["current"] = {"variant": key, "run": run_number, "round": 0}
                         self._save(state)
-                        if null_arm(key):
-                            run_dir.mkdir(parents=True, exist_ok=False)
-                            target_characters = None
-                            if null_arm(key) == "null_personas":
-                                target_characters = median_character_count(
-                                    baseline_transcript_lengths(self._path(ensemble_id))
-                                )
-                            narrative = self._null_narrative(
-                                state, context, seed, key, target_characters
-                            )
-                            (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
-                            classified = self._classify_narrative(
-                                state, narrative, seed, run_number, run_dir, key
-                            )
-                        else:
-                            config = prepare_run_directory(
-                                source,
-                                run_dir,
-                                key,
-                                state["hours"],
-                                state.get("start_hour", 7),
-                            )
-                            runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
-                            state["current_runner_id"] = runner_id
+                        completed = self._completed_seed_result(run_dir)
+                        if completed is not None:
+                            per_run[key].append(completed)
+                            variant["done"] = run_number
                             self._save(state)
-                            runner_state = self._runner().start_simulation(
-                                simulation_id=runner_id,
-                                platform="parallel",
-                                seed=seed,
-                                simulation_dir=str(run_dir),
-                                keep_alive=False,
-                            )
-                            while _runner_status(runner_state) not in TERMINAL_RUNNER_STATES:
-                                if self._cancelled(state):
-                                    try:
-                                        self._runner().stop_simulation(runner_id)
-                                    finally:
-                                        raise InterruptedError
-                                state["current"]["round"] = int(
-                                    getattr(runner_state, "current_round", 0) or 0
+                            continue
+                        if run_dir.exists():
+                            shutil.rmtree(run_dir)
+                        failure_key = f"{key}:{run_number}"
+                        classified = None
+                        last_error: Optional[BaseException] = None
+                        while int(attempts.get(failure_key, 0)) < SEED_ATTEMPTS:
+                            if self._cancelled(state):
+                                raise InterruptedError
+                            attempts[failure_key] = int(attempts.get(failure_key, 0)) + 1
+                            state["current"] = {
+                                "variant": key,
+                                "run": run_number,
+                                "round": 0,
+                                "attempt": attempts[failure_key],
+                            }
+                            self._save(state)
+                            try:
+                                classified = self._execute_seed(
+                                    state, context, source, ensemble_id, key,
+                                    run_number, seed, run_dir,
                                 )
+                                break
+                            except InterruptedError:
+                                raise
+                            except Exception as error:
+                                last_error = error
+                                logger.warning(
+                                    f"Ensemble {ensemble_id} Seed {key} Lauf {run_number} "
+                                    f"Versuch {attempts[failure_key]} fehlgeschlagen: {error}"
+                                )
+                                state["current_runner_id"] = None
+                                if run_dir.exists():
+                                    shutil.rmtree(run_dir)
                                 self._save(state)
-                                time.sleep(self.poll_interval)
-                                runner_state = self._runner().get_run_state(runner_id)
-                            if _runner_status(runner_state) != "completed":
-                                raise RuntimeError(
-                                    getattr(runner_state, "error", None)
-                                    or f"Simulationslauf endete mit {_runner_status(runner_state)}"
-                                )
-                            initial = (config.get("event_config") or {}).get("initial_posts") or []
-                            posts = load_simulation_posts(run_dir, initial)
-                            classified = self._classify_posts(
-                                state, posts, seed, run_number, run_dir
+                        if classified is None:
+                            raise RuntimeError(
+                                f"Seed {key} Lauf {run_number} nach {SEED_ATTEMPTS} Versuchen "
+                                f"fehlgeschlagen: {last_error}"
                             )
                         per_run[key].append(classified)
                         variant["done"] = run_number
                         state["current_runner_id"] = None
                         remaining = sum(v["total"] - v["done"] for v in state["variants"])
-                        state["eta_seconds"] = max(0, round(state["eta_seconds"] * remaining / max(1, remaining + 1)))
+                        eta = state.get("eta_seconds")
+                        if isinstance(eta, (int, float)) and not isinstance(eta, bool):
+                            state["eta_seconds"] = max(
+                                0, round(eta * remaining / max(1, remaining + 1))
+                            )
                         self._save(state)
                     variant["status"] = "completed"
                     self._save(state)
@@ -2479,7 +2565,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             outcome = outcomes.get(oid, {"text_de": oid})
             lines.append(
                 f"| {outcome['text_de']} | {metric['agreement']:.1%} | "
-                f"{metric['kappa']:.2f} | {metric['n_pairs']} | {metric['label']} |"
+                f"{'–' if metric.get('kappa') is None else format(metric['kappa'], '.2f')} | "
+                f"{metric['n_pairs']} | {metric['label']} |"
             )
         if any(value.get("label") == "nicht messbar" for value in state["reliability"].values()):
             lines.extend([
