@@ -429,6 +429,10 @@ class SimulationRunner:
             # Umgebungsvariablen für Unterprozess setzen, um UTF-8-Kodierung auf Windows sicherzustellen
             # Behebt Probleme mit Drittanbieter-Bibliotheken (wie OASIS), die Dateien ohne Kodierungsangabe lesen
             env = os.environ.copy()
+            if Config.is_local_llm():
+                # Die GPU gehört dem lokalen LLM: OASIS' Empfehlungsmodell (twhin-bert, ~4 GB VRAM) läuft auf der CPU,
+                # sonst passt das Sprachmodell nicht mehr in den Grafikspeicher und wird um ein Vielfaches langsamer.
+                env['CUDA_VISIBLE_DEVICES'] = ''
             env['PYTHONUTF8'] = '1'  # Python 3.7+ unterstützt dies, lässt open() standardmäßig UTF-8 verwenden
             env['PYTHONIOENCODING'] = 'utf-8'  # Sicherstellen, dass stdout/stderr UTF-8 verwenden
             
