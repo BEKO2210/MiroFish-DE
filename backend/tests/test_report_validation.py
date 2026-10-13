@@ -198,16 +198,25 @@ def test_methodology_from_sample_db(upload):
 
 def test_manifest_content(upload):
     sim_id, sim = _make_sim(upload)
+    # Profile + Startbeiträge im echten Ordner (nicht über simulation_id auflösen)
+    (sim / "twitter_profiles.csv").write_text("user_id,name\n1,A\n", encoding="utf-8")
+    (sim / "reddit_profiles.json").write_text(
+        '[{"user_id": 1, "name": "A"}]', encoding="utf-8"
+    )
     manifest = build_manifest(
-        sim_id, seed=42, temperature=0.7, started_at="2026-10-13T09:00:00"
+        str(sim), seed=42, temperature=0.7, started_at="2026-10-13T09:00:00"
     )
     assert manifest["seed"] == 42
     assert manifest["temperature"] == 0.7
+    assert manifest["simulation_id"] == sim_id
     assert manifest["simulation_config_sha256"]
     assert manifest["question_sha256"]
+    assert manifest["initial_posts_sha256"]
+    assert manifest["profile_sha256"]["twitter_profiles.csv"]
+    assert manifest["profile_sha256"]["reddit_profiles.json"]
     assert "extracted_text.txt" in manifest["document_sha256"]
     assert "quelle.md" in manifest["document_sha256"]
-    assert "models" in manifest
+    assert "twitter" in manifest["models"] and "reddit" in manifest["models"]
     path = write_manifest(str(sim), manifest)
     assert Path(path).is_file()
     events_path = write_events_jsonl(str(sim))

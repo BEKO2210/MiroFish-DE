@@ -18,6 +18,31 @@ Umsetzung der Roadmap-Stufen **V1 (ehrlicher Bericht)**, **V2 (Reproduzierbarkei
 - **`manifest.json`** im Simulationsordner: SHA-256 der Dokumente und der Frage, Modelle, Seed, Temperatur, Hash der `simulation_config.json`, git-Commit (falls verfügbar), Start/Ende, Aktionszahl.
 - **Export:** ZIP enthält zusätzlich `events.jsonl` (Zeit, Runde, Plattform, Agent, Typ, Text) und `manifest.json` (bei Bedarf nachgezogen).
 
+## Reproduzierbarkeit
+
+Twitter und Reddit ziehen nicht mehr aus dem globalen `random`. Vor `asyncio.gather` entsteht je Plattform ein eigener
+`random.Random`-Strom (und ein NumPy-`Generator`) aus `SHA-256(seed:plattform)`. Aktive Agenten je Runde nutzen nur
+diesen Strom; die Ziehungsreihenfolge hängt damit nicht an der LLM-Latenz der anderen Plattform.
+
+`build_manifest` liest den Ordner, in dem `simulation_config.json` liegt (`sim_dir`), nicht
+`uploads/simulations/<simulation_id>`. Ensemble-Läufe unter `uploads/ensembles/.../run_n/` bekommen damit echte Hashes
+für Config, Profile (`twitter_profiles.csv`, `reddit_profiles.json`), Startbeiträge und Frage. Die Modellnamen stehen
+getrennt als `models.twitter` und `models.reddit` (Reddit kann `LLM_BOOST_*` nutzen).
+
+Nichtdeterminismus messen (gleicher Seed, zwei Kopien, Aktionslogs):
+
+```bash
+cd backend && python3 scripts/repro_check.py <sim_dir> --seed <n> --max-rounds 2
+# nur Vergleich ohne Lauf:
+python3 scripts/repro_check.py --compare-only <run_a> <run_b>
+```
+
+Ausgegeben werden `sequential_identity` (Anteil identischer Aktionen Typ/Agent/normalisierter Text in Reihenfolge)
+und `text_jaccard` (Jaccard der Aktionstexte). Unit-Tests prüfen Ströme, Manifest-Hashes und das Abstandsmaß an
+Beispiel-Logs. Ein gemessener GPU-Doppelwert für das Hallenbad-Szenario steht hier noch aus (Lauf bewusst nicht
+automatisch gestartet); sobald vorhanden, als Zahl nachtragen und als Untergrenze in Intervallinterpretationen
+verwenden. Lokale Anbieter können den LLM-`seed` ignorieren — das bleibt eine eigene Grenze.
+
 ## Prüfung
 
 ```bash

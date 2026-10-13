@@ -419,6 +419,19 @@ class RedditSimulationRunner:
         self.env = None
         self.agent_graph = None
         self.ipc_handler = None
+        self._rng: Optional[random.Random] = None
+        self._np_rng = None
+
+    def _platform_rng(self) -> random.Random:
+        if self._rng is None:
+            from repro_seed import make_platform_numpy, make_platform_rng
+            seed = getattr(self, "_repro_seed", None)
+            if seed is None:
+                seed = random.randint(0, 2**31 - 1)
+            self._rng = make_platform_rng(int(seed), "reddit")
+            if self._np_rng is None:
+                self._np_rng = make_platform_numpy(int(seed), "reddit")
+        return self._rng
         
     def _load_config(self) -> Dict[str, Any]:
         """Konfigurationsdatei laden"""
@@ -498,7 +511,8 @@ class RedditSimulationRunner:
         else:
             multiplier = 1.0
         
-        target_count = int(random.uniform(base_min, base_max) * multiplier)
+        rng = self._platform_rng()
+        target_count = int(rng.uniform(base_min, base_max) * multiplier)
         
         candidates = []
         for cfg in agent_configs:
@@ -509,10 +523,10 @@ class RedditSimulationRunner:
             if current_hour not in active_hours:
                 continue
             
-            if random.random() < activity_level:
+            if rng.random() < activity_level:
                 candidates.append(agent_id)
         
-        selected_ids = random.sample(
+        selected_ids = rng.sample(
             candidates, 
             min(target_count, len(candidates))
         ) if candidates else []
@@ -737,7 +751,12 @@ async def main():
         print(f"Fehler: Konfigurationsdatei nicht gefunden: {args.config}")
         sys.exit(1)
 
-    from repro_seed import apply_python_seeds, resolve_seed_and_temperature
+    from repro_seed import (
+        apply_python_seeds,
+        make_platform_numpy,
+        make_platform_rng,
+        resolve_seed_and_temperature,
+    )
     seed, temperature = resolve_seed_and_temperature(args.seed)
     apply_python_seeds(seed)
     print(f"Reproduzierbarkeit: seed={seed}, temperature={temperature}")
@@ -752,6 +771,8 @@ async def main():
     )
     runner._repro_seed = seed
     runner._repro_temperature = temperature
+    runner._rng = make_platform_rng(seed, "reddit")
+    runner._np_rng = make_platform_numpy(seed, "reddit")
     await runner.run(max_rounds=args.max_rounds)
 
 

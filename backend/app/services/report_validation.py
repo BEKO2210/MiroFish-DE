@@ -667,19 +667,41 @@ def write_events_jsonl(sim_dir: str, events: Optional[List[Dict[str, Any]]] = No
     return path
 
 
+def _agent_model_names() -> Dict[str, str]:
+    """Hauptmodell und ggf. Reddit-Boost-Modell (wie run_parallel_simulation.create_model)."""
+    llm = Config.get_llm_config()
+    main = llm.get("model") or Config.LLM_MODEL_NAME
+    # create_model: has_boost = bool(LLM_BOOST_API_KEY); reddit = BOOST_MODEL or main
+    if os.environ.get("LLM_BOOST_API_KEY"):
+        reddit = os.environ.get("LLM_BOOST_MODEL_NAME") or main
+    else:
+        reddit = main
+    return {
+        "main": main,
+        "twitter": main,
+        "reddit": reddit,
+        "agents": main,
+    }
+
+
 def build_manifest(
-    simulation_id: str,
+    sim_dir: str,
     seed: int,
     temperature: float,
     started_at: Optional[str] = None,
     completed_at: Optional[str] = None,
     action_count: Optional[int] = None,
 ) -> Dict[str, Any]:
-    ctx = load_simulation_context(simulation_id)
-    sim_dir = ctx["sim_dir"]
-    config = ctx["config"]
-    state = ctx["state"]
-    project_id = ctx["project_id"]
+    """Manifest aus dem Ordner bauen, in dem simulation_config.json liegt."""
+    sim_dir = os.path.abspath(sim_dir)
+    config = _load_json(os.path.join(sim_dir, "simulation_config.json"))
+    state = _load_json(os.path.join(sim_dir, "state.json"))
+    project_id = state.get("project_id") or ""
+    simulation_id = (
+        config.get("simulation_id")
+        or state.get("simulation_id")
+        or os.path.basename(sim_dir.rstrip(os.sep))
+    )
     requirement = (
         state.get("simulation_requirement")
         or config.get("simulation_requirement")
@@ -702,8 +724,15 @@ def build_manifest(
 
     config_path = os.path.join(sim_dir, "simulation_config.json")
     config_hash = _sha256_file(config_path)
-    llm = Config.get_llm_config()
-    model_name = llm.get("model") or Config.LLM_MODEL_NAME
+    profile_hashes: Dict[str, str] = {}
+    for name in ("twitter_profiles.csv", "reddit_profiles.json"):
+        digest = _sha256_file(os.path.join(sim_dir, name))
+        if digest:
+            profile_hashes[name] = digest
+    initial_posts = (config.get("event_config") or {}).get("initial_posts") or []
+    initial_posts_hash = _sha256_text(
+        json.dumps(initial_posts, ensure_ascii=False, sort_keys=True)
+    )
 
     if action_count is None:
         plat = count_platform_activity(sim_dir)
@@ -713,8 +742,10 @@ def build_manifest(
         "simulation_id": simulation_id,
         "seed": int(seed),
         "temperature": float(temperature),
-        "models": {"main": model_name, "agents": model_name},
+        "models": _agent_model_names(),
         "document_sha256": doc_hashes,
+        "profile_sha256": profile_hashes,
+        "initial_posts_sha256": initial_posts_hash,
         "question_sha256": _sha256_text(requirement),
         "simulation_config_sha256": config_hash,
         "git_commit": git_commit_hash(),

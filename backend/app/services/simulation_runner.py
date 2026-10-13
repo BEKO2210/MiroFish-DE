@@ -415,7 +415,7 @@ class SimulationRunner:
         # Lauf-Manifest (V2) zu Beginn schreiben
         try:
             manifest = build_manifest(
-                simulation_id=simulation_id,
+                sim_dir,
                 seed=seed,
                 temperature=temperature,
                 started_at=state.started_at,
