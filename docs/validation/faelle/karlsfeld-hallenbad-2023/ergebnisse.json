@@ -1,0 +1,42 @@
+[
+  {
+    "text_de": "Innerhalb von 3 Monaten wird eine Online-Petition oder Unterschriftensammlung zum Erhalt bzw. Weiterbetrieb des Bades gestartet.",
+    "eingetreten": true,
+    "quelle": "6 (Start 03.04.2023); 7"
+  },
+  {
+    "text_de": "Der Rat hebt den Schließungsbeschluss binnen 3 Monaten auf oder setzt ihn aus.",
+    "eingetreten": false,
+    "quelle": "8, 9, 12 (Beschluss galt weiter)"
+  },
+  {
+    "text_de": "Innerhalb von 3 Monaten wird ein Bürgerbegehren zum Erhalt des Bades gestartet.",
+    "eingetreten": false,
+    "quelle": "11 (Bürgerbegehren erst ab Dezember 2025), 8"
+  },
+  {
+    "text_de": "Innerhalb von 2 Wochen äußern Vereine oder Verbände (Schwimmverein, Rettungsorganisationen) öffentlich Sorge oder Ablehnung in der Lokalpresse.",
+    "eingetreten": true,
+    "quelle": "2 (03.03.2023)"
+  },
+  {
+    "text_de": "Innerhalb von 3 Monaten äußert sich ein Bundes- oder Landespolitiker öffentlich (Pressemitteilung) zur Schließung.",
+    "eingetreten": true,
+    "quelle": "5 (12.04.2023)"
+  },
+  {
+    "text_de": "Die Verwaltung sichert innerhalb von 2 Wochen Ausweich-Schwimmzeiten für Schulkinder in anderen Bädern.",
+    "eingetreten": true,
+    "quelle": "2 (03.03.2023)"
+  },
+  {
+    "text_de": "Innerhalb von 3 Monaten sagen Landkreis oder Nachbarkommunen eine finanzielle Beteiligung am Erhalt oder Betrieb des Bades zu.",
+    "eingetreten": false,
+    "quelle": "3, 7 (Landrat sieht Kommune in der Zuständigkeit, keine Landkreismittel)"
+  },
+  {
+    "text_de": "Eine bereits zugesagte Förderung für die Sanierung wird wegen des Beschlusses nicht abgerufen und für andere Projekte freigegeben.",
+    "eingetreten": true,
+    "quelle": "5 (03.04./12.04.2023)"
+  }
+]

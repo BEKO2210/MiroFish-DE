@@ -1,0 +1,37 @@
+[
+  {
+    "text_de": "Es wird eine Unterschriftensammlung oder Petition gegen den Beschluss gestartet.",
+    "eingetreten": true,
+    "quelle": "1, 3, 4"
+  },
+  {
+    "text_de": "Mehr als 1000 Unterschriften werden gesammelt und an die Verwaltungsspitze übergeben.",
+    "eingetreten": true,
+    "quelle": "4, 5"
+  },
+  {
+    "text_de": "Ein Umweltverband wendet sich öffentlich (z. B. per Offenem Brief) an Bürgermeister und Rat.",
+    "eingetreten": true,
+    "quelle": "2"
+  },
+  {
+    "text_de": "Ein Ratsmitglied oder eine Fraktion wirft der Verwaltung öffentlich Rechtswidrigkeit vor.",
+    "eingetreten": true,
+    "quelle": "3"
+  },
+  {
+    "text_de": "Der Beschluss wird auf Antrag einer Fraktion im Gesamtrat erneut beraten.",
+    "eingetreten": true,
+    "quelle": "5, 6"
+  },
+  {
+    "text_de": "Der Rat revidiert den Beschluss oder ändert die Planung zugunsten des Baumerhalts.",
+    "eingetreten": false,
+    "quelle": "6"
+  },
+  {
+    "text_de": "Der Beschluss wird durch ein Gericht oder eine Aufsichtsbehörde gestoppt.",
+    "eingetreten": false,
+    "quelle": "3, 6"
+  }
+]
