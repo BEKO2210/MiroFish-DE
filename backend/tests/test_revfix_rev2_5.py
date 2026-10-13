@@ -101,7 +101,8 @@ def test_container_flask_port_wins_over_copied_env():
         "print(os.environ['FLASK_PORT'])"
     )
     env_path = ROOT / ".env"
-    assert not env_path.exists()
+    if env_path.exists():
+        pytest.skip("echte .env vorhanden – nicht überschreiben")
     env_path.write_text("FLASK_PORT=9999\n", encoding="utf-8")
     try:
         out = subprocess.run(
