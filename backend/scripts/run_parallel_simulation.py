@@ -89,6 +89,12 @@ sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
 from app.utils.simulation_time import simulation_clock
+from app.services.blind_feed import (
+    deliver_opening_stimulus,
+    fetch_platform_posts,
+    install_blind_feed,
+    is_blind_feed,
+)
 
 # Laden der .env-Datei aus dem Projektwurzelverzeichnis (enthält Konfigurationen wie LLM_API_KEY)
 from dotenv import load_dotenv
@@ -1155,10 +1161,7 @@ async def run_twitter_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
-    # Gegenprobe "isolated": Ohne Feed-, Such- und Interaktionswerkzeuge
-    # kann ein Agent keine Beiträge anderer Agenten beobachten. Eigene
-    # Veröffentlichungen bleiben möglich, damit individuelle Reaktionen auf
-    # Persona und Ausgangsmaterial messbar bleiben.
+    # isolated: nur Posten. blind_feed: voller Katalog, Beobachtung später geleert.
     available_actions = (
         [ActionType.CREATE_POST, ActionType.DO_NOTHING]
         if config.get("ensemble_variant") == "isolated"
@@ -1190,6 +1193,9 @@ async def run_twitter_simulation(
     
     await result.env.reset()
     log_info("Umgebung gestartet")
+    if is_blind_feed(config.get("ensemble_variant")):
+        install_blind_feed(result.env.platform)
+        log_info("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
     
     if action_logger:
         action_logger.log_simulation_start(config)
@@ -1236,6 +1242,15 @@ async def run_twitter_simulation(
         if initial_actions:
             await result.env.step(initial_actions)
             log_info(f"Bereitgestellt: {len(initial_actions)} Initialposts")
+
+    stimulus_posts = fetch_platform_posts(result.env.platform)
+    deliver_opening_stimulus(
+        result.env.agent_graph,
+        stimulus_posts,
+        os.path.join(simulation_dir, "twitter", "stimulus_log.json"),
+        "twitter",
+    )
+    log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     
     # Protokolliere Ende von Runde 0
     if action_logger:
@@ -1368,6 +1383,7 @@ async def run_reddit_simulation(
         log_info(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
         return result
     
+    # isolated: nur Posten. blind_feed: voller Katalog, Beobachtung später geleert.
     available_actions = (
         [ActionType.CREATE_POST, ActionType.DO_NOTHING]
         if config.get("ensemble_variant") == "isolated"
@@ -1399,6 +1415,9 @@ async def run_reddit_simulation(
     
     await result.env.reset()
     log_info("Umgebung gestartet")
+    if is_blind_feed(config.get("ensemble_variant")):
+        install_blind_feed(result.env.platform)
+        log_info("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
     
     if action_logger:
         action_logger.log_simulation_start(config)
@@ -1453,6 +1472,15 @@ async def run_reddit_simulation(
         if initial_actions:
             await result.env.step(initial_actions)
             log_info(f"Veröffentlichte {len(initial_actions)} initiale Posts")
+
+    stimulus_posts = fetch_platform_posts(result.env.platform)
+    deliver_opening_stimulus(
+        result.env.agent_graph,
+        stimulus_posts,
+        os.path.join(simulation_dir, "reddit", "stimulus_log.json"),
+        "reddit",
+    )
+    log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     
     # Protokolliere Ende von Runde 0
     if action_logger:

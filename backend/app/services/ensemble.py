@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import os
@@ -37,6 +38,7 @@ ENSEMBLE_STATUSES = {"queued", "running", "completed", "failed", "cancelled"}
 VARIANT_LABELS = {
     "baseline": ("Basislauf", "Baseline"),
     "isolated": ("Ohne Vernetzung", "Isolated"),
+    "blind_feed": ("Blinder Feed", "Blind feed"),
     "null_model": ("Nullmodell", "Null model"),
     "null_document": ("Nullmodell Dokument", "Null model (document)"),
     "null_personas": ("Nullmodell Personas", "Null model (personas)"),
@@ -967,6 +969,50 @@ def opening_post_texts(context: Dict[str, Any]) -> List[str]:
     return texts
 
 
+def build_null_run_manifest(
+    prompt: str,
+    *,
+    model: str,
+    temperature: float,
+    seed: int,
+    max_tokens: int,
+) -> Dict[str, Any]:
+    """Manifest für Nullmodell-Läufe (Prompt-Hash, Modell, Temperatur, Seed, Tokenobergrenze)."""
+    return {
+        "prompt_sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        "model": str(model),
+        "temperature": float(temperature),
+        "seed": int(seed),
+        "max_tokens": int(max_tokens),
+    }
+
+
+def compute_run_stats(
+    posts: Sequence[Dict[str, Any]] = (),
+    *,
+    narrative: str = "",
+    audit: Optional[Dict[str, Any]] = None,
+) -> Dict[str, int]:
+    """Beitragszahl, Zeichenzahl und Stapelzahl eines Laufs."""
+    texts = [str(post.get("text") or "") for post in posts]
+    if narrative:
+        character_count = len(narrative)
+        post_count = 0
+    else:
+        character_count = sum(len(text) for text in texts)
+        post_count = len(posts)
+    document = audit or {}
+    if "raters" in document:
+        batches = (document.get("raters") or {}).get("a", {}).get("batches") or []
+    else:
+        batches = document.get("batches") or []
+    return {
+        "post_count": int(post_count),
+        "character_count": int(character_count),
+        "batch_count": int(len(batches)),
+    }
+
+
 def build_null_arm_prompt(
     arm: str,
     *,
@@ -1572,6 +1618,7 @@ class EnsembleService:
         seed: int,
         arm: str = "null_document",
         target_characters: Optional[int] = None,
+        run_dir: Optional[Path] = None,
     ) -> str:
         resolved = null_arm(arm) or "null_document"
         prompt = build_null_arm_prompt(
@@ -1586,15 +1633,29 @@ class EnsembleService:
         max_tokens = 4000
         if resolved == "null_personas" and target_characters is not None:
             max_tokens = max(1, math.ceil(int(target_characters) / 3))
-        return self._llm().chat(
+        temperature = 0.7
+        llm = self._llm()
+        narrative = llm.chat(
             [
                 {"role": "system", "content": "Schreibe eine plausible Verlaufserzählung, keine Analyse der Simulation."},
                 {"role": "user", "content": prompt},
             ],
-            temperature=0.7,
+            temperature=temperature,
             max_tokens=max_tokens,
             seed=seed,
         )
+        if run_dir is not None:
+            _write_json_atomic(
+                Path(run_dir) / "manifest.json",
+                build_null_run_manifest(
+                    prompt,
+                    model=self._llm_model(llm),
+                    temperature=temperature,
+                    seed=seed,
+                    max_tokens=max_tokens,
+                ),
+            )
+        return narrative
 
     def _interaction_groups(
         self,
@@ -2231,10 +2292,12 @@ class EnsembleService:
                 state["status"] = "running"
                 self._save(state)
                 per_run: Dict[str, List[Dict[str, Any]]] = {}
+                run_stats: Dict[str, List[Dict[str, Any]]] = {}
                 for variant in state["variants"]:
                     key = variant["key"]
                     variant["status"] = "running"
                     per_run[key] = []
+                    run_stats[key] = []
                     self._save(state)
                     for run_number in range(1, int(state["runs"]) + 1):
                         if self._cancelled(state):
@@ -2247,14 +2310,17 @@ class EnsembleService:
                             narrative_path = run_dir / "narrative.txt"
                             if not narrative_path.is_file():
                                 raise FileNotFoundError(f"Gespeicherte Erzählung fehlt: {narrative_path}")
+                            narrative = narrative_path.read_text(encoding="utf-8")
                             classified = self._classify_narrative(
                                 state,
-                                narrative_path.read_text(encoding="utf-8"),
+                                narrative,
                                 seed,
                                 run_number,
                                 run_dir,
                                 key,
                             )
+                            audit = _read_json(run_dir / "classification.json")
+                            stats = compute_run_stats(narrative=narrative, audit=audit)
                         else:
                             config = _read_json(run_dir / "simulation_config.json")
                             initial = (config.get("event_config") or {}).get("initial_posts") or []
@@ -2262,12 +2328,16 @@ class EnsembleService:
                             classified = self._classify_posts(
                                 state, posts, seed, run_number, run_dir
                             )
+                            audit = _read_json(run_dir / "classification.json")
+                            stats = compute_run_stats(posts, audit=audit)
+                        run_stats[key].append({"run": run_number, **stats})
                         per_run[key].append(classified)
                         variant["done"] = run_number
                         self._save(state)
                     variant["status"] = "completed"
                     self._save(state)
 
+                state["run_stats"] = run_stats
                 self._aggregate(state, per_run)
                 state["status"] = "completed"
                 state["finished_at"] = datetime.now().isoformat()
@@ -2319,10 +2389,12 @@ class EnsembleService:
                 per_run: Dict[str, List[Dict[str, Any]]] = {}
                 variant_by_key = {item["key"]: item for item in state["variants"]}
 
+                run_stats: Dict[str, List[Dict[str, Any]]] = {}
                 for key in execution_variant_keys([item["key"] for item in state["variants"]]):
                     variant = variant_by_key[key]
                     variant["status"] = "running"
                     per_run[key] = []
+                    run_stats[key] = []
                     self._save(state)
                     for run_number in range(1, state["runs"] + 1):
                         if self._cancelled(state):
@@ -2339,11 +2411,15 @@ class EnsembleService:
                                     baseline_transcript_lengths(self._path(ensemble_id))
                                 )
                             narrative = self._null_narrative(
-                                state, context, seed, key, target_characters
+                                state, context, seed, key, target_characters, run_dir
                             )
                             (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
                             classified = self._classify_narrative(
                                 state, narrative, seed, run_number, run_dir, key
+                            )
+                            audit = _read_json(run_dir / "classification.json")
+                            stats = compute_run_stats(
+                                narrative=narrative, audit=audit
                             )
                         else:
                             config = prepare_run_directory(
@@ -2385,6 +2461,10 @@ class EnsembleService:
                             classified = self._classify_posts(
                                 state, posts, seed, run_number, run_dir
                             )
+                            audit = _read_json(run_dir / "classification.json")
+                            stats = compute_run_stats(posts, audit=audit)
+                        stats = {"run": run_number, **stats}
+                        run_stats[key].append(stats)
                         per_run[key].append(classified)
                         variant["done"] = run_number
                         state["current_runner_id"] = None
@@ -2394,6 +2474,7 @@ class EnsembleService:
                     variant["status"] = "completed"
                     self._save(state)
 
+                state["run_stats"] = run_stats
                 self._aggregate(state, per_run)
                 state["status"] = "completed"
                 state["finished_at"] = datetime.now().isoformat()
@@ -2467,6 +2548,22 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
                 f"{value.get('unclassified', 0)} | "
                 f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%}) |"
             )
+    if state.get("run_stats"):
+        lines.extend([
+            "",
+            "### Textmengen je Lauf",
+            "",
+            "| Variante | Lauf | Beiträge | Zeichen | Stapel |",
+            "|---|---:|---:|---:|---:|",
+        ])
+        for variant in state["variants"]:
+            key = variant["key"]
+            for row in state["run_stats"].get(key, []):
+                lines.append(
+                    f"| {labels[key]} | {row.get('run', '—')} | "
+                    f"{row.get('post_count', 0)} | {row.get('character_count', 0)} | "
+                    f"{row.get('batch_count', 0)} |"
+                )
     if state.get("reliability"):
         lines.extend([
             "",
@@ -2547,7 +2644,16 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             "`null_personas` sieht zusätzlich dieselben Personas und Startbeiträge, "
             "trifft jede Akteursgruppe und zielt auf den Median der Basis-Zeichenlänge. "
             "Interaktion wird in den Nullarmen aus dem Text kodiert. "
-            "DB-Kanten stehen getrennt als `mechanism_edges` und sind nicht das Ergebnis.",
+            "DB-Kanten stehen getrennt als `mechanism_edges` und sind nicht das Ergebnis. "
+            "Jeder Nullmodell-Lauf schreibt `manifest.json` mit Prompt-Hash, Modell, "
+            "Temperatur, Seed und Tokenobergrenze.",
+        ])
+    if any(item["key"] == "blind_feed" for item in state.get("variants", [])):
+        lines.extend([
+            "",
+            "`blind_feed` behält den vollen Aktionskatalog und leert die Beobachtung "
+            "fremder Beiträge (leere Empfehlungstabelle, refresh nur eigene Posts). "
+            "`isolated` bleibt der Arm mit nur `CREATE_POST` und `DO_NOTHING`.",
         ])
     lines.extend([
         "",
