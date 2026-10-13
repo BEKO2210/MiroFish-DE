@@ -48,3 +48,35 @@ Alle Quellen am 14.10.2026 abgerufen.
    https://www.carl-orff-gym.de/service/baustelle-am-muenchner-ring/
    Abgerufen: 14.10.2026. Belegt nur, dass im Bereich der Schule später Bauarbeiten mit Umleitungen stattfinden; keine
    Aussage zum Zeitpunkt der Rodung.
+
+## Belegstellen (Nachprüfung am 14.10.2026, alle Seiten erneut abgerufen)
+
+Frage 1 (Unterschriftensammlung/Petition, wahr): [1]: „Mit Unterschriften wollen die Grünen in Unterschleißheim für den Erhalt
+von 25 Bäumen kämpfen.“ [3] (27.01.2023): „Sie kämpfen mit einer Online-Petition, die bisher über 770 Unterschriften erhalten
+hat“.
+
+Frage 2 (über 1000 Unterschriften übergeben, wahr): [5]: „… haben 1056 Unterschriften für den Erhalt des Walls am Münchner Ring
+an Bürgermeister Christoph Böck übergeben.“ [6]: „Zwei Tage vor der Sitzung hatten die Grünen und der Bund Naturschutz 1056
+Unterschriften für den Erhalt von 25 Bäumen an Bürgermeister Christoph Böck (SPD) überreicht.“ [4] (Parteiquelle) nennt „1056
+Unterschriften … innerhalb von nur 19 Tagen“, Übergabe „am Dienstag, 31.01.“
+
+Frage 3 (Umweltverband, Offener Brief, wahr): [2]: „06.12.2022 Offener Brief. Sehr geehrter Herr Erster Bürgermeister, sehr
+geehrte Frau Stadträtin, sehr geehrter Herr Stadtrat, fassungslos haben wir der Presse entnommen …“ (BUND Naturschutz, Ortsgruppe
+Schleißheim), also 6 Tage nach dem Beschluss vom 30.11.2022.
+
+Frage 4 (Vorwurf der Rechtswidrigkeit, wahr): [3]: „Im Umwelt- und Verkehrsausschuss warf Zweiter Bürgermeister Tino
+Schlagintweit (Grüne) der Stadtverwaltung einen Tag später ‚rechtswidriges‘ Handeln vor.“
+
+Frage 5 (erneute Beratung im Gesamtrat, wahr): [5]: „Am morgigen Donnerstag, 2. Februar, werden diese Beschlüsse auf Antrag der
+Grünen in der Sitzung des Stadtrat erneut diskutiert.“ [6]: „Die Grünen hatten beantragt, dass der Stadtrat das Thema neu
+debattiert. Das Gremium ließ den Dringlichkeitsantrag auch einstimmig zu.“
+
+Frage 6 (Rat revidiert, falsch): [6]: „Der Protest der Baumschützer hat den Stadtrat nicht umgestimmt. Es bleibt dabei: Bis Ende
+Februar wird der Wall am Münchner Ring in Unterschleißheim gerodet.“ Abstimmung 21 : 9 für die Bestätigung der Ausschussbeschlüsse.
+
+Entfernte Frage: „Der Beschluss wird durch ein Gericht oder eine Aufsichtsbehörde gestoppt“ (vorher „falsch“). Keine abgerufene
+Quelle berichtet über ein Gerichts- oder Aufsichtsverfahren, aber ebenso wenig über die tatsächlich erfolgte Rodung (Quelle [8]
+sagt dazu nichts; Lücke 05.–28.02.2023). Ein Nicht-Eintreten ist daher nicht belegt, nur nicht erwähnt. Entfernt.
+
+Ergebnis der Nachprüfung: Die übrigen sechs Aussagen werden getragen. [4] ist Eigendarstellung einer Partei; die Zahl 1056 wird
+aber durch [5] und [6] unabhängig bestätigt.

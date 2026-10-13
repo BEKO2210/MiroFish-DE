@@ -41,5 +41,37 @@ Alle Quellen am 14.10.2026 abgerufen.
    Ratssitzung; „knappe Mehrheit" für die Schließung; Räume sollen Ende März für die IT-Abteilung genutzt werden;
    Appell an Verwaltung und Bürger; Verein bietet Unterstützung an. Seite wurde laut Metadaten 21.01.2024 überarbeitet.
 
+## Belegstellen (Nachprüfung am 14.10.2026, alle Seiten erneut abgerufen)
+
+Frage 1 (Petition, wahr, umformuliert): [6] (17.03.2023): „… von denen sich inzwischen fast 500 eine Petition zum Erhalt der
+Niederkasseler Bibliothek angeschlossen haben.“ [7]: „… die sich kurzfristig unermüdlich vor die Geschäfte postierten, um
+Unterschriften gegen die Schließung der Bücherei am Standort Niederkassel zu sammeln.“ Später: „Dieser Einsatz sowie unser
+Engagement … wurden in der Ratssitzung gehört und gewürdigt.“ Diese Straßensammlung lag also VOR dem Beschluss; ob die Petition erst danach
+begann, ist nicht belegt. Die ursprüngliche Frage („wird durchgeführt“) wäre dadurch nicht sauber als Reaktion belegt; die
+neue Frage prüft nur den belegten Stand fünf Wochen danach („inzwischen fast 500“).
+
+Frage 2 (Verein enttäuscht/ablehnend, wahr): [7]: „Trotzdem hat es in der Abstimmung eine knappe Mehrheit für die Schließung des
+Standortes gegeben. … So weit – so frustrierend für uns alle.“ [6]: „Mit diesem Appell wendet sich Probiblio, der Förderverein der Niederkasseler Bibliotheken, an die Stadtverwaltung.“
+
+Frage 3 (Unterstützungsangebot, wahr): [7]: „Wir von probiblio e.V. mit unseren vielen Mitgliedern stehen bereit und unterstützen
+hier gerne.“
+
+Frage 4 (Ausleihbetrieb binnen sechs Wochen eingestellt, wahr, umformuliert): [1]: „Neuausleihen sind ab sofort nicht mehr möglich.
+… noch bis zum 23.03.2023 … bereits ausgeliehene Bücher zurücknehmen.“ (23.03. = 5,5 Wochen nach dem Beschluss vom 14.02.)
+[7]: „Die Räumlichkeiten sollen schon Ende März für die IT-Abteilung der Stadtverwaltung genutzt werden.“ Ursprünglich lautete die
+Frage „wird geschlossen“; belegt ist die Einstellung der Ausleihe, nicht ein Datum der Schlüsselübergabe, daher umformuliert.
+
+Frage 5 (Beschluss zurückgenommen, falsch, Zeitraum auf fünf Wochen eingegrenzt): [1] (Seitendatum 16.03.2023) nennt die
+Schließung weiter als beschlossen; [6] (17.03.2023): „… vom Stadtrat jüngst gebilligte Schließung“ und Überschrift „Ersatz für
+geschlossene Bücherei“. Kein Beleg für Rücknahme. Für den Zeitraum danach liegen keine Quellen vor, daher nur bis 17.03.2023
+gewertet.
+
+Entfernte Fragen (Begründung):
+- „Die Stadt beschließt innerhalb von drei Monaten einen Ersatzstandort“ (vorher „falsch“): [6] sagt nur „Ein Konzept dazu will
+  die Verwaltung im Frühjahr präsentieren“. Keine abgerufene Quelle deckt den Zeitraum bis Mitte Mai 2023 ab; „nicht eingetreten“
+  wäre nicht belegt. Entfernt.
+- „Die Petition erreicht mehr als 1.000 Unterstützer“ (vorher „falsch“): Belegt ist nur „fast 500“ (Stand 17.03.2023, [6]); ein
+  Endstand ist nicht abgerufen worden. Entfernt.
+
 Hinweis: Weitere Quellen (Ratsprotokoll, Zeitungsberichte vom 14./15.02.2023, Ratsinformationssystem) wurden nicht
 abgerufen bzw. nicht gefunden.
