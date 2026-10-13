@@ -105,6 +105,7 @@ function resolveFixture(pathname: string): unknown | null {
   const report = pathname.match(/^\/api\/report\/([^/]+)(?:\/(.*))?$/)
   if (report) {
     const [, id, rest] = report
+    // Fixture enthält V1-Feld methodology (Methodik und Grenzen)
     if (!rest) return loadFixture(`report_${id}`)
     if (rest === 'console-log') {
       return defaultOk({ logs: [], lines: [], content: '', from_line: 0, total_lines: 0 })

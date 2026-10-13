@@ -1030,13 +1030,14 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
         os.environ["OPENAI_API_BASE_URL"] = llm_base_url
     
     print(f"{config_label} model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'Standard'}...")
-    
+
+    from repro_seed import build_model_config_dict
+    seed = getattr(create_model, "_repro_seed", None)
+    temperature = getattr(create_model, "_repro_temperature", None)
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI,
         model_type=llm_model,
-        # Lokale Denk-Modelle (gemma4, qwen3.5) ohne Reasoning: sonst leere Antworten und ~10x langsamer
-        model_config_dict=({"reasoning_effort": "none"} if os.environ.get("LLM_PROVIDER", "openai").lower() in ("ollama", "lmstudio", "local")
-                           and os.environ.get("LOCAL_LLM_REASONING", "none").lower() != "on" else None),
+        model_config_dict=build_model_config_dict(seed=seed, temperature=temperature),
     )
 
 
@@ -1522,6 +1523,12 @@ async def main():
         default=False,
         help='Umgebung sofort nach Abschluss der Simulation schließen, ohne in den Wartebefehlsmodus zu gehen'
     )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='Reproduzierbarkeits-Seed (random/numpy/torch + LLM)'
+    )
     
     args = parser.parse_args()
     
@@ -1532,6 +1539,13 @@ async def main():
     if not os.path.exists(args.config):
         print(f"Fehler: Konfigurationsdatei nicht gefunden: {args.config}")
         sys.exit(1)
+
+    from repro_seed import apply_python_seeds, resolve_seed_and_temperature
+    seed, temperature = resolve_seed_and_temperature(args.seed)
+    apply_python_seeds(seed)
+    create_model._repro_seed = seed
+    create_model._repro_temperature = temperature
+    print(f"Reproduzierbarkeit: seed={seed}, temperature={temperature}")
     
     config = load_config(args.config)
     simulation_dir = os.path.dirname(args.config) or "."

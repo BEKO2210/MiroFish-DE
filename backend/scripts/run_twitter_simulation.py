@@ -453,13 +453,15 @@ class TwitterSimulationRunner:
             os.environ["OPENAI_API_BASE_URL"] = llm_base_url
         
         print(f"LLM-Konfiguration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'Standard'}...")
-        
+
+        from repro_seed import build_model_config_dict
+        seed = getattr(self, "_repro_seed", None)
+        temperature = getattr(self, "_repro_temperature", None)
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=llm_model,
-            # Lokale Denk-Modelle (gemma4, qwen3.5) ohne Reasoning: sonst leere Antworten und ~10x langsamer
-            model_config_dict=({"reasoning_effort": "none"} if os.environ.get("LLM_PROVIDER", "openai").lower() in ("ollama", "lmstudio", "local")
-                               and os.environ.get("LOCAL_LLM_REASONING", "none").lower() != "on" else None),
+            # seed/Temperatur + reasoning_effort für lokale Anbieter
+            model_config_dict=build_model_config_dict(seed=seed, temperature=temperature),
         )
     
     def _get_active_agents_for_round(
@@ -727,6 +729,12 @@ async def main():
         default=False,
         help='Umgebung sofort nach Abschluss der Simulation schließen, nicht in den Befehlsmodus wechseln'
     )
+    parser.add_argument(
+        '--seed',
+        type=int,
+        default=None,
+        help='Reproduzierbarkeits-Seed (random/numpy/torch + LLM)'
+    )
     
     args = parser.parse_args()
     
@@ -737,6 +745,11 @@ async def main():
     if not os.path.exists(args.config):
         print(f"Fehler: Konfigurationsdatei nicht vorhanden: {args.config}")
         sys.exit(1)
+
+    from repro_seed import apply_python_seeds, resolve_seed_and_temperature
+    seed, temperature = resolve_seed_and_temperature(args.seed)
+    apply_python_seeds(seed)
+    print(f"Reproduzierbarkeit: seed={seed}, temperature={temperature}")
     
     # Initialisiere Log-Konfiguration (feste Dateiname, alte Logs löschen)
     simulation_dir = os.path.dirname(args.config) or "."
@@ -746,6 +759,8 @@ async def main():
         config_path=args.config,
         wait_for_commands=not args.no_wait
     )
+    runner._repro_seed = seed
+    runner._repro_temperature = temperature
     await runner.run(max_rounds=args.max_rounds)
 
 

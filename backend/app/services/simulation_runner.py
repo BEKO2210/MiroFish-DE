@@ -142,6 +142,10 @@ class SimulationRunState:
     
     # Prozess-ID (zum Stoppen)
     process_pid: Optional[int] = None
+
+    # Reproduzierbarkeit (V2)
+    seed: Optional[int] = None
+    temperature: Optional[float] = None
     
     def add_action(self, action: AgentAction):
         """Aktion zur Liste aktueller Aktionen hinzufügen"""
@@ -191,6 +195,8 @@ class SimulationRunState:
             "completed_at": self.completed_at,
             "error": self.error,
             "process_pid": self.process_pid,
+            "seed": self.seed,
+            "temperature": self.temperature,
         }
     
     def to_detail_dict(self) -> Dict[str, Any]:
@@ -281,6 +287,8 @@ class SimulationRunner:
                 completed_at=data.get("completed_at"),
                 error=data.get("error"),
                 process_pid=data.get("process_pid"),
+                seed=data.get("seed"),
+                temperature=data.get("temperature"),
             )
             
             # Aktuelle Aktionen laden
@@ -324,7 +332,8 @@ class SimulationRunner:
         platform: str = "parallel",  # twitter / reddit / parallel
         max_rounds: int = None,  # Maximale Simulationsrunden (optional, zum Kürzen zu langer Simulationen)
         enable_graph_memory_update: bool = False,  # Ob Aktivitäten in Zep-Graphen aktualisiert werden sollen
-        graph_id: str = None  # Zep-Graphen-ID (erforderlich, wenn Graphen-Update aktiviert)
+        graph_id: str = None,  # Zep-Graphen-ID (erforderlich, wenn Graphen-Update aktiviert)
+        seed: int = None,  # Reproduzierbarkeits-Seed (optional; sonst zufällig)
     ) -> SimulationRunState:
         """
         Simulation starten
@@ -335,10 +344,14 @@ class SimulationRunner:
             max_rounds: Maximale Simulationsrunden (optional, zum Kürzen zu langer Simulationen)
             enable_graph_memory_update: Ob Agent-Aktivitäten dynamisch in Zep-Graphen aktualisiert werden sollen
             graph_id: Zep-Graphen-ID (erforderlich, wenn Graphen-Update aktiviert)
+            seed: Optionaler Seed; ohne Angabe wird ein Zufallsseed gewählt
             
         Returns:
             SimulationRunState
         """
+        import random
+        from .report_validation import build_manifest, write_manifest
+
         # Prüfen, ob bereits läuft
         existing = cls.get_run_state(simulation_id)
         if existing and existing.runner_status in [RunnerStatus.RUNNING, RunnerStatus.STARTING]:
@@ -366,6 +379,12 @@ class SimulationRunner:
             total_rounds = min(total_rounds, max_rounds)
             if total_rounds < original_rounds:
                 logger.info(f"Runden gekürzt: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
+
+        if seed is None:
+            seed = random.randint(0, 2**31 - 1)
+        else:
+            seed = int(seed)
+        temperature = float(os.environ.get("OASIS_LLM_TEMPERATURE", "0.7"))
         
         state = SimulationRunState(
             simulation_id=simulation_id,
@@ -373,9 +392,23 @@ class SimulationRunner:
             total_rounds=total_rounds,
             total_simulation_hours=total_hours,
             started_at=datetime.now().isoformat(),
+            seed=seed,
+            temperature=temperature,
         )
         
         cls._save_run_state(state)
+
+        # Lauf-Manifest (V2) zu Beginn schreiben
+        try:
+            manifest = build_manifest(
+                simulation_id=simulation_id,
+                seed=seed,
+                temperature=temperature,
+                started_at=state.started_at,
+            )
+            write_manifest(sim_dir, manifest)
+        except Exception as e:
+            logger.warning(f"Manifest schreiben fehlgeschlagen: {e}")
         
         # Wenn Graphenspeicher-Update aktiviert, Updater erstellen
         if enable_graph_memory_update:
@@ -425,6 +458,7 @@ class SimulationRunner:
                 sys.executable,  # Python-Interpreter
                 script_path,
                 "--config", config_path,  # Verwende vollständigen Konfigurationsdateipfad
+                "--seed", str(seed),
             ]
             
             # Wenn maximale Runden angegeben, zu Befehlszeilenargumenten hinzufügen
@@ -444,6 +478,8 @@ class SimulationRunner:
                 env['CUDA_VISIBLE_DEVICES'] = ''
             env['PYTHONUTF8'] = '1'  # Python 3.7+ unterstützt dies, lässt open() standardmäßig UTF-8 verwenden
             env['PYTHONIOENCODING'] = 'utf-8'  # Sicherstellen, dass stdout/stderr UTF-8 verwenden
+            env['MIROFISH_SIM_SEED'] = str(seed)
+            env['OASIS_LLM_TEMPERATURE'] = str(temperature)
             
             # Arbeitsverzeichnis auf Simulationsverzeichnis setzen (Datenbanken etc. werden hier erstellt)
             # Verwendet start_new_session=True, um neue Prozessgruppe zu erstellen, damit alle Unterprozesse über os.killpg beendet werden können
@@ -536,6 +572,12 @@ class SimulationRunner:
                 state.runner_status = RunnerStatus.COMPLETED
                 state.completed_at = datetime.now().isoformat()
                 logger.info(f"Simulation abgeschlossen: {simulation_id}")
+                try:
+                    from .report_validation import update_manifest_completion, write_events_jsonl
+                    write_events_jsonl(sim_dir)
+                    update_manifest_completion(sim_dir)
+                except Exception as e:
+                    logger.warning(f"Manifest/Events nach Abschluss: {e}")
             else:
                 state.runner_status = RunnerStatus.FAILED
                 # Fehlerinformationen aus Hauptprotokolldatei lesen

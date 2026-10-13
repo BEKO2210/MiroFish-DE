@@ -1,0 +1,10 @@
+
+
+=== szenario-parkgebuehren.txt ===
+Stadtrat beschließt neue Parkgebühren in der Innenstadt
+
+Die Stadt Musterstadt führt ab dem 1. Januar eine neue Parkgebührenordnung ein. In der Innenstadt steigt die Gebühr von 2 Euro auf 4 Euro pro Stunde. Anwohner erhalten einen Jahresausweis für 120 Euro, bisher kostete er 30 Euro. Die Einnahmen sollen in den Ausbau des Busnetzes fließen; drei neue Linien sind geplant.
+
+Der Einzelhandelsverband warnt vor Umsatzverlusten von bis zu 15 Prozent und fordert eine kostenlose erste Stunde. Die Gastronomie befürchtet weniger Gäste am Abend. Der Fahrradclub begrüßt den Beschluss und fordert zusätzlich mehr Radwege. Die Anwohnerinitiative Altstadt ist gespalten: Familien mit Auto lehnen die Erhöhung des Anwohnerausweises ab, ältere Bewohner ohne Auto hoffen auf weniger Verkehr.
+
+Die Oppositionsfraktion kündigt einen Bürgerentscheid an und sammelt Unterschriften. Der Oberbürgermeister verteidigt die Entscheidung mit dem Klimaziel der Stadt und verweist auf Erfahrungen in Nachbarstädten, wo der Einzelhandel nach anfänglichen Protesten keine dauerhaften Verluste meldete. Die lokale Zeitung berichtet täglich, in sozialen Netzwerken formiert sich die Gruppe "Freies Parken Musterstadt" mit 4.000 Mitgliedern innerhalb einer Woche.
