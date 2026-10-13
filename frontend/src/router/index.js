@@ -9,6 +9,7 @@ import RunView from '../views/RunView.vue'
 import HistoryView from '../views/HistoryView.vue'
 import SettingsView from '../views/SettingsView.vue'
 import EnsembleView from '../views/EnsembleView.vue'
+import ReliabilityView from '../views/ReliabilityView.vue'
 
 const routes = [
   {
@@ -18,6 +19,7 @@ const routes = [
   },
   { path: '/history', name: 'History', component: HistoryView },
   { path: '/settings', name: 'Settings', component: SettingsView },
+  { path: '/verlaesslichkeit', name: 'Reliability', component: ReliabilityView },
   {
     path: '/process/:projectId',
     name: 'Process',
