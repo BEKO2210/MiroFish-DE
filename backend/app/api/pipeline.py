@@ -25,15 +25,46 @@ logger = get_logger('mirofish.pipeline')
 
 
 def mark_stale_runs():
-    """Beim Backend-Start: Durchläufe, die noch 'running' sind, haben ihren Thread verloren."""
-    for name in os.listdir(_dir()):
-        if name.endswith('.json'):
-            st = _load(name[:-5])
-            if st and st.get("status") == "running":
-                st["status"] = "failed"
-                st["error"] = "Backend wurde neu gestartet, Durchlauf abgebrochen"
-                _save(st)
-                logger.warning(f"Durchlauf {st['pipeline_id']} als abgebrochen markiert (Neustart)")
+    """Beim Start: 'running' heißt, der Thread ist mit dem Prozess gestorben.
+
+    Solche Durchläufe werden als abgebrochen gespeichert und danach samt Daten entfernt.
+    Anschließend verwaiste Projekte und Graph-Ordner. Was wirklich noch läuft, gibt es
+    beim Start nicht — laufende Durchläufe fasst das Aufräumen sonst nie an.
+    """
+    from ..services.cleanup import delete_pipeline_cascade, sweep_orphans
+    stale = []
+    try:
+        names = list(os.listdir(_dir()))
+    except OSError as exc:
+        logger.error(f"Durchläufe konnten nicht gelesen werden: {exc}")
+        names = []
+    for name in names:
+        if not name.endswith('.json'):
+            continue
+        pid = name[:-5]
+        st = _load(pid)
+        if not st or st.get("status") != "running":
+            continue
+        st["status"] = "failed"
+        st["error"] = "Backend wurde neu gestartet, Durchlauf abgebrochen"
+        _save(st)
+        logger.warning(f"Durchlauf {st.get('pipeline_id', pid)} als abgebrochen markiert (Neustart)")
+        stale.append(pid)
+    for pid in stale:
+        if not re.fullmatch(r"run_[0-9a-f]+", pid or ""):
+            logger.warning(f"Abgebrochener Durchlauf hat keine gültige Kennung und bleibt liegen: {pid}")
+            continue
+        try:
+            removed = delete_pipeline_cascade(pid)
+            logger.info(f"Abgebrochener Durchlauf aufgeräumt ({pid}): {removed}")
+        except Exception as exc:
+            logger.error(f"Aufräumen des abgebrochenen Durchlaufs {pid} fehlgeschlagen: {exc}")
+    try:
+        removed = sweep_orphans()
+        if removed:
+            logger.info(f"Verwaiste Daten entfernt: {removed}")
+    except Exception as exc:
+        logger.error(f"Aufräumen verwaister Daten fehlgeschlagen: {exc}")
 
 STEPS = ["ontology", "graph", "create", "prepare", "simulate", "report"]
 STEP_LABELS = {
@@ -193,10 +224,18 @@ def _run(pid, files, requirement, project_name):
         state["status"] = "failed"
         state["error"] = str(e)
         step = state.get("current_step")
-        if step:
+        if step and isinstance(state.get("steps"), dict) and step in state["steps"]:
             state["steps"][step]["status"] = "failed"
             state["steps"][step]["detail"] = str(e)[:300]
         _save(state)
+        # Der Fehler steht im Log. In der Oberfläche soll er nicht auftauchen:
+        # der Durchlauf wird samt Daten entfernt, der Client sieht danach 404.
+        try:
+            from ..services.cleanup import delete_pipeline_cascade
+            removed = delete_pipeline_cascade(pid)
+            logger.info(f"Fehlgeschlagener Durchlauf aufgeräumt ({pid}): {removed}")
+        except Exception as cleanup_error:
+            logger.error(f"Aufräumen nach Fehlschlag {pid} fehlgeschlagen: {cleanup_error}")
 
 
 @pipeline_bp.route('/start', methods=['POST'])
@@ -237,6 +276,31 @@ def pipeline_status(pid):
     if not state:
         return jsonify({"success": False, "error": f"Durchlauf nicht gefunden: {pid}"}), 404
     return jsonify({"success": True, "data": state})
+
+
+@pipeline_bp.route('/<pid>', methods=['DELETE'])
+def delete_pipeline(pid):
+    """Durchlauf löschen, inklusive Simulation und Projekt, wenn nichts anderes sie noch braucht.
+
+    Läuft der Durchlauf noch, bleibt alles liegen.
+    """
+    from ..services.cleanup import CleanupBusy, CleanupError, delete_pipeline_cascade
+    if not re.fullmatch(r"run_[0-9a-f]+", pid or ""):
+        return jsonify({"success": False, "error": "Ungültige Durchlauf-ID"}), 400
+    try:
+        removed = delete_pipeline_cascade(pid)
+    except CleanupBusy:
+        return jsonify({
+            "success": False,
+            "error": "Der Durchlauf läuft noch. Warte, bis er fertig ist, bevor du ihn löschst.",
+        }), 409
+    except CleanupError as exc:
+        logger.info(f"Löschen abgewiesen ({pid}): {exc}")
+        return jsonify({"success": False, "error": "Ungültiger Pfad"}), 400
+    except Exception as exc:
+        logger.error(f"Löschen fehlgeschlagen ({pid}): {exc}")
+        return jsonify({"success": False, "error": "Löschen fehlgeschlagen."}), 500
+    return jsonify({"success": True, "data": {"pipeline_id": pid, "deleted": removed}})
 
 
 @pipeline_bp.route('/list', methods=['GET'])

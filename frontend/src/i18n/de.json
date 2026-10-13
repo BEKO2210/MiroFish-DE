@@ -816,7 +816,8 @@
     "confirmTitle": "Vorhersage löschen?",
     "confirmText": "„{title}“ wird samt Bericht und Daten dauerhaft entfernt.",
     "loadFailed": "Verlauf konnte nicht geladen werden.",
-    "deleteFailed": "Löschen fehlgeschlagen: {msg}"
+    "deleteFailed": "Löschen fehlgeschlagen: {msg}",
+    "deleteFailedPlain": "Löschen ist fehlgeschlagen. Bitte versuche es noch einmal."
   },
   "settings": {
     "title": "Einstellungen",
@@ -893,7 +894,9 @@
     "openGraph": "Wissensgraph ansehen",
     "export": "Alles exportieren (ZIP)",
     "closeHint": "Du kannst diese Seite schließen. Der Durchlauf läuft weiter – im Verlauf findest du ihn wieder.",
-    "notFound": "Durchlauf nicht gefunden: {msg}"
+    "notFound": "Durchlauf nicht gefunden: {msg}",
+    "cleanedUp": "Dieser Durchlauf wurde abgebrochen und aufgeräumt.",
+    "goHome": "Zur Startseite"
   },
   "steps": {
     "ontology": "Dokumente lesen",
