@@ -448,6 +448,24 @@ def prepare_simulation():
         # Prüfen ob erzwungene Neugenerierung
         force_regenerate = data.get('force_regenerate', False)
         logger.info(f"/prepare-Anfrage wird verarbeitet: simulation_id={simulation_id}, force_regenerate={force_regenerate}")
+
+        # Läuft für diese Simulation schon eine Vorbereitung, deren Aufgabe zurückgeben statt eine zweite zu starten:
+        # jedes Öffnen von Schritt 2 ruft /prepare auf, parallele Aufgaben blockierten sich gegenseitig.
+        if not force_regenerate:
+            for t in TaskManager().list_tasks(task_type="simulation_prepare"):
+                if (t.get("metadata") or {}).get("simulation_id") == simulation_id and t.get("status") in ("pending", "processing"):
+                    logger.info(f"Vorbereitung für {simulation_id} läuft bereits ({t['task_id']}), keine zweite Aufgabe")
+                    return jsonify({
+                        "success": True,
+                        "data": {
+                            "simulation_id": simulation_id,
+                            "task_id": t["task_id"],
+                            "status": "preparing",
+                            "message": "Vorbereitung läuft bereits",
+                            "already_prepared": False,
+                            "already_running": True,
+                        }
+                    })
         
         # Prüfen ob Vorbereitung bereits abgeschlossen (doppelte Generierung vermeiden)
         if not force_regenerate:
