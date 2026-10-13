@@ -105,14 +105,20 @@ Andere Modelle gehen genauso; MiroFish zeigt unter **Einstellungen** alle instal
 ```bash
 git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
 cp .env.example .env
-# Bei Bedarf Modelle und LOCAL_LLM_BASE_URL in .env anpassen.
+# Bei Bedarf Modelle, LOCAL_LLM_BASE_URL und API_TOKEN in .env anpassen (vor dem ersten Start).
 # localhost wird beim ersten Docker-Start automatisch zu host.docker.internal.
-mkdir -p data
-docker compose up -d --build
+scripts/start.sh
 ```
 
+`scripts/start.sh` legt fehlende `.env` und `data/` als dein Benutzer an (sonst erzeugt Docker ein Verzeichnis
+`./.env` bzw. ein root-eigenes `data/`) und startet dann `docker compose up -d --build`. Ohne das Skript vorher
+`[ -f .env ] || cp .env.example .env; mkdir -p data` ausführen.
+
 Dann **http://localhost:5001** öffnen. Beim ersten Start kopiert MiroFish die Einstellungen aus `.env` nach
-`data/.env`; dort liegen auch die dauerhaft gespeicherten Einstellungen. Uploads, Simulationen und Berichte
+`data/.env`; dort liegen auch die dauerhaft gespeicherten Einstellungen. **Spätere Änderungen an `./.env` werden
+nicht übernommen** – danach gilt nur `data/.env` (oder die Seite Einstellungen); nach einer Änderung dort
+`docker compose restart`. `FLASK_PORT`/`FLASK_HOST` aus `.env` ignoriert der Container (Port 5001 intern, extern
+über `MIROFISH_PORT`). Uploads, Simulationen und Berichte
 liegen ebenfalls im Ordner `data/`. Einen anderen lokalen Port setzt du vor dem Start in `.env` mit
 `MIROFISH_PORT`. Falls `id -u` oder `id -g` unter Linux nicht `1000` ausgibt, trage die Werte außerdem als
 `MIROFISH_UID` und `MIROFISH_GID` ein. Der Container erreicht Ollama auf dem Gastgeber über
@@ -147,7 +153,7 @@ bei umfangreichen Unterlagen entsprechend länger.
 
 Die App hat keine Anmeldung und lauscht deshalb nur auf `localhost`. Für das Handy oder andere Rechner einen
 geschützten Weg nutzen, z. B. [Tailscale](https://tailscale.com) (`tailscale serve 5001`). Zusätzlich lässt sich in
-`.env` ein `API_TOKEN` setzen. Die HTTP-Schnittstelle für eigene Skripte und KI-Agenten ist in
+`.env` (vor dem ersten Docker-Start) oder `data/.env` (danach, mit `docker compose restart`) ein `API_TOKEN` setzen. Die HTTP-Schnittstelle für eigene Skripte und KI-Agenten ist in
 [docs/API.md](docs/API.md) beschrieben – ein Aufruf startet einen kompletten Durchlauf bis zum Bericht.
 
 ### Cloud-Modelle

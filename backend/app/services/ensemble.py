@@ -691,7 +691,7 @@ def prepare_run_directory(
     variant: str,
     hours: int,
     start_hour: int = 7,
-    minutes_per_round: int = 60,
+    minutes_per_round: Optional[int] = 60,
 ) -> Dict[str, Any]:
     """Vorbereitete Profile/Config kopieren und nur die Variante anwenden."""
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -709,8 +709,9 @@ def prepare_run_directory(
     time_config = config.setdefault("time_config", {})
     time_config["total_simulation_hours"] = hours
     time_config["start_hour"] = start_hour
-    # Ensemble-Override: LLM-Wert ersetzen, alle Arme identisch.
-    time_config["minutes_per_round"] = minutes_per_round
+    # Ensemble-Override: LLM-Wert ersetzen, alle Arme identisch. None (Altstand): Config-Wert bleibt.
+    if minutes_per_round is not None:
+        time_config["minutes_per_round"] = minutes_per_round
     config["ensemble_variant"] = variant
     config["simulation_id"] = run_dir.name
 
@@ -1332,6 +1333,11 @@ class EnsembleService:
             or minutes_per_round not in ALLOWED_MINUTES_PER_ROUND
         ):
             raise ValueError("minutes_per_round muss 60, 120 oder 240 sein")
+        if (hours * 60) % minutes_per_round:
+            raise ValueError(
+                f"hours ({hours}) muss durch minutes_per_round/60 "
+                f"({minutes_per_round // 60}) teilbar sein; sonst würden Stunden abgeschnitten"
+            )
         variants = validate_variants(variants)
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
         if primary_outcome_id is not None:
@@ -2454,7 +2460,7 @@ class EnsembleService:
                                 key,
                                 state["hours"],
                                 state.get("start_hour", 7),
-                                state.get("minutes_per_round", 60),
+                                state.get("minutes_per_round"),
                             )
                             runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
                             state["current_runner_id"] = runner_id
@@ -2549,8 +2555,12 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
     lines = [
         "## Mehrfachlauf",
         "",
-        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden "
-        f"(Rundentakt {state.get('minutes_per_round', 60)} Minuten). "
+        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden"
+        + (
+            f" (Rundentakt {state['minutes_per_round']} Minuten). "
+            if state.get("minutes_per_round")
+            else ". "
+        ) +
         "Die Anteile sind Anteile der Seeds dieses Aufbaus.",
         f"Primärergebnis (konfirmatorisch): {primary_text}.",
         "",

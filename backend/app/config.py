@@ -10,11 +10,16 @@ from dotenv import load_dotenv
 # Pfad: MiroFish/.env (relativ zu backend/app/config.py)
 project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 
+# Vom Prozess gesetzte Netzwerk-Werte (z. B. Container-ENV) gewinnen gegen eine kopierte .env
+_PROCESS_WINS = ('FLASK_HOST', 'FLASK_PORT')
+_process_values = {k: os.environ[k] for k in _PROCESS_WINS if k in os.environ}
+
 if os.path.exists(project_root_env):
     load_dotenv(project_root_env, override=True)
 else:
     # Wenn keine .env im Wurzelverzeichnis, Umgebungsvariablen laden (für Produktionsumgebung)
     load_dotenv(override=True)
+os.environ.update(_process_values)
 
 
 class Config:

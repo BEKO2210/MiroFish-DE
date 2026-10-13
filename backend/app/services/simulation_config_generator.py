@@ -899,7 +899,7 @@ Rückgabe-JSON-Format (kein Markdown):
                 activity_level=cfg.get("activity_level", 0.5),
                 posts_per_hour=cfg.get("posts_per_hour", 0.5),
                 comments_per_hour=cfg.get("comments_per_hour", 1.0),
-                active_hours=cfg.get("active_hours", list(range(9, 23))),
+                active_hours=cfg.get("active_hours", list(range(8, 23))),
                 response_delay_min=cfg.get("response_delay_min", 5),
                 response_delay_max=cfg.get("response_delay_max", 60),
                 sentiment_bias=cfg.get("sentiment_bias", 0.0),
