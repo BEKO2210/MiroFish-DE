@@ -1,8 +1,6 @@
 # Ausgangslage: Hallenbad Süd in Neuberg
 
-Stand: Tag der Ratsentscheidung. Dieses Dokument beschreibt ausschließlich die Lage vor jeder öffentlichen Reaktion.
-Es enthält bewusst keine Proteste, Forderungen, Ankündigungen oder Bewertungen – sie sollen in der Simulation entstehen
-oder ausbleiben.
+Stand: Tag der Ratsentscheidung.
 
 ## Entscheidung
 
