@@ -35,6 +35,11 @@ service.interceptors.response.use(
   },
   error => {
     console.error('Response error:', error)
+
+    const apiError = error.response?.data?.error || error.response?.data?.message
+    if (typeof apiError === 'string' && apiError.trim()) {
+      error.message = apiError
+    }
     
     // Timeout behandeln
     if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {

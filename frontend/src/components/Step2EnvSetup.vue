@@ -843,6 +843,14 @@ const stopProfilesPolling = () => {
   }
 }
 
+const handlePrepareFailure = (message) => {
+  stopPolling()
+  stopProfilesPolling()
+  stopConfigPolling()
+  addLog(t('step2.vorbereitungFehlgeschlagen2', { p0: message || t('common.unknownError') }))
+  emit('update-status', 'error')
+}
+
 const pollPrepareStatus = async () => {
   if (!taskId.value && !props.simulationId) return
   
@@ -895,9 +903,7 @@ const pollPrepareStatus = async () => {
         stopProfilesPolling()
         await loadPreparedData()
       } else if (data.status === 'failed') {
-        addLog(t('step2.vorbereitungFehlgeschlagen2', { p0: data.error || t('common.unknownError') }))
-        stopPolling()
-        stopProfilesPolling()
+        handlePrepareFailure(data.error)
       }
     }
   } catch (err) {
@@ -909,7 +915,7 @@ const fetchProfilesRealtime = async () => {
   if (!props.simulationId) return
   
   try {
-    const res = await getSimulationProfilesRealtime(props.simulationId, 'reddit')
+    const res = await getSimulationProfilesRealtime(props.simulationId)
     
     if (res.success && res.data) {
       const prevCount = profiles.value.length
@@ -969,6 +975,11 @@ const fetchConfigRealtime = async () => {
     
     if (res.success && res.data) {
       const data = res.data
+
+      if (data.status === 'failed' || data.error) {
+        handlePrepareFailure(data.error)
+        return
+      }
       
       // Konfigurationsgenerierungsphase protokollieren (Duplikate vermeiden)
       if (data.generation_stage && data.generation_stage !== lastLoggedConfigStage) {
@@ -1043,15 +1054,18 @@ const loadPreparedData = async () => {
         addLog(t('step2.umgebungsaufbauAbgeschlossenSimulationKannGestartetWerden'))
         phase.value = 4
         emit('update-status', 'completed')
-      } else {
+      } else if (res.data.status === 'failed' || res.data.error) {
+        handlePrepareFailure(res.data.error)
+      } else if (res.data.is_generating) {
         // Konfiguration noch nicht generiert, Abfrage starten
         addLog(t('step2.konfigurationWirdGeneriertAbfrageGestartet'))
         startConfigPolling()
+      } else {
+        handlePrepareFailure(res.data.error)
       }
     }
   } catch (err) {
-    addLog(t('step2.ladenDerKonfigurationFehlgeschlagen', { p0: err.message }))
-    emit('update-status', 'error')
+    handlePrepareFailure(err.message)
   }
 }
 

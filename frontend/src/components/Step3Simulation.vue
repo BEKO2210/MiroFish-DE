@@ -510,14 +510,20 @@ const fetchRunStatus = async () => {
         prevRedditRound.value = data.reddit_current_round
       }
       
-      // Prüfen, ob die Simulation abgeschlossen ist (über runner_status oder Plattform-Abschlussstatus)
+      // Prüfen, ob die Simulation fehlgeschlagen oder abgeschlossen ist
+      const isFailed = data.runner_status === 'failed'
       const isCompleted = data.runner_status === 'completed' || data.runner_status === 'stopped'
       
       // Zusätzliche Prüfung: Falls das Backend runner_status noch nicht aktualisiert hat,
       // aber die Plattformen bereits als abgeschlossen gemeldet sind
       const platformsCompleted = checkPlatformsCompleted(data)
       
-      if (isCompleted || platformsCompleted) {
+      if (isFailed) {
+        addLog(t('step3.simulationFehlgeschlagen') + (data.error ? ': ' + data.error : ''))
+        phase.value = 2
+        stopPolling()
+        emit('update-status', 'error')
+      } else if (isCompleted || platformsCompleted) {
         if (platformsCompleted && !isCompleted) {
           addLog(t('step3.allPlatformSimulationsFinished'))
         }
