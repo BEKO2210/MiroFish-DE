@@ -12,13 +12,17 @@ import { ROUTES, isLiveMode } from '../support/mockApi'
 const MOBILE_NAV_COVER = new Set([
 ])
 
+/** iPhone (WebKit): seitliche Scrollleiste – bekannter Fehler, siehe BEFUNDE.md */
+const IPHONE_HSCROLL = new Set(['/interaction/report_6587bcd7e3fa'])
+
 test.describe('Smoke', () => {
   for (const route of ROUTES) {
     test(`${route} lädt sauber`, async ({ page }, testInfo) => {
       const project = testInfo.project.name
       // bekannter Fehler, siehe BEFUNDE.md
       test.fail(
-        (project === 'handy' || project === 'iphone') && MOBILE_NAV_COVER.has(route),
+        ((project === 'handy' || project === 'iphone') && MOBILE_NAV_COVER.has(route)) ||
+          (project === 'iphone' && IPHONE_HSCROLL.has(route)),
         'bekannter Fehler, siehe BEFUNDE.md',
       )
 

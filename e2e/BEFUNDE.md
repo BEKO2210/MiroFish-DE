@@ -20,6 +20,12 @@ Behoben mit `MobileStickyBar` und Safe-Area-Abstand (UX Teil A + B).
 
 Hinweis: `/`, `/history`, `/settings` (Kontrast Marken-/Meta-Text, Labels/Selects, Datei-Input) sind behoben. Auf **handy** war `/report/...` bereits ohne serious/critical grün.
 
+## 3. iPhone (WebKit): seitliche Scrollleiste
+
+| Test | Gerät | Route | Was passiert |
+|------|-------|-------|--------------|
+| `smoke.spec.ts` – lädt sauber | iphone | `/interaction/report_6587bcd7e3fa` | `scrollWidth > innerWidth` – die Nachfragen-Seite scrollt in Safari seitlich (in Chromium nicht). Gefunden im Playwright-Container (e2e/docker-test.sh). |
+
 ## Nicht als App-Bug gewertet (Tests angepasst)
 
 - **Verlauf Löschen / Zeile entfernt:** Zwei Historie-Einträge teilen sich denselben Titeltext; Assertion nutzt jetzt die konkrete Zeile statt `hasText(title)`.
