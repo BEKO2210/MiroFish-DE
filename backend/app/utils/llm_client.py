@@ -5,6 +5,7 @@ Unterstützt: OpenAI, LM Studio, Ollama und andere OpenAI-kompatible APIs
 """
 
 import json
+import os
 import re
 from typing import Optional, Dict, Any, List
 from openai import OpenAI
@@ -69,6 +70,11 @@ class LLMClient:
         
         if response_format:
             kwargs["response_format"] = response_format
+        if self.provider in ('ollama', 'lmstudio', 'local'):
+            # Lokale Denk-Modelle (gemma4, qwen3.5) verbrauchen sonst das Token-Budget für Reasoning und liefern
+            # leeren Inhalt; Ollama honoriert reasoning_effort auf /v1. Abschaltbar über LOCAL_LLM_REASONING=on.
+            if os.environ.get('LOCAL_LLM_REASONING', 'none').lower() != 'on':
+                kwargs["extra_body"] = {"reasoning_effort": "none"}
         
         try:
             response = self.client.chat.completions.create(**kwargs)
