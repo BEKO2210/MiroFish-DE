@@ -40,6 +40,9 @@ VARIANT_LABELS = {
     "null_model": ("Nullmodell", "Null model"),
 }
 
+MAX_ENSEMBLE_HOURS = 336
+MAX_CUSTOM_OUTCOMES = 20
+
 
 def wilson_interval(yes: int, n: int, z: float = Z_95) -> Tuple[float, float]:
     """Zweiseitiges Wilson-Score-Intervall für einen Binomialanteil."""
@@ -239,8 +242,10 @@ def validate_custom_outcomes(payload: Any) -> List[Dict[str, Any]]:
         return []
     if not isinstance(payload, list):
         raise ValueError("custom_outcomes muss eine Liste sein")
-    if len(payload) > 6:
-        raise ValueError("custom_outcomes darf höchstens 6 Einträge enthalten")
+    if len(payload) > MAX_CUSTOM_OUTCOMES:
+        raise ValueError(
+            f"custom_outcomes darf höchstens {MAX_CUSTOM_OUTCOMES} Einträge enthalten"
+        )
     result = []
     for index, raw in enumerate(payload, 1):
         if not isinstance(raw, dict):
@@ -833,8 +838,12 @@ class EnsembleService:
             raise ValueError("simulation_id muss mit sim_ beginnen")
         if isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100:
             raise ValueError("runs muss zwischen 1 und 100 liegen")
-        if isinstance(hours, bool) or not isinstance(hours, int) or not 1 <= hours <= 168:
-            raise ValueError("hours muss zwischen 1 und 168 liegen")
+        if (
+            isinstance(hours, bool)
+            or not isinstance(hours, int)
+            or not 1 <= hours <= MAX_ENSEMBLE_HOURS
+        ):
+            raise ValueError(f"hours muss zwischen 1 und {MAX_ENSEMBLE_HOURS} liegen")
         if (
             isinstance(start_hour, bool)
             or not isinstance(start_hour, int)

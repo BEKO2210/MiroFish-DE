@@ -108,8 +108,8 @@ def test_custom_outcomes_validation_and_normalization():
     assert [item["id"] for item in custom] == ["c1", "c2"]
     assert all(item["source"] == "user" for item in custom)
     assert custom[1]["polarity"] == "absence"
-    with pytest.raises(ValueError, match="höchstens 6"):
-        validate_custom_outcomes([{"text_de": str(i)} for i in range(7)])
+    with pytest.raises(ValueError, match="höchstens 20"):
+        validate_custom_outcomes([{"text_de": str(i)} for i in range(21)])
     with pytest.raises(ValueError, match="1 bis 200"):
         validate_custom_outcomes([{"text_de": "x" * 201}])
     with pytest.raises(ValueError, match="polarity"):
@@ -368,6 +368,15 @@ def test_start_hour_validation_happens_before_start(tmp_path):
     for value in (-1, 24, True, "7"):
         with pytest.raises(ValueError, match="start_hour"):
             service.start("sim_test", 1, 2, ["baseline"], start_hour=value)
+
+
+def test_ensemble_accepts_two_weeks_and_rejects_longer_horizon(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    # 336 besteht die Zeitvalidierung und scheitert erst an der fehlenden Vorbereitung.
+    with pytest.raises(FileNotFoundError):
+        service.start("sim_test", 1, 336, ["baseline"])
+    with pytest.raises(ValueError, match="336"):
+        service.start("sim_test", 1, 337, ["baseline"])
 
 
 class FakeRunner:
