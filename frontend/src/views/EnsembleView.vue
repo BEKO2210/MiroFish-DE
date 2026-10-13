@@ -16,6 +16,12 @@
         <p v-if="data.error" class="error" role="alert">{{ data.error }}</p>
       </header>
 
+      <aside class="meaning" aria-labelledby="meaning-title">
+        <h2 id="meaning-title" class="meaning__title">{{ t('ensemble.meaningTitle') }}</h2>
+        <p>{{ t('ensemble.meaningBody') }}</p>
+        <p>{{ t('ensemble.meaningLimit') }}</p>
+      </aside>
+
       <section class="progress" v-if="variants.length" :aria-label="t('ensemble.progressAria')">
         <div v-for="v in variants" :key="v.key" class="prog">
           <div class="prog__row">
@@ -43,6 +49,7 @@
                 <div class="outcome__head">
                   <span>{{ outcomeLabel(item) }}</span>
                   <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+                  <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
                 </div>
                 <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
                 <details v-if="item.in_material" class="material">
@@ -50,8 +57,15 @@
                   <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
                 </details>
               </th>
-              <td v-for="v in variants" :key="item.id + '-' + v.key">
-                <CellStat :stat="cell(v.key, item.id)" :t="t" />
+              <td
+                v-for="v in variants"
+                :key="item.id + '-' + v.key"
+                :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
+              >
+                <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
+                  {{ t('ensemble.mechanismUnavailable') }}
+                </p>
+                <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
               </td>
             </tr>
           </tbody>
@@ -64,15 +78,24 @@
           <div class="card__head">
             <h2 class="card__title">{{ outcomeLabel(item) }}</h2>
             <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+            <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
           </div>
           <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
           <details v-if="item.in_material" class="material">
             <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
             <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
           </details>
-          <div v-for="v in variants" :key="'cv-' + item.id + v.key" class="card__row">
+          <div
+            v-for="v in variants"
+            :key="'cv-' + item.id + v.key"
+            class="card__row"
+            :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
+          >
             <span class="card__var">{{ variantLabel(v) }}</span>
-            <CellStat :stat="cell(v.key, item.id)" :t="t" />
+            <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
+              {{ t('ensemble.mechanismUnavailable') }}
+            </p>
+            <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
           </div>
         </article>
       </section>
@@ -83,12 +106,28 @@
           <li
             v-for="(c, i) in comparisons"
             :key="i"
-            :class="{ 'compare__item--unreliable': c.unreliable }"
+            class="compare__item"
+            :class="{
+              'compare__item--unreliable': c.unreliable,
+              'compare__item--confirmatory': isConfirmatory(c),
+              'compare__item--exploratory': !isConfirmatory(c),
+              'compare__item--blocked': isComparisonBlocked(c),
+            }"
           >
-            <strong>{{ compareVariantLabel(c.variant) }}</strong>
-            · {{ outcomeText(c.outcome_id) }}:
-            <span class="mono">{{ fmtDiff(c.diff) }} {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
-            — {{ interpretDiff(c) }}
+            <div class="compare__heading">
+              <strong>{{ compareVariantLabel(c.variant) }}</strong>
+              <span>· {{ outcomeText(c.outcome_id) }}</span>
+              <span v-if="isComparisonBlocked(c)" class="compare__badge">{{ t('ensemble.mechanismTag') }}</span>
+              <span v-else-if="isConfirmatory(c)" class="compare__badge compare__badge--confirmatory">{{ t('ensemble.confirmatory') }}</span>
+              <span v-else class="compare__badge">{{ t('ensemble.exploratory') }}</span>
+            </div>
+            <p v-if="isComparisonBlocked(c)" class="compare__body">{{ t('ensemble.mechanismUnavailable') }}</p>
+            <p v-else class="compare__body">
+              <span class="mono">{{ fmtDiff(c.diff) }} · {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
+              — {{ interpretDiff(c) }}
+              <span v-if="!isConfirmatory(c)" class="compare__warning"> · {{ t('ensemble.exploratoryWarning') }}</span>
+              <span v-if="hasPValues(c)" class="compare__tests mono"> · {{ formatPValues(c) }}</span>
+            </p>
           </li>
         </ul>
       </section>
@@ -220,6 +259,39 @@ function cell(variantKey, outcomeId) {
 function reliabilityFor(outcomeId) {
   return data.value?.reliability?.[outcomeId] || null
 }
+function isMechanismBlocked(item, variantKey) {
+  if (item?.kind !== 'interaction') return false
+  return variantKey === 'isolated' || variantKey === 'null_model' || variantKey?.startsWith('null_')
+}
+function isComparisonBlocked(c) {
+  const item = checklist.value.find((x) => x.id === c?.outcome_id)
+  return isMechanismBlocked(item, c?.variant)
+}
+function isConfirmatory(c) {
+  const primaryId = data.value?.primary_outcome_id
+  if (c?.role) return c.role === 'confirmatory'
+  if (primaryId) return c?.outcome_id === primaryId
+  return false
+}
+function validP(value) {
+  return value !== null && value !== '' && Number.isFinite(Number(value))
+}
+function mcnemarP(c) { return c?.mcnemar_p ?? c?.p_mcnemar }
+function holmP(c) { return c?.holm_p ?? c?.p_holm }
+function hasPValues(c) {
+  return validP(mcnemarP(c)) || validP(holmP(c))
+}
+function formatP(value) {
+  const p = Number(value)
+  if (p < 0.001) return '< 0.001'
+  return p.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
+}
+function formatPValues(c) {
+  const values = []
+  if (validP(mcnemarP(c))) values.push(t('ensemble.pMcnemar', { value: formatP(mcnemarP(c)) }))
+  if (validP(holmP(c))) values.push(t('ensemble.pHolm', { value: formatP(holmP(c)) }))
+  return values.join(' · ')
+}
 function pct(v) {
   if (!v?.total) return 0
   return Math.min(100, Math.round((100 * (v.done || 0)) / v.total))
@@ -233,7 +305,7 @@ function fmtPp(x) {
 }
 function fmtDiff(d) {
   if (d == null) return '—'
-  return `${fmtPp(d)} ${t('ensemble.percentagePoints')}`
+  return t('ensemble.diffValue', { value: fmtPp(d) })
 }
 function fmtDiffCi(low, high) {
   return t('ensemble.diffCi', { low: fmtPp(low), high: fmtPp(high) })
@@ -423,6 +495,10 @@ onUnmounted(clearTimer)
 .muted { color: var(--color-text-muted); }
 .mono { font-family: var(--font-mono, ui-monospace, monospace); }
 
+.meaning { margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-md, 8px); background: var(--color-info-bg); color: var(--color-info-text); font-size: 14px; line-height: 1.5; }
+.meaning__title { margin: 0 0 0.35rem; font-family: var(--font-heading); font-size: 1rem; color: var(--color-text-primary); }
+.meaning p { margin: 0.25rem 0 0; }
+
 .progress { display: grid; gap: 12px; margin-bottom: 1.75rem; }
 .prog__row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
 .prog__label { font-weight: 600; }
@@ -434,8 +510,17 @@ onUnmounted(clearTimer)
 
 .section-title { font-family: var(--font-heading); font-size: 1.1rem; margin: 0 0 0.6rem; }
 .compare { margin: 1.75rem 0; }
-.compare__list { margin: 0; padding-left: 1.1rem; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
+.compare__list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
+.compare__item { padding: 10px 12px; border-left: 3px solid var(--color-border-default); background: var(--color-bg-surface-raised); }
+.compare__item--confirmatory { border-color: var(--color-success-border); background: var(--color-success-bg); }
+.compare__item--exploratory, .compare__item--blocked { color: var(--color-text-muted); background: var(--color-bg-surface-subtle); }
 .compare__item--unreliable { color: var(--color-text-muted); opacity: 0.72; }
+.compare__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.compare__body { margin: 4px 0 0; }
+.compare__badge, .tag-mechanism { display: inline-flex; align-items: center; min-height: 24px; padding: 0 7px; border: 1px solid var(--color-border-default); border-radius: 999px; background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 11px; font-weight: 700; }
+.compare__badge--confirmatory { border-color: var(--color-success-border); background: var(--color-success-bg); color: var(--color-success-text); }
+.compare__warning { font-weight: 600; }
+.compare__tests { white-space: normal; }
 .help { margin-top: 2rem; padding: 1rem 1.1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .help p { margin: 0; }
 
@@ -536,6 +621,8 @@ onUnmounted(clearTimer)
 .grid thead th { background: var(--color-bg-surface-subtle); font-family: var(--font-heading); }
 .outcome { font-weight: 600; min-width: 160px; }
 .row--material { background: color-mix(in srgb, var(--color-warning-text) 6%, transparent); }
+.mechanism-blocked { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); }
+.mechanism-blocked__text { margin: 0; font-size: 12px; line-height: 1.4; }
 
 .results--cards { display: grid; gap: 12px; }
 .card { padding: 14px; border: 1px solid var(--color-border-default); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); }
