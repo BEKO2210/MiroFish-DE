@@ -20,6 +20,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.openai_chat_compat import create_chat_completion, extract_chat_completion_text
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
@@ -440,19 +441,21 @@ class SimulationConfigGenerator:
         
         for attempt in range(max_attempts):
             try:
-                response = self.client.chat.completions.create(
-                    **Config.local_llm_extra_kwargs(),
+                # GPT-5-kompatibel (Upstream f7138e0/e67a52e); lokale extra_body bleiben erhalten
+                response = create_chat_completion(
+                    self.client,
                     model=self.model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
                     ],
                     response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)  # Verringere Temperatur bei jedem Retry
+                    temperature=0.7 - (attempt * 0.1),  # Verringere Temperatur bei jedem Retry
+                    **Config.local_llm_extra_kwargs(),
                     # Kein max_tokens, lässt LLM frei arbeiten
                 )
                 
-                content = response.choices[0].message.content
+                content = extract_chat_completion_text(response)
                 finish_reason = response.choices[0].finish_reason
                 
                 # Prüfe auf Truncierung

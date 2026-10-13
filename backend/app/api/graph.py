@@ -4,6 +4,7 @@ Verwendet Projekt-Kontext-Mechanismus, serverseitige Persistenz
 """
 
 import os
+import re
 import traceback
 import threading
 from flask import request, jsonify
@@ -17,6 +18,7 @@ from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
+from ..utils.llm_client import LLMResponseError
 
 # Logger abrufen
 logger = get_logger('mirofish.api')
@@ -146,6 +148,7 @@ def generate_ontology():
             }
         }
     """
+    project = None
     try:
         logger.info("=== Ontologie-Definition wird generiert ===")
 
@@ -246,13 +249,56 @@ def generate_ontology():
             }
         })
         
-    except Exception as e:
-        logger.error(f"Anfrage fehlgeschlagen: {e}\n{traceback.format_exc()}")
-        return jsonify({
+    except Exception as error:
+        provider_status = getattr(error, "status_code", None)
+        request_id = getattr(error, "request_id", None)
+
+        if isinstance(error, LLMResponseError):
+            # Unbrauchbare Modellantwort (abgeschnitten, leer, kein JSON-Objekt)
+            public_error = str(error)
+            response_status = 502
+            logger.exception("LLM lieferte eine unbrauchbare Ontologie-Antwort")
+        elif isinstance(provider_status, int):
+            public_error = f"Anfrage an den LLM-Anbieter fehlgeschlagen (HTTP {provider_status})"
+            if request_id:
+                safe_request_id = re.sub(r"[^a-zA-Z0-9._:-]", "", str(request_id))[:128]
+                if safe_request_id:
+                    public_error += f" (request_id: {safe_request_id})"
+            response_status = 502
+            # Fehlertexte des Anbieters können Anfrageinhalte wiederholen; daher nur Typ/Status protokollieren
+            logger.error(
+                "Ontologie-Anfrage an den Anbieter fehlgeschlagen: type=%s status=%s request_id=%s",
+                type(error).__name__,
+                provider_status,
+                request_id or "unknown",
+            )
+        else:
+            # Lokaler Betrieb: Meldung (z.B. "Ollama nicht erreichbar") bleibt sichtbar, Traceback nur im Log
+            public_error = f"Ontologie-Generierung fehlgeschlagen: {error}"
+            response_status = 500
+            logger.error(f"Anfrage fehlgeschlagen: {error}\n{traceback.format_exc()}")
+
+        # Projekt als fehlgeschlagen speichern, statt es im Status "created" hängen zu lassen
+        response_data = None
+        if project is not None:
+            project.status = ProjectStatus.FAILED
+            project.error = public_error
+            try:
+                ProjectManager.save_project(project)
+            except Exception:
+                logger.exception(
+                    "Fehlerstatus der Ontologie für Projekt %s konnte nicht gespeichert werden",
+                    project.project_id,
+                )
+            response_data = {"project_id": project.project_id}
+
+        payload = {
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }), 500
+            "error": public_error,
+        }
+        if response_data is not None:
+            payload["data"] = response_data
+        return jsonify(payload), response_status
 
 
 # ============== Schnittstelle 2: Graph aufbauen ==============
@@ -556,7 +602,8 @@ def list_tasks():
     
     return jsonify({
         "success": True,
-        "data": [t.to_dict() for t in tasks],
+        # list_tasks() liefert bereits Dicts (Upstream 32fa3c8)
+        "data": tasks,
         "count": len(tasks)
     })
 

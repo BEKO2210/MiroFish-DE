@@ -22,7 +22,8 @@ class Config:
     
     # Flask-Konfiguration
     SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
-    DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    # Standard aus: Der Werkzeug-Debugger erlaubt bei 0.0.0.0 beliebigen Python-Code im Browser
+    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     
     # JSON-Konfiguration - ASCII-Escaping deaktivieren, Unicode direkt anzeigen (statt \uXXXX-Format)
     JSON_AS_ASCII = False
@@ -201,9 +202,9 @@ class Config:
         return True
 
     @classmethod
-    def validate(cls):
+    def validate(cls) -> list[str]:
         """Erforderliche Konfiguration validieren"""
-        errors = []
+        errors: list[str] = []
         
         # Bei API-basierten Providern (nicht lokal) wird API-Key benötigt
         # Wir prüfen nur auf echtes Fehlen (None oder leerer String)
@@ -221,5 +222,9 @@ class Config:
             
         if not cls.is_local_llm() and cls.LLM_API_KEY and '...****' in cls.LLM_API_KEY:
             print("⚠️ LLM_API_KEY ist maskiert. KI-Anfragen könnten fehlschlagen.")
+
+        if cls.DEBUG:
+            import warnings
+            warnings.warn("Flask-DEBUG-Modus ist aktiv. Nicht im Produktivbetrieb verwenden.", RuntimeWarning)
             
         return errors

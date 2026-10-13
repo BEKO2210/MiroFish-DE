@@ -19,6 +19,7 @@ logger = get_logger('mirofish.zep_paging')
 
 _DEFAULT_PAGE_SIZE = 100
 _MAX_NODES = 2000
+_MAX_EDGES = 5000
 _DEFAULT_MAX_RETRIES = 3
 _DEFAULT_RETRY_DELAY = 2.0  # seconds, doubles each retry
 
@@ -108,8 +109,10 @@ def fetch_all_edges(
     page_size: int = _DEFAULT_PAGE_SIZE,
     max_retries: int = _DEFAULT_MAX_RETRIES,
     retry_delay: float = _DEFAULT_RETRY_DELAY,
+    max_items: int = _MAX_EDGES,
 ) -> list[Any]:
-    """Paginierte Abfrage aller Graph-Kanten, gibt die vollständige Liste zurück. Jede Page-Anfrage enthält einen Retry."""
+    """Paginierte Abfrage der Graph-Kanten, gibt maximal max_items Einträge zurück (Standard 5000, verhindert
+    unbegrenztes Speicherwachstum). Jede Page-Anfrage enthält einen Retry."""
     all_edges: list[Any] = []
     cursor: str | None = None
     page_num = 0
@@ -132,6 +135,10 @@ def fetch_all_edges(
             break
 
         all_edges.extend(batch)
+        if len(all_edges) >= max_items:
+            all_edges = all_edges[:max_items]
+            logger.warning(f"Edge count reached limit ({max_items}), stopping pagination for graph {graph_id}")
+            break
         if len(batch) < page_size:
             break
 

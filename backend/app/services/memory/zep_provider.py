@@ -94,21 +94,19 @@ class ZepMemoryProvider(MemoryProvider):
         ]
 
     def fetch_node_edges(self, graph_id: str, node_uuid: str) -> List[MemoryEdge]:
-        """Ruft alle Kanten eines bestimmten Knotens ab"""
+        """Ruft alle Kanten eines bestimmten Knotens ab (eingehend und ausgehend)
+
+        graph.node.get_entity_edges gibt es in zep-cloud 3.13 nicht (Upstream 0d8c23a), und
+        graph.node.get_edges liefert laut Upstream 54bd7a3 nur Kanten mit dem Knoten als Quelle.
+        Daher alle Kanten des Graphen paginiert laden und in beide Richtungen filtern.
+        """
         try:
-            zep_edges = self.client.graph.node.get_entity_edges(node_uuid=node_uuid)
             return [
-                MemoryEdge(
-                    uuid=getattr(e, 'uuid_', '') or getattr(e, 'uuid', ''),
-                    name=e.name or "",
-                    fact=e.fact or "",
-                    source_node_uuid=e.source_node_uuid or "",
-                    target_node_uuid=e.target_node_uuid or "",
-                    attributes=e.attributes or {},
-                    created_at=str(getattr(e, 'created_at', ''))
-                ) for e in zep_edges
+                e for e in self.fetch_edges(graph_id)
+                if e.source_node_uuid == node_uuid or e.target_node_uuid == node_uuid
             ]
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Kanten von Knoten {node_uuid} konnten nicht geladen werden: {e}")
             return []
 
     def search(self, graph_id: str, query: str, limit: int = 10, scope: str = "edges") -> MemorySearchResult:
