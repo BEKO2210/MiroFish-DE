@@ -110,6 +110,7 @@
             <aside v-if="methodology && isComplete" class="methodology-card" aria-labelledby="methodology-heading">
               <h2 id="methodology-heading" class="methodology-title">{{ $t('step4.methodologyTitle') }}</h2>
               <p class="methodology-disclaimer">{{ methodology.disclaimer || $t('step4.methodologyDisclaimer') }}</p>
+              <p class="methodology-disclaimer">{{ $t('step4.methodologyMultiRunLimit') }}</p>
               <ul class="methodology-list">
                 <li>{{ $t('step4.methodologyRuns', { count: methodology.run_count ?? 1 }) }}</li>
                 <li>{{ $t('step4.methodologyAgents', { count: methodology.agent_count ?? 0, types: agentTypesLabel }) }}</li>

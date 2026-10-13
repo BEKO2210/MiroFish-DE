@@ -163,6 +163,18 @@ test.describe('Flows', () => {
     expect(body.variants.length).toBeGreaterThanOrEqual(2)
   })
 
+  test('Mehrfachlauf erklärt Laufanteile und trennt Mechanismen von Vergleichen', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    await expect(page.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
+    await expect(page.getByText('7 von 10 Läufen dieser Simulation', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('explorativ – nicht als Beleg verwenden', { exact: false })).toBeVisible()
+    await expect(page.getByText('konfirmatorisch', { exact: true })).toBeVisible()
+    await expect(page.locator('.results:visible .mechanism-blocked__text').first()).toContainText('Dieser Arm kann diese Wechselwirkung technisch nicht erzeugen')
+  })
+
   test('eigene Frage hinzufügen und Mehrfachlauf starten', async ({ page }) => {
     const { api } = await preparePage(page)
     await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
