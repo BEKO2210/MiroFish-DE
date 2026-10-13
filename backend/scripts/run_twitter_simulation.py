@@ -50,6 +50,12 @@ else:
 import re
 
 from app.utils.simulation_time import simulation_clock
+from app.services.blind_feed import (
+    deliver_opening_stimulus,
+    fetch_platform_posts,
+    install_blind_feed,
+    is_blind_feed,
+)
 
 
 class UnicodeFormatter(logging.Formatter):
@@ -597,10 +603,16 @@ class TwitterSimulationRunner:
             print(f"Fehler: Profildatei nicht vorhanden: {profile_path}")
             return
         
+        variant = self.config.get("ensemble_variant")
+        available_actions = (
+            [ActionType.CREATE_POST, ActionType.DO_NOTHING]
+            if variant == "isolated"
+            else self.AVAILABLE_ACTIONS
+        )
         self.agent_graph = await generate_twitter_agent_graph(
             profile_path=profile_path,
             model=model,
-            available_actions=self.AVAILABLE_ACTIONS,
+            available_actions=available_actions,
         )
         
         # Datenbankpfad
@@ -620,6 +632,9 @@ class TwitterSimulationRunner:
         
         await self.env.reset()
         print("Umgebung initialisiert\n")
+        if is_blind_feed(variant):
+            install_blind_feed(self.env.platform)
+            print("blind_feed: Empfehlungstabelle geleert, refresh nur eigene Beiträge")
         
         # Initialisiere IPC-Handler
         self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
@@ -647,6 +662,13 @@ class TwitterSimulationRunner:
             if initial_actions:
                 await self.env.step(initial_actions)
                 print(f"  {len(initial_actions)} initiale Posts veröffentlicht")
+
+        deliver_opening_stimulus(
+            self.env.agent_graph,
+            fetch_platform_posts(self.env.platform),
+            os.path.join(self.simulation_dir, "stimulus_log.json"),
+            "twitter",
+        )
         
         # Hauptsimulationsschleife
         print("\nSimulationsschleife gestartet...")
