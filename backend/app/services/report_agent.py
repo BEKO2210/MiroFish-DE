@@ -450,6 +450,8 @@ class Report:
     created_at: str = ""
     completed_at: str = ""
     error: Optional[str] = None
+    # Deterministische Methodik (V1): ohne Sprachmodell aus Laufdaten
+    methodology: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -462,7 +464,8 @@ class Report:
             "markdown_content": self.markdown_content,
             "created_at": self.created_at,
             "completed_at": self.completed_at,
-            "error": self.error
+            "error": self.error,
+            "methodology": self.methodology,
         }
 
 
@@ -549,125 +552,107 @@ Funktionsablauf:
 # ── Outline Planning Prompt ──
 
 PLAN_SYSTEM_PROMPT = """\
-Sie sind ein Experte für das Verfassen von "Zukunftsprognose-Berichten" mit einer "Gottes-Perspektive" auf die simulierte Welt – Sie können das Verhalten, die Äußerungen und Interaktionen jedes Agenten in der Simulation durchschauen.
+Sie sind ein Experte für ehrliche Szenario-Berichte über eine Multi-Agenten-Simulation.
 
 【Kernkonzept】
-Wir haben eine simulierte Welt aufgebaut und spezifische "Simulationsanforderungen" als Variable injiziert. Das Evolutionsergebnis der simulierten Welt ist eine Vorhersage dessen, was in der Zukunft passieren könnte. Was Sie beobachten, sind keine "Experimentdaten", sondern eine "Vorschau auf die Zukunft".
+Wir haben eine simulierte Welt mit einer Frage (Simulationsanforderung) laufen lassen. Was Sie sehen, ist
+das Protokoll EINES Laufs – ein möglicher Verlauf, keine Wahrscheinlichkeit und keine Prognose der Realität.
+
+【Harte Grenzen】
+- Simulierter Zeitraum: genau {simulation_hours} Stunden (≈ {simulation_days} Tage). Erzählen Sie NIEMALS
+  darüber hinaus (keine „Woche 3“, wenn nur 24 Stunden simuliert wurden).
+- Bei einem einzelnen Lauf (run_count={run_count}): Titel muss „Szenario-Bericht“ enthalten, NICHT
+  „Zukunftsprognose“ / „Prognose“.
+- Keine Wahrscheinlichkeiten, keine Formulierungen wie „belegen“, „beweisen“, „extrem hohe Wahrscheinlichkeit“.
+- Forderung oder Ankündigung in einem Beitrag ≠ eingetretenes Ereignis.
+- Zitate nur aus Agentenbeiträgen der Simulation, niemals aus dem Eingabedokument.
 
 【Ihre Aufgabe】
-Verfassen Sie einen "Zukunftsprognose-Bericht", der folgende Fragen beantwortet:
-1. Was ist in der Zukunft unter unseren Bedingungen passiert?
-2. Wie reagieren und handeln verschiedene Agenten (Bevölkerungsgruppen)?
-3. Welche zukünftigen Trends und Risiken deckt diese Simulation auf?
+Gliederung für einen Szenario-Bericht entwerfen, der beantwortet:
+1. Was ist in DIESEM Lauf innerhalb der simulierten Zeit passiert?
+2. Wie haben verschiedene Agenten reagiert?
+3. Welche Muster oder Risiken zeigt dieser eine Verlauf (ohne Wahrscheinlichkeitsanspruch)?
 
-【Berichtspositionierung】
-- ✅ Dies ist ein zukunftsorientierter Prognosebericht basierend auf Simulationen, der zeigt "Was wäre wenn, wie sieht die Zukunft aus"
-- ✅ Fokus auf Prognoseergebnissen: Ereignisverlauf, Gruppenreaktionen, emergente Phänomene, potenzielle Risiken
-- ✅ Agenten-Verhalten in der simulierten Welt ist eine Vorhersage des zukünftigen Bevölkerungsverhaltens
-- ❌ Keine Analyse des aktuellen Realitätsstatus
-- ❌ Keine allgemeinen öffentlichen Meinungsübersichten
+【Abschnittsanzahl】
+- Mindestens 2, maximal 5 Kapitel; kein Unterkapitel nötig; prägnant.
 
-【Abschnittsanzahl-Beschränkung】
-- Mindestens 2 Kapitel, maximal 5 Kapitel
-- Keine Unterkapitel erforderlich, jedes Kapitel enthält direkt den vollständigen Inhalt
-- Inhalt sollte prägnant sein, fokussiert auf Kernprognose-Erkenntnisse
-- Kapitelstruktur wird basierend auf Prognoseergebnissen selbstständig entworfen
-
-Bitte geben Sie den Berichtsentwurf im JSON-Format aus, Format wie folgt:
-{
-    "title": "Berichtstitel",
-    "summary": "Berichtszusammenfassung (Ein Satz, der die Kernprognose-Erkenntnis zusammenfasst)",
+JSON-Format:
+{{
+    "title": "Szenario-Bericht: …",
+    "summary": "Ein Satz über den Verlauf DIESES Laufs (ohne Wahrscheinlichkeit)",
     "sections": [
-        {
-            "title": "Kapiteltitel",
-            "description": "Beschreibung des Kapitelinhalts"
-        }
+        {{"title": "Kapiteltitel", "description": "Kurzbeschreibung"}}
     ]
-}
+}}
 
 Hinweis: Das sections-Array muss mindestens 2 und maximal 5 Elemente enthalten!"""
 
 PLAN_USER_PROMPT_TEMPLATE = """\
-【Prognoseszenario-Einstellung】
-Die Variablen, die wir in die simulierte Welt injiziert haben (Simulationsanforderungen): {simulation_requirement}
+【Szenario-Frage】
+{simulation_requirement}
+
+【Simulationsgrenzen】
+- Simulierte Stunden: {simulation_hours} (≈ {simulation_days} Tage) — harte Obergrenze für jede Chronologie
+- Läufe: {run_count} (Einzellauf = kein Wahrscheinlichkeitsanspruch)
 
 【Simulationswelt-Größe】
-- Anzahl der an der Simulation teilnehmenden Entitäten: {total_nodes}
-- Anzahl der zwischen Entitäten erzeugten Beziehungen: {total_edges}
-- Entitätstyp-Verteilung: {entity_types}
-- Anzahl aktiver Agenten: {total_entities}
+- Entitäten: {total_nodes}, Beziehungen: {total_edges}
+- Entitätstypen: {entity_types}
+- Aktive Agenten: {total_entities}
 
-【Beispiele zukünftiger Fakten aus der Simulationsprognose】
+【Beispiel-Fakten aus dem Graphen dieses Laufs】
 {related_facts_json}
 
-Bitte betrachten Sie diese Zukunftsvorschau aus der "Gottes-Perspektive":
-1. Welchen Zustand zeigt die Zukunft unter unseren Bedingungen?
-2. Wie reagieren und handeln verschiedene Bevölkerungsgruppen (Agenten)?
-3. Welche beachtenswerten zukünftigen Trends deckt diese Simulation auf?
-
-Entwerfen Sie basierend auf den Prognoseergebnissen die am besten geeignete Berichtskapitelstruktur.
-
-【Erneute Erinnerung】Berichtskapitelanzahl: Mindestens 2, maximal 5, Inhalt sollte prägnant auf Kernprognose-Erkenntnisse fokussiert sein."""
+Entwerfen Sie die Kapitelstruktur streng innerhalb des simulierten Zeitraums.
+Kapitelanzahl: 2–5."""
 
 # ── Section Generation Prompt ──
 
 SECTION_SYSTEM_PROMPT_TEMPLATE = """\
-Sie sind ein Experte für das Verfassen von "Zukunftsprognose-Berichten" und schreiben gerade ein Kapitel des Berichts.
+Sie schreiben ein Kapitel eines Szenario-Berichts über EINE Multi-Agenten-Simulation.
 
 Berichtstitel: {report_title}
 Berichtszusammenfassung: {report_summary}
-Prognoseszenario (Simulationsanforderung): {simulation_requirement}
+Szenario-Frage: {simulation_requirement}
 
 Aktuell zu schreibendes Kapitel: {section_title}
 
 ═══════════════════════════════════════════════════════════════
-【Kernkonzept】
+【Harte Grenzen — Verstöße sind unzulässig】
 ═══════════════════════════════════════════════════════════════
 
-Die simulierte Welt ist eine Probe für die Zukunft. Wir haben spezifische Bedingungen (Simulationsanforderungen) in die simulierte Welt injiziert,
-das Verhalten und die Interaktionen der Agenten in der Simulation sind eine Vorhersage des zukünftigen Bevölkerungsverhaltens.
-
-Ihre Aufgabe ist:
-- Aufdecken, was in der Zukunft unter den festgelegten Bedingungen passiert ist
-- Vorhersagen, wie verschiedene Bevölkerungsgruppen (Agenten) reagieren und handeln
-- Entdecken beachtenswerter zukünftiger Trends, Risiken und Chancen
-
-❌ Nicht als Analyse des aktuellen Realitätsstatus schreiben
-✅ Fokus auf "Wie wird die Zukunft sein" – Simulationsergebnisse sind die vorhergesagte Zukunft
+- Simulierter Zeitraum: {simulation_hours} Stunden (≈ {simulation_days} Tage). Keine Chronologie darüber hinaus.
+- Läufe: {run_count}. Formulieren Sie als „in diesem Lauf“ / „dieses Szenario“. Keine Wahrscheinlichkeiten,
+  keine „extrem hohe Wahrscheinlichkeit“, kein „belegen“/„beweisen“.
+- Forderung oder Ankündigung in einem Beitrag ≠ dass das Ereignis eingetreten ist.
+- Zitate nur aus Agentenbeiträgen der Simulation (Tool-Ergebnisse). Niemals aus dem Eingabedokument.
+- Bei Einzellauf: keine „Zukunftsprognose“-Rhetorik.
 
 ═══════════════════════════════════════════════════════════════
-【Wichtigste Regel - Muss befolgt werden】
+【Wichtigste Regeln】
 ═══════════════════════════════════════════════════════════════
 
-1. 【Muss Tools aufrufen, um die simulierte Welt zu beobachten】
-   - Sie beobachten die Zukunftsprobe aus der "Gottes-Perspektive"
-   - Alle Inhalte müssen aus Ereignissen und Agenten-Äußerungen in der simulierten Welt stammen
-   - Verwenden Sie nicht Ihr eigenes Wissen, um Berichtsinhalte zu schreiben
-   - Jedes Kapitel muss mindestens 3-mal Tools aufrufen (maximal 5-mal), um die simulierte Welt zu beobachten, sie repräsentiert die Zukunft
+1. 【Muss Tools aufrufen】
+   - Alle Inhalte müssen aus Ereignissen und Agenten-Äußerungen DIESES Laufs stammen
+   - Kein eigenes Weltwissen als Simulationsfakt
+   - Mindestens 3 Tool-Aufrufe pro Kapitel (maximal 5)
 
-2. 【Muss Agenten-Originaläußerungen zitieren】
-   - Agenten-Äußerungen und -Verhalten sind Vorhersagen des zukünftigen Bevölkerungsverhaltens
-   - Verwenden Sie Zitat-Formate in Berichten, um diese Vorhersagen zu zeigen, z.B.:
-     > "Eine bestimmte Bevölkerungsgruppe wird sagen: Originalinhalt..."
-   - Diese Zitate sind Kernbeweise der Simulationsprognose
+2. 【Agenten-Originaläußerungen zitieren】
+   - Nur Beiträge/Interviews aus der Simulation, Format:
+     > "Originalinhalt..."
+   - Keine erfundenen Zitate
 
-3. 【Sprachkonsistenz - Zitatinhalte müssen in die Berichtssprache übersetzt werden】
-   - Tool-Rückgabeinhalte können englische oder gemischte Ausdrücke enthalten
-   - Der Bericht wird vollständig in der Sprache der Simulationsanforderung (der Frage) verfasst – bei einer deutschen Frage also auf Deutsch
-   - Wenn Sie Inhalte in anderen Sprachen aus Tool-Rückgaben zitieren, übersetzen Sie sie in diese Sprache, bevor Sie sie in den Bericht schreiben
-   - Behalten Sie die ursprüngliche Bedeutung bei, stellen Sie natürliche Ausdrücke sicher
-   - Diese Regel gilt sowohl für den Haupttext als auch für Zitatblöcke (> Format)
+3. 【Sprachkonsistenz】
+   - Berichtssprache = Sprache der Szenario-Frage (bei Deutsch: Deutsch)
+   - Fremdsprachige Tool-Zitate vor dem Einsetzen übersetzen
 
-4. 【Prognoseergebnisse treu wiedergeben】
-   - Berichtsinhalte müssen repräsentative Simulationsergebnisse aus der simulierten Welt widerspiegeln
-   - Fügen Sie keine Informationen hinzu, die in der Simulation nicht existieren
-   - Wenn Informationen zu einem bestimmten Aspekt unzureichend sind, geben Sie dies ehrlich an
+4. 【Treue zum Lauf】
+   - Nur was in der Simulation vorkommt; Lücken ehrlich benennen
 
 5. 【Keine erfundenen Daten】
-   - ❌ Erfinden Sie keine Benutzernamen, Zitate, Statistiken oder Interaktionsdaten
-   - ❌ Fügen Sie keine <tool_result>-Blöcke in Ihre Antwort ein — Tool-Ergebnisse liefert ausschließlich das System
-   - ✅ Zitieren Sie nur Entitäten, Zitate und Daten, die tatsächlich in Tool-Ergebnissen vorkommen
-   - Wenn die Tool-Ergebnisse nichts Passendes enthalten, sagen Sie das ehrlich, statt etwas zu erfinden
+   - ❌ Keine erfundenen Namen, Zitate, Statistiken
+   - ❌ Keine <tool_result>-Blöcke selbst schreiben
+   - ✅ Nur Tool-Ergebnisse zitieren
 
 ═══════════════════════════════════════════════════════════════
 【⚠️ Format-Spezifikation - Extrem wichtig!】
@@ -907,6 +892,7 @@ class ReportAgent:
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
+        self._sim_hours_cache: Optional[int] = None
         
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
@@ -920,6 +906,30 @@ class ReportAgent:
         self.console_logger: Optional[ReportConsoleLogger] = None
         
         logger.info(f"ReportAgent Initialisierung abgeschlossen: graph_id={graph_id}, simulation_id={simulation_id}")
+
+    def _simulation_bounds(self) -> Dict[str, Any]:
+        """Simulierte Stunden/Tage und Laufanzahl aus der Konfiguration (deterministisch)."""
+        if self._sim_hours_cache is None:
+            hours = 0
+            try:
+                from .report_validation import load_simulation_context
+                ctx = load_simulation_context(self.simulation_id)
+                tc = (ctx.get("config") or {}).get("time_config") or {}
+                rs = ctx.get("run_state") or {}
+                hours = int(
+                    rs.get("total_simulation_hours")
+                    or tc.get("total_simulation_hours")
+                    or 0
+                )
+            except Exception as e:
+                logger.warning(f"Simulationsgrenzen lesen fehlgeschlagen: {e}")
+            self._sim_hours_cache = hours
+        hours = self._sim_hours_cache or 0
+        return {
+            "simulation_hours": hours,
+            "simulation_days": round(hours / 24, 2) if hours else 0,
+            "run_count": 1,
+        }
     
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
         """Define available tools"""
@@ -1200,7 +1210,8 @@ class ReportAgent:
         if progress_callback:
             progress_callback("planning", 30, "Berichtgliederung generieren...")
         
-        system_prompt = PLAN_SYSTEM_PROMPT
+        bounds = self._simulation_bounds()
+        system_prompt = PLAN_SYSTEM_PROMPT.format(**bounds)
         user_prompt = PLAN_USER_PROMPT_TEMPLATE.format(
             simulation_requirement=self.simulation_requirement,
             total_nodes=context.get('graph_statistics', {}).get('total_nodes', 0),
@@ -1208,6 +1219,7 @@ class ReportAgent:
             entity_types=list(context.get('graph_statistics', {}).get('entity_types', {}).keys()),
             total_entities=context.get('total_entities', 0),
             related_facts_json=json.dumps(context.get('related_facts', [])[:10], ensure_ascii=False, indent=2),
+            **bounds,
         )
 
         try:
@@ -1246,12 +1258,12 @@ class ReportAgent:
             logger.error(f"Gliederungsplanung fehlgeschlagen: {str(e)}")
             # Return default outline (3 sections, as fallback)
             return ReportOutline(
-                title="Zukunftsprognose-Bericht",
-                summary="Zukunftstrends und Risikoanalyse basierend auf Simulationsprognosen",
+                title="Szenario-Bericht",
+                summary="Verlauf dieses Simulationslaufs (ohne Wahrscheinlichkeitsanspruch)",
                 sections=[
-                    ReportSection(title="Prognoseszenario und Kernbefunde"),
-                    ReportSection(title="Analyse des Bevölkerungsverhaltens"),
-                    ReportSection(title="Trendausblick und Risikohinweise")
+                    ReportSection(title="Verlauf in diesem Lauf"),
+                    ReportSection(title="Agentenverhalten"),
+                    ReportSection(title="Muster und offene Risiken")
                 ]
             )
     
@@ -1289,12 +1301,14 @@ class ReportAgent:
         if self.report_logger:
             self.report_logger.log_section_start(section.title, section_index)
         
+        bounds = self._simulation_bounds()
         system_prompt = SECTION_SYSTEM_PROMPT_TEMPLATE.format(
             report_title=outline.title,
             report_summary=outline.summary,
             simulation_requirement=self.simulation_requirement,
             section_title=section.title,
             tools_description=self._get_tools_description(),
+            **bounds,
         )
 
         # Build user prompt - pass each completed section with max 4000 characters
@@ -1743,6 +1757,29 @@ class ReportAgent:
             
             # Use ReportManager to assemble complete report
             report.markdown_content = ReportManager.assemble_full_report(report_id, outline)
+
+            # V1: Methodik deterministisch anhängen und als API-Feld liefern
+            try:
+                from .report_validation import (
+                    append_methodology_to_markdown,
+                    build_methodology,
+                )
+                methodology = build_methodology(
+                    simulation_id=self.simulation_id,
+                    report_markdown=report.markdown_content,
+                    run_count=1,
+                )
+                report.methodology = methodology
+                report.markdown_content = append_methodology_to_markdown(
+                    report.markdown_content, methodology
+                )
+                # full_report.md mit Methodik überschreiben
+                full_path = ReportManager._get_report_markdown_path(report_id)
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(report.markdown_content)
+            except Exception as e:
+                logger.warning(f"Methodik-Abschnitt konnte nicht erzeugt werden: {e}")
+
             report.status = ReportStatus.COMPLETED
             report.completed_at = datetime.now().isoformat()
             
@@ -2458,7 +2495,8 @@ class ReportManager:
             markdown_content=markdown_content,
             created_at=data.get('created_at', ''),
             completed_at=data.get('completed_at', ''),
-            error=data.get('error')
+            error=data.get('error'),
+            methodology=data.get('methodology'),
         )
 
     @classmethod

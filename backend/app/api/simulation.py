@@ -864,6 +864,41 @@ def export_simulation(simulation_id: str):
     sim_dir = os.path.realpath(os.path.join(base_dir, simulation_id))
     if os.path.dirname(sim_dir) != base_dir or not os.path.isdir(sim_dir):
         return jsonify({"success": False, "error": f"Simulation nicht gefunden: {simulation_id}"}), 404
+    # V2: events.jsonl + manifest.json sicherstellen (auch bei älteren Läufen)
+    try:
+        from ..services.report_validation import (
+            build_manifest,
+            write_events_jsonl,
+            write_manifest,
+        )
+        write_events_jsonl(sim_dir)
+        manifest_path = os.path.join(sim_dir, "manifest.json")
+        if not os.path.isfile(manifest_path):
+            run_state = {}
+            try:
+                with open(os.path.join(sim_dir, "run_state.json"), "r", encoding="utf-8") as f:
+                    run_state = json.load(f)
+            except (OSError, ValueError):
+                pass
+            seed = run_state.get("seed")
+            if seed is None:
+                seed = 0
+            temp = run_state.get("temperature")
+            if temp is None:
+                temp = float(os.environ.get("OASIS_LLM_TEMPERATURE", "0.7"))
+            write_manifest(
+                sim_dir,
+                build_manifest(
+                    simulation_id,
+                    seed=int(seed),
+                    temperature=float(temp),
+                    started_at=run_state.get("started_at"),
+                    completed_at=run_state.get("completed_at"),
+                ),
+            )
+    except Exception as exc:
+        logger.warning(f"Export-Manifest/Events: {exc}")
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(sim_dir):
@@ -1642,6 +1677,7 @@ def start_simulation():
         max_rounds = data.get('max_rounds')  # Optional: Maximale Simulationsrunden
         enable_graph_memory_update = data.get('enable_graph_memory_update', False)  # Optional: Graph-Speicher-Aktualisierung aktivieren
         force = data.get('force', False)  # Optional: Neustart erzwingen
+        seed = data.get('seed')  # Optional: Reproduzierbarkeits-Seed
 
         # max_rounds-Parameter validieren
         if max_rounds is not None:
@@ -1656,6 +1692,15 @@ def start_simulation():
                 return jsonify({
                     "success": False,
                     "error": "max_rounds muss eine gültige Ganzzahl sein"
+                }), 400
+
+        if seed is not None:
+            try:
+                seed = int(seed)
+            except (ValueError, TypeError):
+                return jsonify({
+                    "success": False,
+                    "error": "seed muss eine gültige Ganzzahl sein"
                 }), 400
 
         if platform not in ['twitter', 'reddit', 'parallel']:
@@ -1745,7 +1790,8 @@ def start_simulation():
             platform=platform,
             max_rounds=max_rounds,
             enable_graph_memory_update=enable_graph_memory_update,
-            graph_id=graph_id
+            graph_id=graph_id,
+            seed=seed,
         )
         
         # Simulationsstatus aktualisieren

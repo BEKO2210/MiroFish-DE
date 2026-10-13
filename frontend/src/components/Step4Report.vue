@@ -27,6 +27,7 @@
           <header class="report-header-block">
             <div class="report-meta">
               <span class="report-tag">{{ $t('step4.vorhersagebericht') }}</span>
+              <span v-if="runCountLabel" class="report-run-hint">{{ runCountLabel }}</span>
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
             <p class="sub-title">{{ reportOutline.summary }}</p>
@@ -98,6 +99,33 @@
                 </div>
               </div>
             </div>
+
+            <!-- V1: Methodik und Grenzen (deterministisch) -->
+            <aside v-if="methodology && isComplete" class="methodology-card" aria-labelledby="methodology-heading">
+              <h2 id="methodology-heading" class="methodology-title">{{ $t('step4.methodologyTitle') }}</h2>
+              <p class="methodology-disclaimer">{{ methodology.disclaimer || $t('step4.methodologyDisclaimer') }}</p>
+              <ul class="methodology-list">
+                <li>{{ $t('step4.methodologyRuns', { count: methodology.run_count ?? 1 }) }}</li>
+                <li>{{ $t('step4.methodologyAgents', { count: methodology.agent_count ?? 0, types: agentTypesLabel }) }}</li>
+                <li>{{ $t('step4.methodologyTime', { hours: methodology.simulation_hours ?? 0, rounds: methodology.simulation_rounds ?? 0 }) }}</li>
+                <li v-for="(plat, name) in (methodology.platform_activity || {})" :key="name">
+                  {{ $t('step4.methodologyPlatform', { platform: name, posts: plat.posts ?? 0, comments: plat.comments ?? 0, actions: plat.actions ?? 0 }) }}
+                </li>
+                <li>{{ $t('step4.methodologyModels', { main: methodology.models?.main || '—', agents: methodology.models?.agents || '—' }) }}</li>
+                <li>{{ $t('step4.methodologyInitialPosts', { count: methodology.initial_posts_count ?? 0 }) }}</li>
+                <li>{{ $t('step4.methodologySeed', { seed: methodology.seed != null ? methodology.seed : $t('step4.methodologySeedMissing') }) }}</li>
+                <li v-if="methodology.timestamp">{{ $t('step4.methodologyTimestamp', { time: methodology.timestamp }) }}</li>
+              </ul>
+              <div v-if="(methodology.already_in_material || []).length" class="methodology-material">
+                <h3 class="methodology-subtitle">{{ $t('step4.methodologyAlreadyInMaterial') }}</h3>
+                <ul>
+                  <li v-for="(item, i) in methodology.already_in_material" :key="i">
+                    <span class="methodology-overlap mono">{{ Math.round((item.overlap || 0) * 100) }}%</span>
+                    {{ item.claim }}
+                  </li>
+                </ul>
+              </div>
+            </aside>
           </div>
           </div>
         </div>
@@ -437,7 +465,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import { getAgentLog, getConsoleLog } from '../api/report'
+import { getAgentLog, getConsoleLog, getReport } from '../api/report'
 import MobileStickyBar from './MobileStickyBar.vue'
 
 const { t } = useI18n()
@@ -463,6 +491,34 @@ const printReport = () => {
   window.print()
 }
 
+const runCountLabel = computed(() => {
+  const n = methodology.value?.run_count
+  if (n == null && !isComplete.value) return ''
+  const count = n ?? 1
+  return count === 1
+    ? t('step4.scenarioFromOneRun')
+    : t('step4.scenarioFromNRuns', { count })
+})
+
+const agentTypesLabel = computed(() => {
+  const types = methodology.value?.agent_types || []
+  if (!types.length) return '—'
+  return types.map((x) => `${x.type} (${x.count})`).join(', ')
+})
+
+const loadMethodology = async () => {
+  if (!props.reportId) return
+  try {
+    const res = await getReport(props.reportId)
+    const data = res?.data?.methodology != null ? res.data : (res?.data?.data || res?.data)
+    if (data?.methodology) {
+      methodology.value = data.methodology
+    }
+  } catch (e) {
+    /* Methodik optional — Bericht bleibt lesbar */
+  }
+}
+
 const activeTocIndex = ref(0)
 
 const scrollToSection = (idx) => {
@@ -485,6 +541,7 @@ const expandedContent = ref(new Set())
 const expandedLogs = ref(new Set())
 const collapsedSections = ref(new Set())
 const isComplete = ref(false)
+const methodology = ref(null)
 const startTime = ref(null)
 const leftPanel = ref(null)
 const rightPanel = ref(null)
@@ -2075,6 +2132,7 @@ const fetchAgentLog = async () => {
             currentSectionIndex.value = null  // Sicherstellen, dass der Ladezustand gelöscht wird
             emit('update-status', 'completed')
             stopPolling()
+            loadMethodology()
             // Scrolllogik einheitlich im nextTick nach der Schleife verarbeiten
           }
           
@@ -2218,6 +2276,7 @@ watch(() => props.reportId, (newId) => {
     expandedLogs.value = new Set()
     collapsedSections.value = new Set()
     isComplete.value = false
+    methodology.value = null
     startTime.value = null
     
     startPolling()
@@ -2414,6 +2473,67 @@ watch(() => props.reportId, (newId) => {
   padding: 0;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.report-run-hint {
+  color: var(--color-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.methodology-card {
+  margin-top: 2.5rem;
+  padding: 1.25rem 1.35rem;
+  background: var(--color-bg-surface-raised);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 6px);
+  color: var(--color-text-secondary);
+}
+
+.methodology-title {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-lg, 1.125rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.methodology-disclaimer {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.methodology-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.methodology-subtitle {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 1.1rem 0 0.4rem 0;
+}
+
+.methodology-material ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.methodology-overlap {
+  color: var(--color-text-muted);
+  margin-right: 0.35rem;
+  font-size: 0.8rem;
 }
 
 .report-id {
