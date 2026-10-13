@@ -77,6 +77,71 @@ def _round(value: float) -> float:
     return round(float(value), 4)
 
 
+def cohens_kappa(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, Any]:
+    """Prozentuale Übereinstimmung und Cohen-Kappa für zwei binäre Bewerter."""
+    n = len(pairs)
+    if not n:
+        return {"agreement": 0.0, "kappa": 0.0, "n_pairs": 0}
+    agreed = sum(1 for left, right in pairs if left == right)
+    agreement = agreed / n
+    left_yes = sum(1 for left, _ in pairs if left) / n
+    right_yes = sum(1 for _, right in pairs if right) / n
+    expected = left_yes * right_yes + (1.0 - left_yes) * (1.0 - right_yes)
+    if math.isclose(expected, 1.0):
+        # Kappa ist bei identischen konstanten Reihen mathematisch undefiniert. Für die
+        # Messinstrument-Anzeige behandeln wir vollständige Identität als perfekt, jede
+        # (nur theoretisch mögliche) Abweichung dagegen als keine Übereinstimmung.
+        kappa = 1.0 if math.isclose(agreement, 1.0) else 0.0
+    else:
+        kappa = (agreement - expected) / (1.0 - expected)
+    return {"agreement": _round(agreement), "kappa": _round(kappa), "n_pairs": n}
+
+
+def reliability_label(kappa: float) -> str:
+    if kappa >= 0.6:
+        return "messbar"
+    if kappa >= 0.4:
+        return "unsicher"
+    return "nicht messbar"
+
+
+def combine_rater_results(
+    rater_a: Dict[str, Dict[str, Any]],
+    rater_b: Dict[str, Dict[str, Any]],
+    checklist: Sequence[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """Konservatives Endurteil: Ja nur bei zwei belegten Ja; Dissens bleibt strittig."""
+    combined: Dict[str, Dict[str, Any]] = {}
+    for item in checklist:
+        oid = str(item["id"])
+        left = rater_a.get(oid, {"yes": False, "evidence": [], "unclassified": True})
+        right = rater_b.get(oid, {"yes": False, "evidence": [], "unclassified": True})
+        if left.get("unclassified") or right.get("unclassified"):
+            combined[oid] = {
+                "yes": False,
+                "evidence": [],
+                "unclassified": True,
+                "disputed": False,
+                "raters": {"a": left, "b": right},
+            }
+            continue
+        disputed = bool(left.get("yes")) != bool(right.get("yes"))
+        yes = bool(left.get("yes") and right.get("yes"))
+        evidence = []
+        if yes:
+            for rater, judgment in (("a", left), ("b", right)):
+                for raw in judgment.get("evidence", []):
+                    evidence.append({**raw, "rater": rater})
+        combined[oid] = {
+            "yes": yes,
+            "evidence": evidence,
+            "unclassified": False,
+            "disputed": disputed,
+            "raters": {"a": left, "b": right},
+        }
+    return combined
+
+
 ABSENCE_RE = re.compile(r"\b(?:nicht|kein(?:e|en|er|es)?|bleibt\s+aus)\b", re.IGNORECASE)
 INTERACTION_RE = re.compile(
     r"\b(?:Debatte|Diskussion|antwortet|reagiert\s+auf)\b|"
@@ -145,6 +210,7 @@ def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
             "definition": definition,
             "polarity": polarity,
             "kind": kind,
+            "source": "auto",
         }
         if isinstance(raw, dict) and str(raw.get("presence_event") or "").strip():
             item["presence_event"] = str(raw["presence_event"]).strip()
@@ -164,6 +230,40 @@ def parse_checklist(payload: Any) -> List[Dict[str, Any]]:
             or polarity_by_id.get(counter) != "presence"
         ):
             item.pop("counter_outcome_id", None)
+    return result
+
+
+def validate_custom_outcomes(payload: Any) -> List[Dict[str, Any]]:
+    """Optionale benutzerdefinierte Ergebnisfragen streng normalisieren."""
+    if payload is None:
+        return []
+    if not isinstance(payload, list):
+        raise ValueError("custom_outcomes muss eine Liste sein")
+    if len(payload) > 6:
+        raise ValueError("custom_outcomes darf höchstens 6 Einträge enthalten")
+    result = []
+    for index, raw in enumerate(payload, 1):
+        if not isinstance(raw, dict):
+            raise ValueError(f"custom_outcomes[{index - 1}] muss ein Objekt sein")
+        text = str(raw.get("text_de") or "").strip()
+        if not text or len(text) > 200:
+            raise ValueError(
+                f"custom_outcomes[{index - 1}].text_de muss 1 bis 200 Zeichen lang sein"
+            )
+        polarity = str(raw.get("polarity") or "").strip().lower()
+        kind = str(raw.get("kind") or "").strip().lower()
+        if polarity and polarity not in {"presence", "absence"}:
+            raise ValueError("polarity muss presence oder absence sein")
+        if kind and kind not in {"event", "interaction"}:
+            raise ValueError("kind muss event oder interaction sein")
+        result.append({
+            "id": f"c{index}",
+            "text_de": text,
+            "definition": text,
+            "polarity": polarity or infer_polarity(text),
+            "kind": kind or infer_kind(text),
+            "source": "user",
+        })
     return result
 
 
@@ -668,6 +768,37 @@ class EnsembleService:
 
         return LLMClient()
 
+    @staticmethod
+    def _llm_model(llm: Any) -> str:
+        return str(getattr(llm, "model", None) or "configured-main-model")
+
+    def _second_rater_llm(self, primary: Any) -> Tuple[Any, bool]:
+        """Zweitmodell am lokalen Server; leere Konfiguration bedeutet Seed-Fallback."""
+        model = str(os.environ.get(
+            "ENSEMBLE_SECOND_RATER_MODEL", Config.ENSEMBLE_SECOND_RATER_MODEL
+        ) or "").strip()
+        if not model:
+            return primary, True
+        if self.llm_factory is not None:
+            try:
+                return self.llm_factory(
+                    api_key=Config.LOCAL_LLM_API_KEY,
+                    base_url=Config.LOCAL_LLM_BASE_URL,
+                    model=model,
+                ), False
+            except TypeError:
+                # Test-/Integrations-Factories ohne Modellparameter bilden beide Bewerter ab.
+                return self.llm_factory(), False
+        from ..utils.llm_client import LLMClient
+
+        client = LLMClient(
+            api_key=Config.LOCAL_LLM_API_KEY,
+            base_url=Config.LOCAL_LLM_BASE_URL,
+            model=model,
+        )
+        client.provider = "local"
+        return client, False
+
     def _path(self, ensemble_id: str) -> Path:
         suffix = ensemble_id[4:] if ensemble_id.startswith("ens_") else ""
         if len(suffix) != 12 or any(c not in "0123456789abcdef" for c in suffix):
@@ -696,6 +827,7 @@ class EnsembleService:
         hours: int,
         variants: Any,
         start_hour: int = 7,
+        custom_outcomes: Any = None,
     ) -> Dict[str, Any]:
         if not isinstance(simulation_id, str) or not simulation_id.startswith("sim_"):
             raise ValueError("simulation_id muss mit sim_ beginnen")
@@ -710,6 +842,7 @@ class EnsembleService:
         ):
             raise ValueError("start_hour muss zwischen 0 und 23 liegen")
         variants = validate_variants(variants)
+        custom_outcomes = validate_custom_outcomes(custom_outcomes)
         source = Path(Config.UPLOAD_FOLDER) / "simulations" / simulation_id
         required = ("simulation_config.json", "reddit_profiles.json", "twitter_profiles.csv", "state.json")
         missing = [name for name in required if not (source / name).is_file()]
@@ -763,8 +896,10 @@ class EnsembleService:
                 for key in variants
             ],
             "checklist": [],
+            "custom_outcomes": custom_outcomes,
             "results": {},
             "comparisons": [],
+            "reliability": {},
             "consistency_warnings": [],
             "current": None,
             "eta_seconds": estimate,
@@ -811,6 +946,7 @@ class EnsembleService:
             json.dumps(state.get("comparisons", []), ensure_ascii=False)
         )
         for item in state["checklist"]:
+            item["source"] = item.get("source") or "auto"
             item["polarity"] = item.get("polarity") or infer_polarity(
                 f"{item.get('text_de', '')} {item.get('definition', '')}"
             )
@@ -970,6 +1106,7 @@ class EnsembleService:
                 "Checkliste enthält nach zwei Versuchen Zahlen aus dem Material"
             )
 
+        checklist.extend(dict(item) for item in state.get("custom_outcomes", []))
         quote_checks = []
         for item in checklist:
             event = f"{item['text_de']} -- {item['definition']}"
@@ -1082,14 +1219,15 @@ class EnsembleService:
             "raw_response": raw,
         }
 
-    def _classify_posts(
+    def _classify_posts_once(
         self,
         state: Dict[str, Any],
         posts: Sequence[Dict[str, Any]],
         seed: int,
         run_number: int,
         run_dir: Optional[Path] = None,
-    ) -> Dict[str, Dict[str, Any]]:
+        llm: Any = None,
+    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist_items = [
             dict(
                 item,
@@ -1125,7 +1263,7 @@ class EnsembleService:
         token_budget = min(configured_budget, context - output_tokens - 256)
         prefix = f"{system}\n{instruction}"
         batches = build_post_batches(posts, prefix, token_budget)
-        llm = self._llm()
+        llm = llm or self._llm()
         interaction_groups = {
             str(item["id"]): self._interaction_groups(
                 llm, item, posts, seed, run_dir
@@ -1252,24 +1390,79 @@ class EnsembleService:
             "interaction_checks": interaction_checks,
             "result": combined,
         }
+        return combined, audit_document
+
+    def _classify_posts(
+        self,
+        state: Dict[str, Any],
+        posts: Sequence[Dict[str, Any]],
+        seed: int,
+        run_number: int,
+        run_dir: Optional[Path] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        primary = self._llm()
+        result_a, audit_a = self._classify_posts_once(
+            state, posts, seed, run_number, run_dir, primary
+        )
+        try:
+            secondary, seed_fallback = self._second_rater_llm(primary)
+        except Exception as error:
+            secondary, seed_fallback = primary, True
+            secondary_setup_error = str(error)
+        else:
+            secondary_setup_error = ""
+        second_seed = seed + 1_000_003
+        result_b, audit_b = self._classify_posts_once(
+            state, posts, second_seed, run_number, run_dir, secondary
+        )
+        if secondary_setup_error:
+            audit_b["fallback_reason"] = (
+                "Zweitmodell konnte nicht initialisiert werden; Hauptmodell mit anderem Seed: "
+                + secondary_setup_error
+            )
+        unavailable = bool(audit_b.get("batches")) and all(
+            batch.get("error") for batch in audit_b["batches"]
+        )
+        if unavailable and secondary is not primary:
+            secondary = primary
+            seed_fallback = True
+            result_b, audit_b = self._classify_posts_once(
+                state, posts, second_seed, run_number, run_dir, secondary
+            )
+            audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
+        combined = combine_rater_results(result_a, result_b, state["checklist"])
+        audit_document = {
+            "run": run_number,
+            "post_count": len(posts),
+            "raters": {
+                "a": {"model": self._llm_model(primary), "seed": seed, **audit_a},
+                "b": {
+                    "model": self._llm_model(secondary),
+                    "seed": second_seed,
+                    "seed_fallback": seed_fallback,
+                    **audit_b,
+                },
+            },
+            "result": combined,
+        }
         if run_dir is not None:
             _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
         return combined
 
-    def _classify_narrative(
+    def _classify_narrative_once(
         self,
         state: Dict[str, Any],
         narrative: str,
         seed: int,
         run_number: int,
-        run_dir: Optional[Path] = None,
-    ) -> Dict[str, Dict[str, Any]]:
+        llm: Any,
+    ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist = "\n".join(
             f"{o['id']}: {_positive_event_text(o) if (o.get('polarity') or infer_polarity(str(o))) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
             for o in state["checklist"]
         )
         try:
-            payload = self._llm().chat_json(
+            payload = llm.chat_json(
                 [
                     {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
                     {"role": "user", "content": (
@@ -1329,19 +1522,67 @@ class EnsembleService:
                     "text": ("kein passendes Ereignis in der geprüften Erzählung" if absence else snippet),
                 }] if yes else []),
             }
+        audit = {
+            "batches": [{
+                "batch": 1,
+                "raw_response": payload if not parse_error else None,
+                "error": parse_error,
+                "verified": result,
+            }],
+            "result": result,
+        }
+        return result, audit
+
+    def _classify_narrative(
+        self,
+        state: Dict[str, Any],
+        narrative: str,
+        seed: int,
+        run_number: int,
+        run_dir: Optional[Path] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        primary = self._llm()
+        result_a, audit_a = self._classify_narrative_once(
+            state, narrative, seed, run_number, primary
+        )
+        try:
+            secondary, seed_fallback = self._second_rater_llm(primary)
+        except Exception as error:
+            secondary, seed_fallback = primary, True
+            secondary_setup_error = str(error)
+        else:
+            secondary_setup_error = ""
+        second_seed = seed + 1_000_003
+        result_b, audit_b = self._classify_narrative_once(
+            state, narrative, second_seed, run_number, secondary
+        )
+        if secondary_setup_error:
+            audit_b["fallback_reason"] = (
+                "Zweitmodell konnte nicht initialisiert werden; Hauptmodell mit anderem Seed: "
+                + secondary_setup_error
+            )
+        if audit_b["batches"][0].get("error") and secondary is not primary:
+            secondary = primary
+            seed_fallback = True
+            result_b, audit_b = self._classify_narrative_once(
+                state, narrative, second_seed, run_number, secondary
+            )
+            audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
+        combined = combine_rater_results(result_a, result_b, state["checklist"])
         if run_dir is not None:
             _write_json_atomic(Path(run_dir) / "classification.json", {
                 "run": run_number,
                 "post_count": 1,
-                "batches": [{
-                    "batch": 1,
-                    "raw_response": payload if not parse_error else None,
-                    "error": parse_error,
-                    "verified": result,
-                }],
-                "result": result,
+                "raters": {
+                    "a": {"model": self._llm_model(primary), "seed": seed, **audit_a},
+                    "b": {
+                        "model": self._llm_model(secondary), "seed": second_seed,
+                        "seed_fallback": seed_fallback, **audit_b,
+                    },
+                },
+                "result": combined,
             })
-        return result
+        return combined
 
     def _aggregate(self, state: Dict[str, Any], per_run: Dict[str, List[Dict[str, Any]]]) -> None:
         results = {}
@@ -1376,8 +1617,13 @@ class EnsembleService:
                 unclassified = sum(
                     1 for row in runs if row.get(oid, {}).get("unclassified")
                 )
+                disputed = sum(
+                    1 for row in runs if row.get(oid, {}).get("disputed")
+                )
                 classified_runs = [
-                    row for row in runs if not row.get(oid, {}).get("unclassified")
+                    row for row in runs
+                    if not row.get(oid, {}).get("unclassified")
+                    and not row.get(oid, {}).get("disputed")
                 ]
                 yes = sum(1 for row in classified_runs if row.get(oid, {}).get("yes"))
                 n = len(classified_runs)
@@ -1391,6 +1637,7 @@ class EnsembleService:
                     "yes": yes,
                     "n": n,
                     "unclassified": unclassified,
+                    "disputed": disputed,
                     "rate": _round(yes / n if n else 0.0),
                     "ci_low": _round(low),
                     "ci_high": _round(high),
@@ -1398,6 +1645,25 @@ class EnsembleService:
                 }
         state["results"] = results
         state["consistency_warnings"] = consistency_warnings
+        reliability = {}
+        for outcome in state["checklist"]:
+            oid = outcome["id"]
+            pairs: List[Tuple[bool, bool]] = []
+            for runs in per_run.values():
+                for row in runs:
+                    judgment = row.get(oid, {})
+                    raters = judgment.get("raters", {})
+                    left, right = raters.get("a", {}), raters.get("b", {})
+                    if (
+                        isinstance(left, dict) and isinstance(right, dict)
+                        and not left.get("unclassified") and not right.get("unclassified")
+                        and "yes" in left and "yes" in right
+                    ):
+                        pairs.append((bool(left["yes"]), bool(right["yes"])))
+            metric = cohens_kappa(pairs)
+            metric["label"] = reliability_label(metric["kappa"])
+            reliability[oid] = metric
+        state["reliability"] = reliability
         comparisons = []
         baseline = results.get("baseline", {})
         for variant in state["variants"]:
@@ -1416,6 +1682,7 @@ class EnsembleService:
                     "diff": _round(value["rate"] - base["rate"]),
                     "ci_low": _round(low),
                     "ci_high": _round(high),
+                    "unreliable": reliability.get(oid, {}).get("label") == "nicht messbar",
                 })
         state["comparisons"] = comparisons
 
@@ -1632,8 +1899,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         "",
         f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden.",
         "",
-        "| Variante | Ergebnis | Ja / N | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
-        "|---|---|---:|---:|---:|",
+        "| Variante | Ergebnis | Ja / N | Strittig | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
+        "|---|---|---:|---:|---:|---:|",
     ]
     for variant in state["variants"]:
         key = variant["key"]
@@ -1642,9 +1909,30 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             marker = " †" if outcome.get("in_material") else ""
             lines.append(
                 f"| {labels[key]} | {outcome['text_de']}{marker} | {value['yes']} / {value['n']} | "
+                f"{value.get('disputed', 0)} | "
                 f"{value.get('unclassified', 0)} | "
                 f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%}) |"
             )
+    if state.get("reliability"):
+        lines.extend([
+            "",
+            "### Zuverlässigkeit der Doppelbewertung",
+            "",
+            "| Ergebnis | Übereinstimmung | Cohen's Kappa | Paare | Bewertung |",
+            "|---|---:|---:|---:|---|",
+        ])
+        for oid, metric in state["reliability"].items():
+            outcome = outcomes.get(oid, {"text_de": oid})
+            lines.append(
+                f"| {outcome['text_de']} | {metric['agreement']:.1%} | "
+                f"{metric['kappa']:.2f} | {metric['n_pairs']} | {metric['label']} |"
+            )
+        if any(value.get("label") == "nicht messbar" for value in state["reliability"].values()):
+            lines.extend([
+                "",
+                "Ergebnisse mit der Bewertung **nicht messbar** werden nicht gedeutet; "
+                "zugehörige Variantenvergleiche sind als unzuverlässig markiert.",
+            ])
     if state.get("comparisons"):
         lines.extend([
             "",
@@ -1655,10 +1943,16 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         ])
         for comparison in state["comparisons"]:
             outcome = outcomes.get(comparison["outcome_id"], {"text_de": comparison["outcome_id"]})
+            if comparison.get("unreliable"):
+                value = "Nicht deuten – unzuverlässige Klassifikation"
+            else:
+                value = (
+                    f"{comparison['diff']:+.1%} ({comparison['ci_low']:+.1%} bis "
+                    f"{comparison['ci_high']:+.1%})"
+                )
             lines.append(
                 f"| {labels.get(comparison['variant'], comparison['variant'])} | {outcome['text_de']} | "
-                f"{comparison['diff']:+.1%} ({comparison['ci_low']:+.1%} bis "
-                f"{comparison['ci_high']:+.1%}) |"
+                f"{value} |"
             )
     material = [item for item in state["checklist"] if item.get("in_material")]
     if material:

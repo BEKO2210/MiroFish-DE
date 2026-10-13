@@ -48,6 +48,9 @@ class Config:
     ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET = int(
         os.environ.get('ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET', '9000')
     )
+    ENSEMBLE_SECOND_RATER_MODEL = os.environ.get(
+        'ENSEMBLE_SECOND_RATER_MODEL', 'qwen3.5:9b'
+    )
     
     # Memory-Provider: 'zep', 'obsidian', 'hybrid'
     MEMORY_PROVIDER = os.environ.get('MEMORY_PROVIDER', 'zep').lower()

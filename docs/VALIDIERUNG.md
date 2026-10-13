@@ -68,6 +68,34 @@ Beitrags-ID wie `twitter:17` nennt. Unbekannte IDs verwerfen das Ja. Startbeitr�
 der Auswertungsmenge entfernt. Dadurch können vorgegebene Aussagen nicht allein durch ihre technische Einspeisung als
 Simulationsergebnis zählen.
 
+`POST /api/ensemble/start` akzeptiert optional bis zu sechs eigene Ergebnisfragen als
+`custom_outcomes: [{"text_de": "…", "polarity": "presence|absence", "kind": "event|interaction"}]`.
+`text_de` ist Pflicht und auf 200 Zeichen begrenzt; Polarität und Art sind optional und werden andernfalls aus dem Text
+abgeleitet. Die Punkte werden mit IDs `c1` bis `c6` an die automatische Checkliste angehängt. Jeder Checklistenpunkt
+weist seine Herkunft als `source: "auto"` oder `source: "user"` aus. Eigene Punkte durchlaufen denselben
+Materialabgleich, dieselbe Belegprüfung und dieselbe Klassifikation wie automatisch erzeugte Punkte.
+
+## V3c: Zuverlässigkeit des Messinstruments
+
+Jeder gespeicherte Lauf wird zweimal unabhängig klassifiziert. Bewerter A nutzt das konfigurierte Hauptmodell;
+Bewerter B nutzt `ENSEMBLE_SECOND_RATER_MODEL` (Standard `qwen3.5:9b`) am selben lokalen OpenAI-kompatiblen Server.
+Ist das Zweitmodell leer konfiguriert, nicht initialisierbar oder bei allen Klassifikationsstapeln nicht erreichbar,
+wird das Hauptmodell mit einem anderen Seed verwendet. `classification.json` enthält Modell, Seed, Rohantwort,
+geprüfte Belege und Urteil beider Bewerter sowie das gemeinsame Endurteil.
+
+Das Endurteil ist nur dann Ja, wenn beide Bewerter nach der bestehenden Belegprüfung Ja urteilen. Ja/Nein-Dissens ist
+`disputed`, nicht Nein, und wird ebenso wie `unclassified` aus `n`, Rate und Wilson-Intervall ausgeschlossen.
+`results.<variante>.<ergebnis>.disputed` weist diese Fälle separat aus. Nicht klassifizierbare Urteile eines Bewerters
+ergeben weiterhin `unclassified`.
+
+Über alle Varianten und Läufe werden je Ergebnis die binären, auf beiden Seiten klassifizierten Urteilspaare
+zusammengeführt. `reliability.<outcome_id>` enthält Prozent-Übereinstimmung (`agreement`), Cohen's Kappa (`kappa`),
+Paarzahl (`n_pairs`) und die Bewertung `messbar` (Kappa ≥ 0,6), `unsicher` (0,4 ≤ Kappa < 0,6) oder
+`nicht messbar` (Kappa < 0,4). Bei zwei identischen konstanten Urteilsreihen wird das mathematisch sonst undefinierte
+Kappa für diese Anzeige als 1,0 behandelt; ohne auswertbares Paar als 0,0. Vergleiche nicht messbarer Ergebnisse tragen
+`unreliable: true` und werden im Markdown-Bericht ausdrücklich nicht gedeutet. Die Doppelbewertung und
+Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dabei keine Simulationen neu gestartet.
+
 ## V4: Gegenproben
 
 - `baseline`: unveränderte vorbereitete Simulation.
@@ -93,14 +121,16 @@ Empfehlungsoption zweckentfremdet, sondern die Sichtbarkeit an der Aktionsgrenze
 ## Statistik
 
 Für jedes Ergebnis und jede Variante werden `Ja`, `N`, Anteil und ein zweiseitiges 95-%-Wilson-Score-Intervall ohne
-Kontinuitätskorrektur ausgegeben. Bei `N = 0` ist das technische Intervall `[0, 0]`; ein abgeschlossenes Ensemble hat
-regulär `N = runs`. Variantenunterschiede sind `Anteil(Variante) − Anteil(baseline)`. Das 95-%-Intervall der Differenz
-wird nach Newcombe, Methode 10, aus den vier Wilson-Grenzen zusammengesetzt und auf `[-1, 1]` begrenzt. Die reine
-Python-Implementierung wird gegen bekannte Zahlenwerte getestet.
+Kontinuitätskorrektur ausgegeben. Bei `N = 0` ist das technische Intervall `[0, 0]`; `N` umfasst nur Läufe mit
+übereinstimmendem, klassifiziertem Doppelurteil und kann daher kleiner als `runs` sein. Variantenunterschiede sind
+`Anteil(Variante) − Anteil(baseline)`. Das 95-%-Intervall der Differenz wird nach Newcombe, Methode 10, aus den vier
+Wilson-Grenzen zusammengesetzt und auf `[-1, 1]` begrenzt. Die reine Python-Implementierung wird gegen bekannte
+Zahlenwerte getestet.
 
-Der deterministische Markdown-Abschnitt **„Mehrfachlauf“** enthält die Ergebnistabelle, Wilson-Intervalle, Hinweise auf
-bereits im Material vorhandene Punkte, den Nullmodell-Vergleich und feste Grenzen. Dafür wird kein weiteres Modell
-aufgerufen.
+Der deterministische Markdown-Abschnitt **„Mehrfachlauf“** enthält die Ergebnistabelle einschließlich strittiger und
+unklassifizierter Läufe, Wilson-Intervalle, die Zuverlässigkeit je Ergebnis, Hinweise auf bereits im Material vorhandene
+Punkte, den Nullmodell-Vergleich und feste Grenzen. Nicht messbare Ergebnisse werden nicht interpretiert. Dafür wird
+kein weiteres Modell aufgerufen.
 
 ## Rechenzeit und Betrieb
 
@@ -182,3 +212,7 @@ Variante, Lauf und beiden Ergebnis-IDs unter `consistency_warnings` im Ensemble-
 
 Regressionstests decken das konkrete Paar o2/o6 aus `ens_9c4647555d4b`, eine isolierte DB ohne Kommentare, eine
 Basis-DB mit gruppenübergreifendem Kommentar sowie die Konsistenzwarnung ab.
+
+Zusätzliche Regressionstests decken bekannte Cohen-Kappa-Werte und die Grenzfälle ohne Varianz bzw. ohne Paare, die
+konservative Zwei-Ja-Regel, die Abgrenzung `disputed` zu Nein, den Ausschluss strittiger Läufe aus `n`, die
+Zuverlässigkeitsmarkierung von Vergleichen sowie Validierung, Herkunft und Materialprüfung eigener Ergebnisfragen ab.

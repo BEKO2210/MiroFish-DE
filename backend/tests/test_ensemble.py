@@ -15,12 +15,16 @@ from app.services.ensemble import (
     EnsembleService,
     apply_without_variant,
     build_post_batches,
+    cohens_kappa,
+    combine_rater_results,
     filter_checklist_material_numbers,
     infer_kind,
     load_simulation_posts,
     mark_checklist_material,
     newcombe_difference_interval,
     parse_checklist,
+    reliability_label,
+    validate_custom_outcomes,
     verified_material_quote,
     verify_classification_evidence,
     wilson_interval,
@@ -46,6 +50,44 @@ def test_newcombe_method_10_known_value():
     assert reverse[1] == pytest.approx(-low)
 
 
+def test_cohens_kappa_known_value_and_no_variance_edges():
+    metric = cohens_kappa([
+        (True, True), (True, True), (True, False), (False, False),
+        (False, False), (False, True), (False, False), (True, True),
+    ])
+    assert metric == {"agreement": 0.75, "kappa": 0.5, "n_pairs": 8}
+    assert cohens_kappa([(True, True)] * 4) == {
+        "agreement": 1.0, "kappa": 1.0, "n_pairs": 4,
+    }
+    assert cohens_kappa([]) == {"agreement": 0.0, "kappa": 0.0, "n_pairs": 0}
+    assert reliability_label(0.6) == "messbar"
+    assert reliability_label(0.4) == "unsicher"
+    assert reliability_label(0.3999) == "nicht messbar"
+
+
+def test_joint_verdict_requires_two_yes_and_disagreement_is_not_no():
+    checklist = [{"id": "o1"}, {"id": "o2"}, {"id": "o3"}]
+    evidence = [{"post_id": "twitter:1"}]
+    result = combine_rater_results(
+        {
+            "o1": {"yes": True, "evidence": evidence},
+            "o2": {"yes": True, "evidence": evidence},
+            "o3": {"yes": False, "evidence": []},
+        },
+        {
+            "o1": {"yes": True, "evidence": evidence},
+            "o2": {"yes": False, "evidence": []},
+            "o3": {"yes": False, "evidence": []},
+        },
+        checklist,
+    )
+    assert result["o1"]["yes"] is True
+    assert {item["rater"] for item in result["o1"]["evidence"]} == {"a", "b"}
+    assert result["o2"]["yes"] is False
+    assert result["o2"]["disputed"] is True
+    assert result["o3"]["disputed"] is False
+
+
 def test_checklist_parsing_and_validation():
     parsed = parse_checklist(
         {"outcomes": [
@@ -56,6 +98,22 @@ def test_checklist_parsing_and_validation():
     assert [item["id"] for item in parsed] == ["o1", "o2", "o3", "o4", "o5"]
     with pytest.raises(ValueError):
         parse_checklist(["eins", "zwei"])
+
+
+def test_custom_outcomes_validation_and_normalization():
+    custom = validate_custom_outcomes([
+        {"text_de": "Wird ein Bürgerbegehren angekündigt?", "polarity": "presence"},
+        {"text_de": "Es findet keine Diskussion statt", "kind": "interaction"},
+    ])
+    assert [item["id"] for item in custom] == ["c1", "c2"]
+    assert all(item["source"] == "user" for item in custom)
+    assert custom[1]["polarity"] == "absence"
+    with pytest.raises(ValueError, match="höchstens 6"):
+        validate_custom_outcomes([{"text_de": str(i)} for i in range(7)])
+    with pytest.raises(ValueError, match="1 bis 200"):
+        validate_custom_outcomes([{"text_de": "x" * 201}])
+    with pytest.raises(ValueError, match="polarity"):
+        validate_custom_outcomes([{"text_de": "Frage", "polarity": "maybe"}])
 
 
 def test_checklist_polarity_is_explicit_or_inferred():
@@ -271,6 +329,26 @@ def test_checklist_prompt_retries_after_material_number(tmp_path):
     assert all("3100" not in item["text_de"] for item in checklist)
 
 
+def test_custom_outcomes_are_appended_and_checked_against_material(tmp_path):
+    llm = ChecklistRetryLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    checklist = service._create_checklist(
+        {
+            "question": "Was geschieht?", "hours": 2, "base_seed": 41,
+            "custom_outcomes": validate_custom_outcomes([
+                {"text_de": "Eine Unterschriftensammlung wird angekündigt"}
+            ]),
+        },
+        {
+            "extracted_text": "Eine Unterschriftensammlung wird angekündigt.",
+            "config": {"event_config": {"initial_posts": []}},
+        },
+    )
+    assert [item["id"] for item in checklist[-1:]] == ["c1"]
+    assert checklist[-1]["source"] == "user"
+    assert checklist[-1]["in_material"] is True
+
+
 def test_checklist_number_retry_stops_after_two_attempts(tmp_path):
     llm = ChecklistRetryLLM(always_contaminated=True)
     service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
@@ -346,7 +424,10 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
         root=tmp_path / "ensembles",
         poll_interval=0.001,
     )
-    started = service.start("sim_test", 2, 12, ["baseline"], start_hour=13)
+    started = service.start(
+        "sim_test", 2, 12, ["baseline"], start_hour=13,
+        custom_outcomes=[{"text_de": "Eine eigene Ergebnisfrage wird erfüllt"}],
+    )
     deadline = time.time() + 3
     while time.time() < deadline:
         state = service.get(started["ensemble_id"])
@@ -357,6 +438,8 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
     assert state["variants"][0]["done"] == 2
     assert state["results"]["baseline"]["o1"]["yes"] == 2
     assert state["results"]["baseline"]["o1"]["n"] == 2
+    assert state["checklist"][-1]["id"] == "c1"
+    assert state["checklist"][-1]["source"] == "user"
     assert state["start_hour"] == 13
     first_config = json.loads(
         (tmp_path / "ensembles" / started["ensemble_id"] / "baseline" / "run_1" /
@@ -382,6 +465,40 @@ class BatchLLM:
         }]}
 
 
+class NamedBatchLLM(BatchLLM):
+    def __init__(self, model, **kwargs):
+        super().__init__(**kwargs)
+        self.model = model
+
+
+def test_unreachable_second_model_falls_back_to_main_model_with_other_seed(tmp_path):
+    main = NamedBatchLLM("main", positive=True)
+    broken = NamedBatchLLM("second", fail=True)
+
+    def factory(**kwargs):
+        return broken if kwargs.get("model") else main
+
+    run_dir = tmp_path / "run"
+    service = EnsembleService(llm_factory=factory, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o1", "text_de": "Ereignis", "definition": "sichtbar",
+            "polarity": "presence",
+        }]},
+        [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Ereignis"}],
+        seed=9,
+        run_number=1,
+        run_dir=run_dir,
+    )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert result["o1"]["yes"] is True
+    assert audit["raters"]["a"]["model"] == "main"
+    assert audit["raters"]["b"]["model"] == "main"
+    assert audit["raters"]["b"]["seed"] != audit["raters"]["a"]["seed"]
+    assert audit["raters"]["b"]["seed_fallback"] is True
+    assert "nicht erreichbar" in audit["raters"]["b"]["fallback_reason"]
+
+
 def test_100000_char_posts_are_classified_in_multiple_audited_batches(tmp_path):
     llm = BatchLLM()
     service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
@@ -403,9 +520,14 @@ def test_100000_char_posts_are_classified_in_multiple_audited_batches(tmp_path):
         run_dir=run_dir,
     )
     audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
-    assert llm.calls == len(audit["batches"])
-    assert len(audit["batches"]) > 1
-    assert all(batch["estimated_input_tokens"] <= audit["token_budget"] for batch in audit["batches"])
+    batches_a = audit["raters"]["a"]["batches"]
+    batches_b = audit["raters"]["b"]["batches"]
+    assert llm.calls == len(batches_a) + len(batches_b)
+    assert len(batches_a) > 1
+    assert all(
+        batch["estimated_input_tokens"] <= audit["raters"]["a"]["token_budget"]
+        for batch in batches_a
+    )
     assert result["o1"]["yes"] is False
 
 
@@ -464,7 +586,9 @@ def test_absence_uses_verified_counter_outcome_across_checklist(tmp_path):
         run_number=1,
     )
     assert result["o2"]["yes"] is True
-    assert result["o6"] == {"yes": False, "evidence": []}
+    assert result["o6"]["yes"] is False
+    assert result["o6"]["disputed"] is False
+    assert result["o6"]["evidence"] == []
 
 
 class InteractionLLM:
@@ -523,10 +647,11 @@ def test_interaction_requires_structural_cross_group_evidence(tmp_path, with_com
     )
     audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
     assert result["o5"]["yes"] is expected
-    assert audit["interaction_groups"]["o5"]["side_a_agent_ids"] == [1]
-    assert audit["interaction_checks"]["o5"]["accepted"] is expected
+    rater_a = audit["raters"]["a"]
+    assert rater_a["interaction_groups"]["o5"]["side_a_agent_ids"] == [1]
+    assert rater_a["interaction_checks"]["o5"]["accepted"] is expected
     if not expected:
-        assert audit["interaction_checks"]["o5"]["structural_evidence"] == []
+        assert rater_a["interaction_checks"]["o5"]["structural_evidence"] == []
 
 
 def test_aggregate_reports_presence_absence_consistency_warning(tmp_path):
@@ -549,6 +674,37 @@ def test_aggregate_reports_presence_absence_consistency_warning(tmp_path):
         "presence_outcome_id": "o2",
         "message": "Presence- und Absence-Ergebnis zum selben Akteur wurden im selben Lauf beide mit Ja klassifiziert.",
     }]
+
+
+def test_aggregate_excludes_disputes_and_flags_unreliable_comparison(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    state = {
+        "variants": [{"key": "baseline"}, {"key": "isolated"}],
+        "checklist": [{"id": "o1"}],
+    }
+    agreed_yes = {
+        "yes": True, "evidence": [], "disputed": False,
+        "raters": {
+            "a": {"yes": True, "evidence": []},
+            "b": {"yes": True, "evidence": []},
+        },
+    }
+    disputed = {
+        "yes": False, "evidence": [], "disputed": True,
+        "raters": {
+            "a": {"yes": True, "evidence": []},
+            "b": {"yes": False, "evidence": []},
+        },
+    }
+    service._aggregate(state, {
+        "baseline": [{"o1": agreed_yes}],
+        "isolated": [{"o1": disputed}],
+    })
+    assert state["results"]["isolated"]["o1"]["disputed"] == 1
+    assert state["results"]["isolated"]["o1"]["n"] == 0
+    assert state["reliability"]["o1"]["n_pairs"] == 2
+    assert state["reliability"]["o1"]["label"] == "nicht messbar"
+    assert state["comparisons"][0]["unreliable"] is True
 
 
 def test_unparseable_batch_is_unclassified_not_no(tmp_path):
