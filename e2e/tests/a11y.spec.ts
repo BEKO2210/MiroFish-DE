@@ -13,7 +13,6 @@ const KNOWN_A11Y_FAIL = new Set([
   'tablet:/',
   'tablet:/history',
   'tablet:/settings',
-  'tablet:/report/report_6587bcd7e3fa',
   'desktop:/',
   'desktop:/history',
   'desktop:/settings',

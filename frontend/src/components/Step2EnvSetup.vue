@@ -625,12 +625,20 @@
         </div>
       </div>
     </div>
+    <MobileStickyBar
+      :primary-label="$t('step2.paralleleDualweltSimulationStarten')"
+      :primary-disabled="phase < 4"
+      :secondary-label="$t('step2.zuruckZurGrapherstellung')"
+      @primary-click="handleStartSimulation"
+      @secondary-click="$emit('go-back')"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import MobileStickyBar from './MobileStickyBar.vue'
 import { 
   prepareSimulation, 
   getPrepareStatus, 
@@ -2620,6 +2628,8 @@ h1, h2, h3, h4, h5, h6, .step-title, .section-title { font-family: var(--font-he
 .env-setup-panel, .scroll-container, .step-card { min-width: 0; }
 .step-card, .description, .info-value, .config-value { overflow-wrap: anywhere; }
 @media (max-width: 768px) {
+  .scroll-container { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .action-group.dual { display: none; }
   .scroll-container { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 16px; }
   .step-card { width: 100%; padding: 16px; border-radius: var(--radius-lg); }
   .card-header, .step-info, .action-group { align-items: flex-start; }

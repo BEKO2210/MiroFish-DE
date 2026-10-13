@@ -412,6 +412,11 @@
         </div>
       </div>
     </div>
+    <MobileStickyBar
+      :primary-label="$t('process.toEnvironmentSetup')"
+      :primary-disabled="currentPhase < 2"
+      @primary-click="goToNextStep"
+    />
   </div>
 </template>
 
@@ -420,6 +425,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import MobileStickyBar from '../components/MobileStickyBar.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
@@ -470,7 +476,7 @@ const entityTypes = computed(() => {
   if (!graphData.value?.nodes) return []
   
   const typeMap = {}
-  const colors = ['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C']
+  const colors = ['var(--color-brand-primary)', 'var(--color-info-text)', 'var(--color-success-text)', 'var(--color-warning-text)', 'var(--color-error-text)', 'var(--color-text-secondary)']
   
   graphData.value.nodes.forEach(node => {
     const type = node.labels?.find(l => l !== 'Entity') || t('process.entity')
@@ -952,7 +958,7 @@ const renderGraph = () => {
   const types = [...new Set(nodes.map(n => n.type))]
   const colorScale = d3.scaleOrdinal()
     .domain(types)
-    .range(['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#2D3436', '#6C5CE7'])
+    .range(['var(--color-brand-primary)', 'var(--color-info-text)', 'var(--color-success-text)', 'var(--color-warning-text)', 'var(--color-error-text)', 'var(--color-text-secondary)'])
   
   // Kräftebasiertes Layout
   const simulation = d3.forceSimulation(nodes)
@@ -2079,7 +2085,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
-  .process-page { overflow-x: hidden; padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .process-page { overflow-x: hidden; padding-bottom: calc(130px + env(safe-area-inset-bottom)); }
+  .next-step-section { display: none; }
   .navbar { height: auto; min-height: 56px; padding: 6px 16px; flex-wrap: wrap; gap: 8px; }
   .nav-center { position: static; order: 3; width: 100%; transform: none; justify-content: center; }
   .nav-status { margin-left: auto; }

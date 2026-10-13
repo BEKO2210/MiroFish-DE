@@ -4,6 +4,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+// Port per PW_PORT änderbar, damit mehrere Arbeitskopien parallel testen können
+const PORT = Number(process.env.PW_PORT || 4173)
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const liveBase = process.env.LIVE_BASE_URL?.replace(/\/$/, '')
 const reportPath = path.join(__dirname, 'webkit-status.txt')
@@ -45,7 +48,7 @@ console.log(`[e2e] ${webkitStatus.detail}`)
 const sharedUse = {
   locale: 'de-DE',
   timezoneId: 'Europe/Berlin',
-  baseURL: liveBase || 'http://127.0.0.1:4173',
+  baseURL: liveBase || `http://127.0.0.1:${PORT}`,
   trace: 'on-first-retry' as const,
 }
 
@@ -119,9 +122,9 @@ export default defineConfig({
   webServer: liveBase
     ? undefined
     : {
-        command: 'npx vite build && npx vite preview --port 4173 --strictPort',
+        command: `npx vite build && npx vite preview --port ${PORT} --strictPort`,
         cwd: path.join(__dirname, '../frontend'),
-        url: 'http://127.0.0.1:4173',
+        url: `http://127.0.0.1:${PORT}`,
         reuseExistingServer: !process.env.CI,
         timeout: 300_000,
       },

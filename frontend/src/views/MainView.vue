@@ -5,6 +5,7 @@
       <div class="header-left">
         <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
+      <StepHeaderCompact class="mobile-step-header" :current-step="currentStep" :max-unlocked-step="currentStep" :step-names="stepNames" @select-step="selectStep" />
       
       <div class="header-center">
         <div class="view-switcher">
@@ -83,6 +84,7 @@ import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
+import StepHeaderCompact from '../components/StepHeaderCompact.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
@@ -184,6 +186,10 @@ const handleGoBack = () => {
     currentStep.value--
     addLog(t('main.zuruckZuSchritt', { p0: currentStep.value, p1: stepNames.value[currentStep.value - 1] }))
   }
+}
+
+const selectStep = (step) => {
+  if (step <= currentStep.value) currentStep.value = step
 }
 
 // --- Data Logic ---
@@ -564,6 +570,7 @@ onUnmounted(() => {
   .step-name { white-space: nowrap; }
   [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
 }
+.mobile-step-header { display: none; }
 /* Ruhige, durchscheinende Kopfzeile wie in AppHeader. */
 .app-header {
   min-height: 60px;
@@ -595,6 +602,9 @@ onUnmounted(() => {
 .switch-btn:focus-visible, .brand:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 
 @media (max-width: 768px) {
+  .mobile-step-header { display: flex; order: 2; }
+  .header-right { display: none; }
+  .header-center { order: 3; }
   .main-view { height: calc(100dvh - 60px); min-width: 0; }
   .app-header { padding: 6px 16px; }
   .header-left, .header-right { min-width: 0; }

@@ -156,6 +156,7 @@
     "projektGeladenStatus": "Project loaded. Status: {p0}",
     "projektWirdGeladen": "Loading project: {p0}...",
     "schritt": "Step",
+    "schrittFortschritt": "Step progress",
     "schrittBetreten": "Opened step {p0}: {p1}",
     "simulationStarten": "Start simulation",
     "vollstandigeGraphdatenWerdenGeladen": "Loading complete graph data: {p0}",
@@ -309,6 +310,12 @@
     "umgebungsaufbau": "Prepare agents"
   },
   "graph": {
+    "entity": "Actor",
+    "wissensgraph": "Knowledge graph",
+    "artenVonAkteuren": "Kinds of actors",
+    "legende": "Legend",
+    "kanten": "Connections",
+    "fullscreen": "Full screen",
     "unknown": "Unknown",
     "liveUpdate": "Live update...",
     "nodeDetails": "Entity details",
@@ -700,6 +707,7 @@
     "responsesReceived": "Received {count} responses",
     "selectSimulatedPersonFirst": "Select a simulated person first",
     "sendFailed": "Could not send: {error}",
+    "senden": "Send question",
     "sendingSurvey": "Sending survey to {count} participants...",
     "sentToPerson": "Sent to {name}: {message}...",
     "sentToReportAgent": "Sent to report agent: {message}...",
