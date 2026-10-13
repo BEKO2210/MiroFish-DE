@@ -185,9 +185,10 @@ class OasisProfileGenerator:
         zep_api_key: Optional[str] = None,
         graph_id: Optional[str] = None
     ):
-        self.api_key = api_key or Config.LLM_API_KEY
-        self.base_url = base_url or Config.LLM_BASE_URL
-        self.model_name = model_name or Config.LLM_MODEL_NAME
+        llm_cfg = Config.get_llm_config()  # Provider-bewusst: lokal (Ollama/LM Studio) oder OpenAI-kompatibel
+        self.api_key = api_key or llm_cfg['api_key']
+        self.base_url = base_url or llm_cfg['base_url']
+        self.model_name = model_name or llm_cfg['model']
         
         if not self.api_key:
             raise ValueError("LLM_API_KEY nicht konfiguriert")
@@ -527,6 +528,7 @@ class OasisProfileGenerator:
         for attempt in range(max_attempts):
             try:
                 response = self.client.chat.completions.create(
+                    **Config.local_llm_extra_kwargs(),
                     model=self.model_name,
                     messages=[
                         {"role": "system", "content": self._get_system_prompt(is_individual)},

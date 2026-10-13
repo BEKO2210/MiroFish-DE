@@ -103,6 +103,14 @@ class Config:
             }
     
     @classmethod
+    def local_llm_extra_kwargs(cls):
+        """Zusatzparameter für OpenAI-Client-Aufrufe an lokale Provider: Reasoning aus (sonst leere Inhalte,
+        10x langsamer). Abschaltbar über LOCAL_LLM_REASONING=on."""
+        if cls.LLM_PROVIDER in ('lmstudio', 'ollama', 'local') and os.environ.get('LOCAL_LLM_REASONING', 'none').lower() != 'on':
+            return {"extra_body": {"reasoning_effort": "none"}}
+        return {}
+
+    @classmethod
     def is_local_llm(cls):
         """Prüfen ob ein lokales LLM verwendet wird"""
         return cls.LLM_PROVIDER in ('lmstudio', 'ollama', 'local')
