@@ -920,9 +920,30 @@ watch(() => props.graphData, () => {
 watch(showEdgeLabels, () => updateEdgeLabelVisibility())
 
 onMounted(() => {
+  let lastW = 0
+  let lastH = 0
   resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[0]
-    if (entry?.contentRect.width > 0 && entry.contentRect.height > 0) nextTick(renderGraph)
+    const w = entry?.contentRect.width ?? 0
+    const h = entry?.contentRect.height ?? 0
+    if (w <= 0 || h <= 0) return
+    if (Math.abs(w - lastW) < 1 && Math.abs(h - lastH) < 1) return
+    const hadSize = lastW > 0 && lastH > 0
+    lastW = w
+    lastH = h
+    nextTick(() => {
+      const hasDrawn = graphSvg.value?.querySelector('circle')
+      if (hadSize && hasDrawn && props.graphData) {
+        // Viewport geändert: Maße setzen und Fit-to-View neu (ohne Simulation neu zu starten)
+        d3.select(graphSvg.value)
+          .attr('width', w)
+          .attr('height', h)
+          .attr('viewBox', `0 0 ${w} ${h}`)
+        zoomToFit(0.88, false)
+      } else {
+        renderGraph()
+      }
+    })
   })
   if (graphContainer.value) resizeObserver.observe(graphContainer.value)
 })
@@ -1656,6 +1677,15 @@ button, [role="button"] { min-height: var(--touch-target-min); }
 h1, h2, h3, h4, h5, h6, .panel-title { font-family: var(--font-heading); }
 .detail-value, .property-value, .relation-text { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 768px) {
+  /* Füllt das Panel mit fester Höhe aus den Schritt-Views (100% von height, nicht von min-height) */
+  .graph-panel {
+    height: 100%;
+    min-height: 420px;
+  }
+  .graph-container {
+    height: 100%;
+    min-height: 0;
+  }
   .panel-header { padding: 10px 12px; }
   .panel-header__row-toolbar { width: 100%; justify-content: flex-end; }
   .header-tools { gap: 6px; flex-wrap: wrap; }

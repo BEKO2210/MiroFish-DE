@@ -154,14 +154,30 @@ function resolveFixture(pathname: string): unknown | null {
 
   const graphData = pathname.match(/^\/api\/graph\/data\/([^/]+)$/)
   if (graphData) {
-    return defaultOk({
-      graph_id: graphData[1],
-      nodes: [
-        { id: 'n1', label: 'MiroFish', type: 'Entity' },
-        { id: 'n2', label: 'Öffentlichkeit', type: 'Entity' },
-      ],
-      edges: [{ source: 'n1', target: 'n2', type: 'RELATED' }],
-    })
+    // Format wie Backend/GraphPanel: uuid, name, labels / source_node_uuid, target_node_uuid
+    const nodes = [
+      { uuid: 'n1', name: 'MiroFish', labels: ['Entity', 'TechCompany'] },
+      { uuid: 'n2', name: 'Öffentlichkeit', labels: ['Entity', 'Person'] },
+      { uuid: 'n3', name: 'TechCrunch', labels: ['Entity', 'MediaOutlet'] },
+      { uuid: 'n4', name: 'Ethik-Rat', labels: ['Entity', 'EthicsReviewer'] },
+      { uuid: 'n5', name: 'Regulator', labels: ['Entity', 'GovernmentRegulator'] },
+      { uuid: 'n6', name: 'Datenlabor', labels: ['Entity', 'ResearchInstitute'] },
+      { uuid: 'n7', name: 'Influencerin', labels: ['Entity', 'TechInfluencer'] },
+      { uuid: 'n8', name: 'Entwickler', labels: ['Entity', 'TechDeveloper'] },
+      { uuid: 'n9', name: 'Analystin', labels: ['Entity', 'DataScientist'] },
+      { uuid: 'n10', name: 'NGO Klarheit', labels: ['Entity', 'Organization'] },
+    ]
+    const edges = [
+      { uuid: 'e1', source_node_uuid: 'n8', target_node_uuid: 'n1', name: 'WORKS_FOR', fact_type: 'WORKS_FOR' },
+      { uuid: 'e2', source_node_uuid: 'n9', target_node_uuid: 'n6', name: 'WORKS_FOR', fact_type: 'WORKS_FOR' },
+      { uuid: 'e3', source_node_uuid: 'n3', target_node_uuid: 'n1', name: 'REPORTS_ON', fact_type: 'REPORTS_ON' },
+      { uuid: 'e4', source_node_uuid: 'n7', target_node_uuid: 'n8', name: 'COMMENTS_ON', fact_type: 'COMMENTS_ON' },
+      { uuid: 'e5', source_node_uuid: 'n5', target_node_uuid: 'n1', name: 'REGULATES', fact_type: 'REGULATES' },
+      { uuid: 'e6', source_node_uuid: 'n7', target_node_uuid: 'n1', name: 'SUPPORTS', fact_type: 'SUPPORTS' },
+      { uuid: 'e7', source_node_uuid: 'n4', target_node_uuid: 'n1', name: 'OPPOSES', fact_type: 'OPPOSES' },
+      { uuid: 'e8', source_node_uuid: 'n2', target_node_uuid: 'n7', name: 'COMMENTS_ON', fact_type: 'COMMENTS_ON' },
+    ]
+    return defaultOk({ graph_id: graphData[1], nodes, edges })
   }
 
   const task = pathname.match(/^\/api\/graph\/task\/([^/]+)$/)

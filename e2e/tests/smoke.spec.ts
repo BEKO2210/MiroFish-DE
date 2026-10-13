@@ -143,6 +143,50 @@ test.describe('Handy Seiten-Scroll (Report/Interaction)', () => {
   }
 })
 
+/** Graph-Ansicht: Zeichenfläche braucht echte Höhe; Knoten dürfen nicht in einem Streifen kleben. */
+test.describe('Graph-Ansicht mobil/tablet', () => {
+  test('view=graph: Canvas ≥400px, Knoten über >30% der Höhe', async ({ page }, testInfo) => {
+    const project = testInfo.project.name
+    test.skip(project !== 'handy' && project !== 'tablet', 'nur handy und tablet')
+
+    await preparePage(page)
+    await page.goto('/process/proj_6fde53d0e82a?view=graph', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('.graph-svg circle', { timeout: 15000 })
+    // Force-Layout + Fit-to-View abwarten
+    await page.waitForTimeout(800)
+
+    const metrics = await page.evaluate(() => {
+      const container = document.querySelector('.graph-container') as HTMLElement | null
+      const svg = document.querySelector('.graph-svg') as SVGSVGElement | null
+      const canvasH = Math.max(
+        container?.clientHeight ?? 0,
+        svg?.clientHeight ?? 0,
+        Number(svg?.getAttribute('height')) || 0,
+      )
+      const circles = Array.from(document.querySelectorAll('.graph-svg g.nodes circle')) as SVGCircleElement[]
+      // Bildschirmhöhe der Knoten (nach Zoom/Fit), nicht D3-cy
+      const tops = circles.map((c) => c.getBoundingClientRect().top)
+      const bottoms = circles.map((c) => c.getBoundingClientRect().bottom)
+      const spread =
+        tops.length && bottoms.length ? Math.max(...bottoms) - Math.min(...tops) : 0
+      return {
+        canvasH,
+        circleCount: circles.length,
+        spread,
+        spreadRatio: canvasH > 0 ? spread / canvasH : 0,
+      }
+    })
+
+    expect(metrics.circleCount, `Knoten erwartet: ${JSON.stringify(metrics)}`).toBeGreaterThanOrEqual(8)
+    expect(metrics.canvasH, `Canvas-Höhe ≥400: ${JSON.stringify(metrics)}`).toBeGreaterThanOrEqual(400)
+    expect(
+      metrics.spreadRatio,
+      `Knoten-Spread >30% der Canvas-Höhe: ${JSON.stringify(metrics)}`,
+    ).toBeGreaterThan(0.3)
+  })
+})
+
 test.beforeAll(() => {
   if (isLiveMode()) {
     // LIVE_BASE_URL gesetzt: Mocks aus, nur Smoke gegen echte Instanz

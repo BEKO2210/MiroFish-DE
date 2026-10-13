@@ -426,7 +426,11 @@ onMounted(() => {
     will-change: auto;
     padding-bottom: 0;
   }
-  .panel-wrapper.left { min-height: calc(100dvh - 200px); }
+  .panel-wrapper.left {
+    height: calc(100dvh - 168px - 64px - 58px - env(safe-area-inset-bottom, 0px));
+    min-height: 420px;
+    overflow: hidden;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
