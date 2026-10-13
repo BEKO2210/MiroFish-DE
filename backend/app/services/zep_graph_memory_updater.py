@@ -16,6 +16,7 @@ from zep_cloud.client import Zep
 
 from ..config import Config
 from ..utils.logger import get_logger
+from .memory.factory import MemoryFactory
 
 logger = get_logger('mirofish.zep_graph_memory_updater')
 
