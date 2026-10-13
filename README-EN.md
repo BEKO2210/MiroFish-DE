@@ -131,24 +131,26 @@ Other models work the same way; MiroFish lists every installed model under **Set
 
 ```bash
 git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
-cp .env.example .env
-# Adjust the models, LOCAL_LLM_BASE_URL and API_TOKEN in .env if needed (before the first start).
-# localhost is changed to host.docker.internal automatically on the first Docker start.
-mkdir -p data
-scripts/start.sh
+# If needed, first copy .env.example to .env and adjust the models or API_TOKEN.
+# localhost/127.0.0.1 is changed to host.docker.internal automatically on the first Docker start.
+sh scripts/start.sh
 ```
 
 `scripts/start.sh` creates a missing `.env` and `data/` as your user (otherwise Docker creates a directory `./.env`
 or a root-owned `data/`) and then runs `docker compose up -d --build`. Without the script, first run
-`[ -f .env ] || cp .env.example .env; mkdir -p data`.
+`[ -f .env ] || cp .env.example .env; mkdir -p data` and set `MIROFISH_UID`/`MIROFISH_GID`.
 
 Open **http://localhost:5001**. On first start MiroFish copies the settings from `.env` to `data/.env`, where
 subsequent setting changes persist. **Later edits to `./.env` are not picked up** – only `data/.env` (or the
 Settings page) applies afterwards; run `docker compose restart` after editing it. The container ignores
 `FLASK_PORT`/`FLASK_HOST` from `.env` (internal port 5001, external via `MIROFISH_PORT`). Uploads, simulations and reports also live in `data/`. Before starting, set
-`MIROFISH_PORT` in `.env` to use another local port. On Linux, if `id -u` or `id -g` is not `1000`, also enter
-those values as `MIROFISH_UID` and `MIROFISH_GID`. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
-listen on all interfaces for that (`Environment="OLLAMA_HOST=0.0.0.0"` in `systemctl edit ollama`).
+`MIROFISH_PORT` in `.env` to use another local port. The container runs with your UID/GID (`scripts/start.sh` detects them via `id -u`/`id -g`; macOS: 501);
+override them in `.env` as `MIROFISH_UID`/`MIROFISH_GID` if needed. Docker Desktop (macOS/Windows) maps bind-mount
+permissions to your user anyway, so the UID does not matter there. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
+listen only on the Docker bridge, not on the whole LAN (Ollama has no authentication): `systemctl edit ollama` →
+`Environment="OLLAMA_HOST=172.17.0.1:11434"` (default bridge; check with `ip -4 addr show docker0`), then
+`systemctl restart ollama` (the host `ollama` CLI then needs `OLLAMA_HOST=172.17.0.1:11434`). Use `0.0.0.0` only with a firewall rule blocking port 11434 for other devices.
+Docker Desktop (macOS/Windows) needs no change.
 
 ### 2b. Run from source
 
