@@ -37,7 +37,7 @@
             <a v-if="it.exportHref" :href="it.exportHref" class="act" :title="t('hist.exportTitle')" download>
               <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>{{ t('hist.export') }}</span>
             </a>
-            <button v-if="it.simulationId && it.state !== 'running'" type="button" class="act act--danger" @click="askDelete(it)">
+            <button v-if="it.state !== 'running'" type="button" class="act act--danger" @click="askDelete(it)">
               <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>{{ t('hist.delete') }}</span>
             </button>
           </div>
@@ -57,7 +57,7 @@ import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
 import { getSimulationHistory, deleteSimulation } from '../api/simulation'
-import { listPipelines } from '../api/pipeline'
+import { listPipelines, deletePipeline } from '../api/pipeline'
 
 const { t, locale } = useI18n()
 const items = ref([])
@@ -84,8 +84,10 @@ const load = async () => {
       if (p.simulation_id && sims.some(s => s.simulation_id === p.simulation_id)) continue
       if (p.status === 'completed') continue
       out.push({
-        key: p.pipeline_id, title: p.requirement, date: fmt(p.created_at), state: p.status === 'running' ? 'running' : 'failed',
-        stateLabel: stateLabel(p.status === 'running' ? 'running' : 'failed'), meta: p.status === 'running' ? stepLabel(p.current_step) : (p.error || '').slice(0, 80),
+        key: p.pipeline_id, pipelineId: p.pipeline_id, title: p.requirement, date: fmt(p.created_at),
+        state: p.status === 'running' ? 'running' : 'failed',
+        stateLabel: stateLabel(p.status === 'running' ? 'running' : 'failed'),
+        meta: p.status === 'running' ? stepLabel(p.current_step) : t('hist.sFailed'),
         href: `/run/${p.pipeline_id}`, created: p.created_at
       })
     }
@@ -117,12 +119,17 @@ const askDelete = (it) => { pending.value = it }
 const doDelete = async () => {
   if (!pending.value) return
   deleting.value = true
+  error.value = ''
+  const target = pending.value
   try {
-    await deleteSimulation(pending.value.simulationId)
-    items.value = items.value.filter(i => i.key !== pending.value.key)
+    if (target.simulationId) await deleteSimulation(target.simulationId)
+    else if (target.pipelineId) await deletePipeline(target.pipelineId)
+    items.value = items.value.filter(i => i.key !== target.key)
     pending.value = null
   } catch (e) {
-    error.value = t('hist.deleteFailed', { msg: e.response?.data?.error || e.message })
+    const msg = e.response?.data?.error
+    const technical = !msg || /HTTPConnectionPool|Traceback|ECONN|Network Error|status code/i.test(msg)
+    error.value = technical ? t('hist.deleteFailedPlain') : t('hist.deleteFailed', { msg })
   } finally { deleting.value = false }
 }
 

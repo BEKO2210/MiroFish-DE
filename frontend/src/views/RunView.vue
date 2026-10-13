@@ -8,10 +8,15 @@
 
     <main class="main">
       <!-- Ladezustand -->
-      <div v-if="!state && !loadError" class="skeleton" aria-busy="true">
+      <div v-if="!state && !loadError && !cleanedUp" class="skeleton" aria-busy="true">
         <div class="sk sk--title"></div>
         <div class="sk sk--line"></div>
         <div class="sk sk--block"></div>
+      </div>
+
+      <div v-else-if="cleanedUp" class="cleaned">
+        <p>{{ t('run.cleanedUp') }}</p>
+        <router-link to="/" class="btn btn--primary">{{ t('run.goHome') }}</router-link>
       </div>
 
       <p v-else-if="loadError" class="error" role="alert">{{ loadError }}</p>
@@ -36,7 +41,7 @@
             </template>
             <template v-else>
               <span class="cross" aria-hidden="true">!</span>
-              <div><strong>{{ t('run.stopped') }}</strong><small>{{ state.error }}</small></div>
+              <div><strong>{{ t('run.stopped') }}</strong><small>{{ t('hist.sFailed') }}</small></div>
             </template>
           </div>
 
@@ -64,7 +69,8 @@
                 <span class="step__label">{{ t(`steps.${key}`) }}</span>
                 <span v-if="state.steps[key].status === 'running' && state.steps[key].progress" class="step__pct">{{ Math.round(state.steps[key].progress) }} %</span>
               </div>
-              <p v-if="state.steps[key].detail" class="step__detail">{{ state.steps[key].detail }}</p>
+              <p v-if="state.steps[key].status === 'failed'" class="step__detail">{{ t('hist.sFailed') }}</p>
+              <p v-else-if="state.steps[key].detail" class="step__detail">{{ state.steps[key].detail }}</p>
               <p v-else-if="state.steps[key].status === 'running'" class="step__detail step__detail--hint">{{ t(HINTS[key]) }}</p>
               <div v-if="state.steps[key].status === 'running'" class="step__bar">
                 <div class="step__bar-fill" :style="{ width: (state.steps[key].progress || 0) + '%' }"></div>
@@ -98,6 +104,7 @@ const props = defineProps({ pipelineId: { type: String, required: true } })
 const { t, locale } = useI18n()
 const state = ref(null)
 const loadError = ref('')
+const cleanedUp = ref(false)
 let timer = null
 
 // Gewichte nach typischer Dauer, Summe 100
@@ -140,8 +147,17 @@ const load = async () => {
     const res = await getPipeline(props.pipelineId)
     state.value = res.data
     loadError.value = ''
+    cleanedUp.value = false
     if (state.value.status !== 'running') { clearInterval(timer); timer = null }
   } catch (err) {
+    if (err.response?.status === 404) {
+      state.value = null
+      loadError.value = ''
+      cleanedUp.value = true
+      clearInterval(timer)
+      timer = null
+      return
+    }
     if (!state.value) loadError.value = t('run.notFound', { msg: err.response?.data?.error || err.message })
   }
 }
@@ -212,6 +228,8 @@ onUnmounted(() => clearInterval(timer))
 .btn--primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }
 .hint { margin: 18px 0 0; font-size: 13px; color: var(--color-text-muted); text-align: center; line-height: 1.5; }
 .error { color: var(--color-error-text); }
+.cleaned { text-align: center; padding: 32px 8px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.cleaned p { margin: 0; font-size: 16px; line-height: 1.5; }
 
 @media (min-width: 769px) {
   .main { padding: 32px 24px 64px; }

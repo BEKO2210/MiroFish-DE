@@ -816,7 +816,8 @@
     "confirmTitle": "Delete forecast?",
     "confirmText": "“{title}” and its report and data will be removed permanently.",
     "loadFailed": "Could not load history.",
-    "deleteFailed": "Could not delete: {msg}"
+    "deleteFailed": "Could not delete: {msg}",
+    "deleteFailedPlain": "Could not delete this. Please try again."
   },
   "settings": {
     "title": "Settings",
@@ -893,7 +894,9 @@
     "openGraph": "View knowledge graph",
     "export": "Export everything (ZIP)",
     "closeHint": "You can close this page. The run continues – you'll find it in your history.",
-    "notFound": "Run not found: {msg}"
+    "notFound": "Run not found: {msg}",
+    "cleanedUp": "This run was stopped and cleaned up.",
+    "goHome": "Back to home"
   },
   "steps": {
     "ontology": "Reading documents",

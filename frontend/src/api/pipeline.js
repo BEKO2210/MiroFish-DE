@@ -28,3 +28,5 @@ export const startPipeline = (files, requirement, projectName) => {
 export const getPipeline = (pipelineId) => service.get(`/api/pipeline/${pipelineId}`)
 
 export const listPipelines = () => service.get('/api/pipeline/list')
+
+export const deletePipeline = (pipelineId) => service.delete(`/api/pipeline/${pipelineId}`)

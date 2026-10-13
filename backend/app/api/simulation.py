@@ -814,47 +814,39 @@ def get_simulation(simulation_id: str):
 
 @simulation_bp.route('/<simulation_id>', methods=['DELETE'])
 def delete_simulation(simulation_id: str):
-    """Einen Lauf samt Daten löschen: laufenden Prozess stoppen, Simulationsordner und zugehörige Berichte entfernen."""
+    """Simulation kaskadierend löschen: Ordner, Berichte, Durchläufe und — wenn ungenutzt — Projekt und Graph.
+
+    Läuft die Simulation noch, bleibt alles liegen.
+    """
     import re
-    import shutil
-    from ..services.simulation_runner import SimulationRunner
-    from ..services.report_agent import ReportManager
-    # Nur echte Kennungen zulassen: alles mit Pfadtrennern oder Sonderzeichen würde sonst über rmtree gefährlich.
-    if not re.fullmatch(r"sim_[A-Za-z0-9]+", simulation_id or ""):
+    from ..services.cleanup import (
+        CleanupBusy,
+        CleanupError,
+        delete_simulation_cascade,
+        simulation_is_active,
+    )
+    # Nur echte Kennungen: Pfadtrenner oder ".." würden über rmtree sonst gefährlich.
+    if not re.fullmatch(r"sim_[0-9a-f]+", simulation_id or ""):
         return jsonify({"success": False, "error": "Ungültige Simulations-ID"}), 400
+    if simulation_is_active(simulation_id):
+        return jsonify({
+            "success": False,
+            "error": "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst.",
+        }), 409
     try:
-        try:
-            SimulationRunner.stop_simulation(simulation_id)
-        except Exception as e:  # nicht laufend oder schon weg: egal, es wird gelöscht
-            logger.info(f"Stoppen vor dem Löschen übersprungen ({simulation_id}): {e}")
-        removed_reports = []
-        reports_dir = ReportManager.REPORTS_DIR
-        if os.path.isdir(reports_dir):
-            for name in os.listdir(reports_dir):
-                if not re.fullmatch(r"report_[A-Za-z0-9]+", name):
-                    continue
-                meta = os.path.join(reports_dir, name, 'metadata.json')
-                try:
-                    with open(meta, 'r', encoding='utf-8') as f:
-                        if json.load(f).get('simulation_id') == simulation_id:
-                            shutil.rmtree(os.path.join(reports_dir, name), ignore_errors=True)
-                            removed_reports.append(name)
-                except (OSError, ValueError):
-                    continue
-        base_dir = os.path.realpath(os.path.join(Config.UPLOAD_FOLDER, 'simulations'))
-        sim_dir = os.path.realpath(os.path.join(base_dir, simulation_id))
-        if os.path.dirname(sim_dir) != base_dir:
-            return jsonify({"success": False, "error": "Ungültiger Pfad"}), 400
-        existed = os.path.isdir(sim_dir)
-        shutil.rmtree(sim_dir, ignore_errors=True)
-        if hasattr(SimulationManager, '_simulations') and isinstance(getattr(SimulationManager, '_simulations'), dict):
-            SimulationManager._simulations.pop(simulation_id, None)
-        logger.info(f"Simulation gelöscht: {simulation_id}, Berichte: {removed_reports}")
-        return jsonify({"success": True, "data": {"simulation_id": simulation_id, "deleted": existed,
-                                                  "reports_removed": removed_reports}})
-    except Exception as e:
-        logger.error(f"Löschen fehlgeschlagen ({simulation_id}): {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        removed = delete_simulation_cascade(simulation_id)
+    except CleanupBusy:
+        return jsonify({
+            "success": False,
+            "error": "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst.",
+        }), 409
+    except CleanupError as exc:
+        logger.info(f"Löschen abgewiesen ({simulation_id}): {exc}")
+        return jsonify({"success": False, "error": "Ungültiger Pfad"}), 400
+    except Exception as exc:
+        logger.error(f"Löschen fehlgeschlagen ({simulation_id}): {exc}")
+        return jsonify({"success": False, "error": "Löschen fehlgeschlagen."}), 500
+    return jsonify({"success": True, "data": {"simulation_id": simulation_id, "deleted": removed}})
 
 
 @simulation_bp.route('/<simulation_id>/export', methods=['GET'])
