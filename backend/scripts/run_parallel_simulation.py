@@ -1021,6 +1021,8 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
         llm_base_url = os.environ.get("LLM_BASE_URL", "")
         llm_model = os.environ.get("LLM_MODEL_NAME", "")
         config_label = "[Allgemeines LLM]"
+        if not llm_api_key and os.environ.get("LLM_PROVIDER", "").lower() in ("ollama", "lmstudio", "local"):
+            llm_api_key = "local-model"
     
     # Wenn der Modellname nicht in .env vorhanden ist, wird config als Fallback verwendet
     if not llm_model:
