@@ -64,8 +64,8 @@ function scrollTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
     align-items: stretch;
     height: calc(56px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
-    background: #ffffff;
-    border-top: 1px solid #e5e7eb;
+    background: var(--color-bg-surface-raised);
+    border-top: 1px solid var(--color-border-subtle);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
   }
   .mobile-nav__item {
@@ -78,13 +78,13 @@ function scrollTop() { window.scrollTo({ top: 0, behavior: 'smooth' }) }
     min-height: 48px;           /* Tippfläche */
     font-size: 11px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--color-text-muted);
     text-decoration: none;
     background: transparent;
     border: 0;
     font-family: inherit;
   }
-  .mobile-nav__item.active { color: #ff5722; }
+  .mobile-nav__item.active { color: var(--color-brand-primary); }
   .mobile-nav__icon { font-size: 18px; line-height: 1; }
 }
 </style>

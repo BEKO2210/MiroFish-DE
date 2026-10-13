@@ -1,1315 +1,383 @@
 <template>
-  <div class="home-container">
-    <!-- Top Navigation -->
-    <nav class="navbar">
-      <div class="nav-brand">MIROFISH</div>
-      <div class="nav-links">
-        <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" class="github-link">
-          GitHub besuchen <span class="arrow">↗</span>
-        </a>
+  <div class="home">
+    <!-- Kopfzeile -->
+    <header class="topbar">
+      <router-link to="/" class="brand" aria-label="MiroFish Startseite">
+        <img src="/logo-mark.svg" alt="" class="brand__mark" width="28" height="28" />
+        <span class="brand__name">MiroFish</span>
+      </router-link>
+      <div class="topbar__right">
+        <button type="button" class="status-pill" :class="systemStatus.ready ? 'ok' : 'warn'" @click="showSettings = !showSettings"
+                :title="systemStatus.ready ? `${systemStatus.llm_model} · ${systemStatus.memory_provider}` : 'Einstellungen öffnen'">
+          <span class="status-pill__dot"></span>
+          <span class="status-pill__text">{{ systemStatus.ready ? 'Bereit' : 'Einrichten' }}</span>
+        </button>
+        <button type="button" class="icon-btn" aria-label="Farben wählen" title="Farben" @click="showTheme = true">
+          <span class="icon-btn__swatch"></span>
+        </button>
+        <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener" class="topbar__link">GitHub</a>
       </div>
-    </nav>
+    </header>
+    <ThemePicker :open="showTheme" @close="showTheme = false" />
 
-    <div class="main-content">
-      <!-- Hero Section -->
-      <section class="hero-section">
-        <div class="hero-left">
-          <div class="tag-row">
-            <span class="orange-tag">Elegante universelle Schwarm-Intelligenz-Engine</span>
-            <span class="version-text">/ v0.1-Preview</span>
+    <main class="main">
+      <!-- Hero: kurz, klar -->
+      <section class="hero">
+        <p class="eyebrow">Schwarm-Simulation mit KI-Agenten · läuft auf deinem Rechner</p>
+        <h1 class="hero__title">Was passiert als Nächstes?</h1>
+        <p class="hero__lead">
+          Lade einen Bericht, einen Artikel oder Notizen hoch und stelle eine Frage. MiroFish baut daraus eine Welt aus
+          Interessengruppen, lässt sie Tage bis Wochen interagieren und schreibt dir einen Vorhersagebericht.
+        </p>
+        <ol class="steps" aria-label="So funktioniert es">
+          <li><span class="steps__num">1</span><span>Hochladen</span></li>
+          <li><span class="steps__num">2</span><span>Frage stellen</span></li>
+          <li><span class="steps__num">3</span><span>Simulation läuft</span></li>
+          <li><span class="steps__num">4</span><span>Bericht lesen</span></li>
+        </ol>
+      </section>
+
+      <!-- Laufende Durchläufe -->
+      <section v-if="activeRuns.length" class="section">
+        <h2 class="section__title">Läuft gerade</h2>
+        <router-link v-for="run in activeRuns" :key="run.pipeline_id" :to="`/run/${run.pipeline_id}`" class="run-card">
+          <span class="run-card__pulse"></span>
+          <span class="run-card__body">
+            <span class="run-card__title">{{ run.requirement }}</span>
+            <span class="run-card__meta">{{ stepLabel(run.current_step) }} · gestartet {{ fmtTime(run.created_at) }}</span>
+          </span>
+          <span class="run-card__arrow">›</span>
+        </router-link>
+      </section>
+
+      <!-- Neue Vorhersage -->
+      <section class="section" id="start">
+        <div class="card">
+          <h2 class="card__title">Neue Vorhersage</h2>
+
+          <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" class="sr-only" @change="handleFileSelect" />
+          <div class="dropzone" :class="{ 'is-over': isDragOver, 'has-files': files.length }"
+               role="button" tabindex="0" @click="triggerFileInput" @keydown.enter.prevent="triggerFileInput"
+               @dragover.prevent="handleDragOver" @dragleave.prevent="handleDragLeave" @drop.prevent="handleDrop">
+            <template v-if="!files.length">
+              <span class="dropzone__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0 4 4m-4-4-4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+              </span>
+              <span class="dropzone__title">Dokumente auswählen</span>
+              <span class="dropzone__hint">PDF, Markdown oder Text · mehrere möglich</span>
+            </template>
+            <ul v-else class="filelist" @click.stop>
+              <li v-for="(file, i) in files" :key="file.name + i" class="filelist__item">
+                <span class="filelist__type">{{ file.name.split('.').pop().toUpperCase() }}</span>
+                <span class="filelist__name">{{ file.name }}</span>
+                <button type="button" class="filelist__remove" :aria-label="`${file.name} entfernen`" @click.stop="removeFile(i)">×</button>
+              </li>
+              <li class="filelist__add"><button type="button" @click.stop="triggerFileInput">+ Weitere Datei</button></li>
+            </ul>
           </div>
-          
-          <h1 class="main-title">
-            Lade beliebigen Bericht hoch<br>
-            <span class="gradient-text">Erkenne die Zukunft sofort</span>
-            <br>
-            <span class="gradient-text">MiroFish ist jetzt auf Deutsch verfügbar.</span>
-            <br>
-            <span class="contributor-tag">Lokalisierung & Local LLM Integration von Belkis Aslani</span>
-          </h1>
-          
-          <div class="hero-desc">
-            <p>
-              Selbst mit nur einem Text kann <span class="highlight-bold">MiroFish</span> basierend auf den darin enthaltenen Realitäts-Samen automatisch eine parallele Welt mit bis zu <span class="highlight-orange">Millionen Agenten</span> generieren. Durch die Gott-Perspektive können Variablen injiziert werden, um in komplexen Gruppeninteraktionen <span class="highlight-code">"lokal optimale Lösungen"</span> in dynamischen Umgebungen zu finden.
-            </p>
-            <p class="slogan-text">
-              Lass die Zukunft in der Agenten-Gruppe vorausspielen, lass Entscheidungen nach hunderten Kämpfen triumphieren<span class="blinking-cursor">_</span>
-            </p>
-          </div>
-           
-        </div>
-        
-        <div class="hero-right">
-          <!-- Logo Area -->
-          <div class="logo-container">
-            <img src="../assets/logo/MiroFish_logo_left.jpeg" alt="MiroFish Logo" class="hero-logo" />
-          </div>
-          
-          <button class="scroll-down-btn" @click="scrollToBottom">
-            ↓
+
+          <label class="field">
+            <span class="field__label">Deine Frage</span>
+            <textarea v-model="formData.simulationRequirement" class="field__input" rows="3"
+                      placeholder="Zum Beispiel: Wie reagieren Anwohner und Einzelhandel in den ersten vier Wochen auf die neuen Parkgebühren?"></textarea>
+            <span class="field__hint">Eine konkrete Frage mit Zeitraum liefert den besten Bericht.</span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" v-model="autopilot" />
+            <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+            <span class="switch__text">
+              <strong>Bis zum Bericht durchlaufen lassen</strong>
+              <small>Alle Schritte automatisch. Du kannst die Seite schließen und später wiederkommen.</small>
+            </span>
+          </label>
+
+          <p v-if="error" class="error" role="alert">{{ error }}</p>
+
+          <button type="button" class="cta" :disabled="!canSubmit || loading" @click="start">
+            <span v-if="!loading">{{ autopilot ? 'Vorhersage starten' : 'Schritt für Schritt starten' }}</span>
+            <span v-else class="cta__loading"><span class="spinner"></span> Wird hochgeladen …</span>
           </button>
-        </div>
-      </section>
-
-      <!-- Dashboard Section -->
-      <section class="dashboard-section">
-        <!-- Left Panel: Status & Steps -->
-        <div class="left-panel">
-          <div class="panel-header">
-            <span class="status-dot" :class="{ 'status-red': !systemStatus.ready }">■</span> Systemstatus: {{ systemStatus.ready ? 'Bereit' : 'Konfiguration erforderlich' }}
-          </div>
-          
-          <h2 class="section-title">Status</h2>
-          <div class="system-details-card">
-            <div class="detail-item">
-              <span class="detail-label">Provider:</span>
-              <span class="detail-value">{{ systemStatus.llm_provider }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Modell:</span>
-              <span class="detail-value">{{ systemStatus.llm_model }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Local Mode:</span>
-              <span class="detail-value">{{ systemStatus.is_local_llm ? 'Aktiv' : 'Deaktiviert' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Memory:</span>
-              <span class="detail-value">{{ systemStatus.memory_provider }}</span>
-            </div>
-          </div>
-
-          <!-- LLM Settings Panel -->
-          <div class="settings-panel">
-            <div class="settings-header" @click="showSettings = !showSettings">
-              <span class="settings-title">⚙️ LLM-Konfiguration (LM Studio / Ollama / OpenAI)</span>
-              <span class="toggle-icon">{{ showSettings ? '▲' : '▼' }}</span>
-            </div>
-            
-            <div v-if="showSettings" class="settings-content">
-              <!-- Mask warning -->
-              <div v-if="isConfigMasked" class="mask-warning-alert">
-                <span class="warning-icon">⚠️</span>
-                <div class="warning-text">
-                  <strong>Sicherheitshinweis:</strong> Einige API-Schlüssel sind maskiert. Bitte geben Sie Ihre Schlüssel erneut ein, um die Konfiguration zu aktualisieren.
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Memory Provider (Knowledge Graph)</label>
-                <select v-model="configData.memory_provider" class="settings-select">
-                  <option value="zep">Zep Cloud (GraphRAG)</option>
-                  <option value="obsidian">Obsidian / Markdown (Lokal)</option>
-                  <option value="hybrid">Hybrid (Markdown + Zep)</option>
-                </select>
-                <p class="field-desc" v-if="configData.memory_provider === 'obsidian'">
-                  Kein Zep-Konto nötig – das Wissen bleibt als Markdown auf diesem Rechner (<code>uploads/simulations/.../vault</code>).
-                </p>
-                <p class="field-desc" v-if="configData.memory_provider === 'zep'">
-                  Erfordert einen gültigen Zep API Key.
-                </p>
-              </div>
-
-              <div class="form-group">
-                <label>LLM Provider</label>
-                <select v-model="configData.llm_provider" class="settings-select">
-                  <option value="openai">OpenAI (Cloud)</option>
-                  <option value="lmstudio">LM Studio (Lokal)</option>
-                  <option value="ollama">Ollama (Lokal)</option>
-                  <option value="local">Generischer lokaler Endpunkt</option>
-                </select>
-              </div>
-
-              <!-- Cloud Settings -->
-              <div v-if="configData.llm_provider === 'openai'" class="provider-settings">
-                <div class="form-group">
-                  <label>API Key</label>
-                  <input type="password" v-model="configData.llm_api_key" placeholder="sk-..." class="settings-input">
-                </div>
-                <div class="form-group">
-                  <label>Base URL</label>
-                  <input type="text" v-model="configData.llm_base_url" placeholder="https://api.openai.com/v1" class="settings-input">
-                </div>
-                <div class="form-group">
-                  <label>Modell-Name</label>
-                  <input type="text" v-model="configData.llm_model_name" placeholder="gpt-4o-mini" class="settings-input">
-                </div>
-              </div>
-
-              <!-- Local Settings -->
-              <div v-else class="provider-settings">
-                <div class="form-group">
-                  <label>Local Base URL</label>
-                  <input type="text" v-model="configData.local_llm_base_url" placeholder="http://localhost:1234/v1" class="settings-input">
-                </div>
-                <div class="form-group">
-                  <label>Local Modell-Name</label>
-                  <input type="text" v-model="configData.local_llm_model_name" placeholder="Modell-Name aus LM Studio / Ollama" class="settings-input">
-                </div>
-                <div class="form-group">
-                  <label>Local API Key (Optional)</label>
-                  <input type="password" v-model="configData.local_llm_api_key" placeholder="Meist nicht nötig für lokal" class="settings-input">
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label v-if="configData.memory_provider === 'zep' || configData.memory_provider === 'hybrid'">Zep API Key (nur für Zep Cloud)</label>
-                <input v-if="configData.memory_provider === 'zep' || configData.memory_provider === 'hybrid'" type="password" v-model="configData.zep_api_key" placeholder="Zep Cloud API Key" class="settings-input">
-              </div>
-
-              <div class="settings-actions">
-                <button @click="saveSettings" class="save-btn" :disabled="saving">
-                  {{ saving ? 'Speichere...' : 'Speichern' }}
-                </button>
-                <button @click="testLlmConnection" class="test-btn" :disabled="testing">
-                  {{ testing ? 'Teste...' : 'Verbindung testen' }}
-                </button>
-              </div>
-
-              <div v-if="testResult" :class="['test-message', testResult.success ? 'success' : 'error']">
-                {{ testResult.message }}
-              </div>
-            </div>
-          </div>
-          
-          <p class="section-desc">
-            Vorhersage-Engine im Standby. Lade unstrukturierte Daten hoch, um die Simulationssequenz zu initialisieren.
+          <p class="card__foot">
+            <span v-if="systemStatus.ready">Modell: {{ systemStatus.llm_model }} · Gedächtnis: {{ memoryLabel }} · 0 € pro Lauf</span>
+            <button v-else type="button" class="linkbtn" @click="showSettings = true">Erst das Modell einrichten</button>
           </p>
-          
-          <!-- Metrics Cards -->
-          <div class="metrics-row">
-            <div class="metric-card">
-              <div class="metric-value">Läuft lokal</div>
-              <div class="metric-label">0 € pro Simulation, Daten bleiben bei dir</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-value">Hochverfügbar</div>
-              <div class="metric-label">Bis zu Millionen Agenten</div>
-            </div>
-          </div>
-
-          <!-- Workflow Steps -->
-          <div class="steps-container">
-            <div class="steps-header">
-               <span class="diamond-icon">◇</span> Workflow-Sequenz
-            </div>
-            <div class="workflow-list">
-              <div class="workflow-item">
-                <span class="step-num">01</span>
-                <div class="step-info">
-                  <div class="step-title">Graphen-Aufbau</div>
-                  <div class="step-desc">Realitäts-Samen-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">02</span>
-                <div class="step-info">
-                  <div class="step-title">Umgebungsaufbau</div>
-                  <div class="step-desc">Entitätsbeziehungs-Extraktion & Charakter-Generierung & Umgebungskonfiguration</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">03</span>
-                <div class="step-info">
-                  <div class="step-title">Simulation starten</div>
-                  <div class="step-desc">Duale Plattform-Parallel-Simulation & automatische Vorhersagebedarfsanalyse</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">04</span>
-                <div class="step-info">
-                  <div class="step-title">Berichtsgenerierung</div>
-                  <div class="step-desc">ReportAgent mit reichhaltigem Toolset für tiefe Interaktion</div>
-                </div>
-              </div>
-              <div class="workflow-item">
-                <span class="step-num">05</span>
-                <div class="step-info">
-                  <div class="step-title">Tiefe Interaktion</div>
-                  <div class="step-desc">Gespräch mit beliebiger Person in der simulierten Welt & Dialog mit ReportAgent</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Right Panel: Interactive Console -->
-        <div class="right-panel">
-          <div class="console-box">
-            <!-- Upload Area -->
-            <div class="console-section">
-              <div class="console-header">
-                <span class="console-label">01 / Realitäts-Samen</span>
-                <span class="console-meta">Unterstützt: PDF, MD, TXT</span>
-              </div>
-              
-              <div 
-                class="upload-zone"
-                :class="{ 'drag-over': isDragOver, 'has-files': files.length > 0 }"
-                @dragover.prevent="handleDragOver"
-                @dragleave.prevent="handleDragLeave"
-                @drop.prevent="handleDrop"
-                @click="triggerFileInput"
-              >
-                <input
-                  ref="fileInput"
-                  type="file"
-                  multiple
-                  accept=".pdf,.md,.txt"
-                  @change="handleFileSelect"
-                  style="display: none"
-                  :disabled="loading"
-                />
-                
-                <div v-if="files.length === 0" class="upload-placeholder">
-                  <div class="upload-icon">↑</div>
-                  <div class="upload-title">Dateien hier ablegen</div>
-                  <div class="upload-hint">oder klicke zum Durchsuchen</div>
-                </div>
-                
-                <div v-else class="file-list">
-                  <div v-for="(file, index) in files" :key="index" class="file-item">
-                    <span class="file-icon">📄</span>
-                    <span class="file-name">{{ file.name }}</span>
-                    <button @click.stop="removeFile(index)" class="remove-btn">×</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="console-divider">
-              <span>Eingabeparameter</span>
-            </div>
-
-            <!-- Input Area -->
-            <div class="console-section">
-              <div class="console-header">
-                <span class="console-label">>_ 02 / Simulations-Prompt</span>
-              </div>
-              <div class="input-wrapper">
-                <textarea
-                  v-model="formData.simulationRequirement"
-                  class="code-input"
-                  placeholder="// Beschreibe Simulations- oder Vorhersagebedarf in natürlicher Sprache (z.B.: Wie würde die Öffentlichkeit reagieren, wenn Universität X eine bestimmte Entscheidung trifft?)"
-                  rows="6"
-                  :disabled="loading"
-                ></textarea>
-                <div class="model-badge">Engine: MiroFish-V1.0</div>
-              </div>
-            </div>
-
-            <!-- Start Button -->
-            <div class="console-section btn-section">
-              <button 
-                class="start-engine-btn"
-                @click="startSimulation"
-                :disabled="!canSubmit || loading"
-              >
-                <span v-if="!loading">Engine starten</span>
-                <span v-else>Initialisiere...</span>
-                <span class="btn-arrow">→</span>
-              </button>
-            </div>
-          </div>
         </div>
       </section>
 
-      <!-- History Database -->
-      <HistoryDatabase />
-    </div>
+      <!-- Einstellungen -->
+      <section class="section" v-show="showSettings" id="settings">
+        <div class="card">
+          <div class="card__head">
+            <h2 class="card__title">Einstellungen</h2>
+            <button type="button" class="linkbtn" @click="showSettings = false">Schließen</button>
+          </div>
+          <div v-if="isConfigMasked" class="notice">
+            Einige Schlüssel sind maskiert. Zum Ändern bitte neu eingeben.
+          </div>
+          <label class="field">
+            <span class="field__label">Gedächtnis (Wissensgraph)</span>
+            <select v-model="configData.memory_provider" class="field__input">
+              <option value="obsidian">Lokal (Markdown auf diesem Rechner)</option>
+              <option value="zep">Zep Cloud</option>
+              <option value="hybrid">Hybrid (lokal + Zep)</option>
+            </select>
+            <span class="field__hint" v-if="configData.memory_provider === 'obsidian'">Kein Konto nötig – alles bleibt auf diesem Rechner.</span>
+            <span class="field__hint" v-else>Braucht einen Zep-API-Schlüssel.</span>
+          </label>
+          <label class="field">
+            <span class="field__label">Sprachmodell</span>
+            <select v-model="configData.llm_provider" class="field__input">
+              <option value="ollama">Ollama (lokal)</option>
+              <option value="lmstudio">LM Studio (lokal)</option>
+              <option value="local">Anderer lokaler Endpunkt</option>
+              <option value="openai">OpenAI (Cloud)</option>
+            </select>
+          </label>
+          <template v-if="configData.llm_provider === 'openai'">
+            <label class="field"><span class="field__label">API-Schlüssel</span><input type="password" v-model="configData.llm_api_key" class="field__input" placeholder="sk-…"></label>
+            <label class="field"><span class="field__label">Basis-URL</span><input type="text" v-model="configData.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
+            <label class="field"><span class="field__label">Modell</span><input type="text" v-model="configData.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
+          </template>
+          <template v-else>
+            <label class="field"><span class="field__label">Adresse des lokalen Modells</span><input type="text" v-model="configData.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
+            <label class="field"><span class="field__label">Modellname</span><input type="text" v-model="configData.local_llm_model_name" class="field__input" placeholder="z. B. gemma4:12b-it-qat-16k"></label>
+            <label class="field"><span class="field__label">Schlüssel (meist nicht nötig)</span><input type="password" v-model="configData.local_llm_api_key" class="field__input"></label>
+          </template>
+          <label class="field" v-if="configData.memory_provider !== 'obsidian'">
+            <span class="field__label">Zep-API-Schlüssel</span>
+            <input type="password" v-model="configData.zep_api_key" class="field__input" placeholder="Zep Cloud API Key">
+          </label>
+          <div class="actions">
+            <button type="button" class="btn btn--primary" :disabled="saving" @click="saveSettings">{{ saving ? 'Speichert …' : 'Speichern' }}</button>
+            <button type="button" class="btn" :disabled="testing" @click="testLlmConnection">{{ testing ? 'Prüft …' : 'Verbindung prüfen' }}</button>
+          </div>
+          <p v-if="testResult" class="notice" :class="testResult.success ? 'notice--ok' : 'notice--err'">{{ testResult.message }}</p>
+        </div>
+      </section>
+
+      <!-- Verlauf -->
+      <section class="section">
+        <HistoryDatabase />
+      </section>
+
+      <footer class="foot">
+        <span>MiroFish · lokal, ohne Cloud · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">Quellcode (AGPL-3.0)</a></span>
+      </footer>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
+import { startPipeline, listPipelines, STEP_LABELS } from '../api/pipeline'
 
 const router = useRouter()
-
-// Form data
-const formData = ref({
-  simulationRequirement: ''
-})
-
-// File list
+const formData = ref({ simulationRequirement: '' })
 const files = ref([])
-
-// State
 const loading = ref(false)
 const error = ref('')
 const isDragOver = ref(false)
+const autopilot = ref(true)
+const fileInput = ref(null)
+const activeRuns = ref([])
+let runsTimer = null
 
-// System & Settings State
+// Einstellungen
 const showSettings = ref(false)
+const showTheme = ref(false)
 const saving = ref(false)
 const testing = ref(false)
 const testResult = ref(null)
-const systemStatus = ref({
-  ready: false,
-  llm_provider: '-',
-  llm_model: '-',
-  is_local_llm: false
-})
-
+const systemStatus = ref({ ready: false, llm_provider: '-', llm_model: '-', is_local_llm: false, memory_provider: '-' })
 const configData = ref({
-  llm_provider: 'openai',
-  llm_api_key: '',
-  llm_base_url: '',
-  llm_model_name: '',
-  local_llm_base_url: '',
-  local_llm_model_name: '',
-  local_llm_api_key: '',
-  zep_api_key: '',
-  memory_provider: 'zep'
+  llm_provider: 'ollama', llm_api_key: '', llm_base_url: '', llm_model_name: '',
+  local_llm_base_url: '', local_llm_model_name: '', local_llm_api_key: '', zep_api_key: '', memory_provider: 'obsidian'
 })
+const isConfigMasked = computed(() =>
+  (configData.value.zep_api_key && configData.value.zep_api_key.includes('...****')) ||
+  (configData.value.llm_provider === 'openai' && configData.value.llm_api_key && configData.value.llm_api_key.includes('...****')))
+const memoryLabel = computed(() => ({ obsidian: 'lokal', zep: 'Zep Cloud', hybrid: 'Hybrid' }[systemStatus.value.memory_provider] || systemStatus.value.memory_provider))
+const canSubmit = computed(() => formData.value.simulationRequirement.trim() !== '' && files.value.length > 0)
 
-// Check if any required key is masked
-const isConfigMasked = computed(() => {
-  return (configData.value.zep_api_key && configData.value.zep_api_key.includes('...****')) ||
-         (configData.value.llm_provider === 'openai' && configData.value.llm_api_key && configData.value.llm_api_key.includes('...****'))
-})
-
-// Fetch system status
 const fetchStatus = async () => {
   try {
     const res = await service.get('/api/graph/system/status')
     if (res && res.success) {
       const data = res.data
-      systemStatus.value = {
-        ready: true,
-        llm_provider: data.llm_provider,
-        llm_model: data.llm_model,
-        is_local_llm: data.is_local_llm,
-        memory_provider: data.memory_provider
-      }
-      // Populate config form
-      if (data.config) {
-        configData.value = { ...data.config }
-      }
+      systemStatus.value = { ready: true, llm_provider: data.llm_provider, llm_model: data.llm_model, is_local_llm: data.is_local_llm, memory_provider: data.memory_provider }
+      if (data.config) configData.value = { ...data.config }
     }
   } catch (err) {
-    console.error('Failed to fetch system status:', err)
+    console.error('Systemstatus nicht abrufbar:', err)
     systemStatus.value.ready = false
   }
 }
-
-// Save settings
 const saveSettings = async () => {
   saving.value = true
   try {
     const res = await service.post('/api/graph/system/config', configData.value)
-    if (res && res.success) {
-      alert('Konfiguration gespeichert!')
-      await fetchStatus()
-    }
+    if (res && res.success) { testResult.value = { success: true, message: 'Gespeichert.' }; await fetchStatus() }
   } catch (err) {
-    alert('Fehler beim Speichern: ' + (err.response?.data?.error || err.message))
-  } finally {
-    saving.value = false
-  }
+    testResult.value = { success: false, message: 'Speichern fehlgeschlagen: ' + (err.response?.data?.error || err.message) }
+  } finally { saving.value = false }
 }
-
-// Test LLM Connection
 const testLlmConnection = async () => {
-  testing.value = true
-  testResult.value = null
+  testing.value = true; testResult.value = null
   try {
     const res = await service.post('/api/graph/system/test-llm')
-    if (res && res.success) {
-      testResult.value = {
-        success: true,
-        message: `Erfolg! Modell antwortet: "${res.data.response}"`
-      }
-    }
+    if (res && res.success) testResult.value = { success: true, message: `Verbindung steht. Modell: ${res.data.model}` }
   } catch (err) {
-    testResult.value = {
-      success: false,
-      message: 'Test fehlgeschlagen: ' + (err.response?.data?.error || err.message)
-    }
-  } finally {
-    testing.value = false
-  }
+    testResult.value = { success: false, message: 'Keine Verbindung: ' + (err.response?.data?.error || err.message) }
+  } finally { testing.value = false }
 }
 
-onMounted(() => {
-  fetchStatus()
-})
-
-// File input ref
-const fileInput = ref(null)
-
-// Computed: can submit
-const canSubmit = computed(() => {
-  return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
-})
-
-// Trigger file selection
-const triggerFileInput = () => {
-  if (!loading.value) {
-    fileInput.value?.click()
-  }
+const loadRuns = async () => {
+  try {
+    const res = await listPipelines()
+    activeRuns.value = (res?.data || []).filter(r => r.status === 'running')
+  } catch (e) { /* Liste ist optional */ }
 }
+const stepLabel = (s) => STEP_LABELS[s] || 'Wird vorbereitet'
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) } catch (e) { return '' } }
 
-// Handle file selection
-const handleFileSelect = (event) => {
-  const selectedFiles = Array.from(event.target.files)
-  addFiles(selectedFiles)
-}
-
-// Handle drag events
-const handleDragOver = (e) => {
-  if (!loading.value) {
-    isDragOver.value = true
-  }
-}
-
-const handleDragLeave = (e) => {
-  isDragOver.value = false
-}
-
-const handleDrop = (e) => {
-  isDragOver.value = false
-  if (loading.value) return
-  
-  const droppedFiles = Array.from(e.dataTransfer.files)
-  addFiles(droppedFiles)
-}
-
-// Add files
+// Dateien
+const triggerFileInput = () => { if (!loading.value) fileInput.value?.click() }
+const handleFileSelect = (e) => { addFiles(Array.from(e.target.files)); e.target.value = '' }
+const handleDragOver = () => { if (!loading.value) isDragOver.value = true }
+const handleDragLeave = () => { isDragOver.value = false }
+const handleDrop = (e) => { isDragOver.value = false; if (!loading.value) addFiles(Array.from(e.dataTransfer.files)) }
 const addFiles = (newFiles) => {
-  const validFiles = newFiles.filter(file => {
-    const ext = file.name.split('.').pop().toLowerCase()
-    return ['pdf', 'md', 'txt'].includes(ext)
-  })
-  files.value.push(...validFiles)
+  const ok = newFiles.filter(f => ['pdf', 'md', 'txt'].includes(f.name.split('.').pop().toLowerCase()))
+  if (ok.length < newFiles.length) error.value = 'Nur PDF, Markdown (.md) und Text (.txt) werden gelesen.'
+  else error.value = ''
+  files.value.push(...ok)
 }
+const removeFile = (i) => files.value.splice(i, 1)
 
-// Remove file
-const removeFile = (index) => {
-  files.value.splice(index, 1)
-}
-
-// Scroll to bottom
-const scrollToBottom = () => {
-  window.scrollTo({
-    top: document.body.scrollHeight,
-    behavior: 'smooth'
-  })
-}
-
-// Start simulation
-const startSimulation = () => {
+// Start
+const start = async () => {
   if (!canSubmit.value || loading.value) return
-  
-  import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
+  error.value = ''
+  if (!autopilot.value) {
+    const { setPendingUpload } = await import('../store/pendingUpload.js')
     setPendingUpload(files.value, formData.value.simulationRequirement)
-    
-    router.push({
-      name: 'Process',
-      params: { projectId: 'new' }
-    })
-  })
+    router.push({ name: 'Process', params: { projectId: 'new' } })
+    return
+  }
+  loading.value = true
+  try {
+    const res = await startPipeline(files.value, formData.value.simulationRequirement)
+    router.push(`/run/${res.data.pipeline_id}`)
+  } catch (err) {
+    error.value = 'Start fehlgeschlagen: ' + (err.response?.data?.error || err.message)
+  } finally { loading.value = false }
 }
+
+onMounted(() => { fetchStatus(); loadRuns(); runsTimer = setInterval(loadRuns, 15000) })
+onUnmounted(() => clearInterval(runsTimer))
 </script>
 
 <style scoped>
-.home-container {
-  min-height: 100vh;
-  background: #ffffff;
-  color: #000000;
-}
-
-/* Navigation */
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 40px;
-  border-bottom: 1px solid #eaeaea;
-}
-
-.nav-brand {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
-  font-size: 20px;
-  letter-spacing: 2px;
-}
-
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.github-link {
-  color: #666;
-  text-decoration: none;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: color 0.2s;
-}
-
-.github-link:hover {
-  color: #000;
-}
-
-.arrow {
-  font-size: 12px;
-}
-
-/* Main Content */
-.main-content {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 40px;
-}
-
-/* Hero Section */
-.hero-section {
-  display: flex;
-  gap: 60px;
-  margin-bottom: 80px;
-  min-height: 500px;
-}
-
-.hero-left {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.hero-right {
-  width: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.tag-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-
-.orange-tag {
-  background: #ff5722;
-  color: white;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.version-text {
-  font-size: 12px;
-  color: #999;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.main-title {
-  font-size: 42px;
-  font-weight: 800;
-  line-height: 1.2;
-  margin-bottom: 24px;
-  letter-spacing: -0.5px;
-}
-
-.gradient-text {
-  background: linear-gradient(90deg, #ff5722, #ff9800);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.contributor-tag {
-  display: inline-block;
-  margin-top: 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  background: #f0f0f0;
-  padding: 4px 12px;
-  border-radius: 20px;
-  border: 1px solid #e0e0e0;
-  font-family: 'Inter', sans-serif;
-}
-
-.hero-desc {
-  font-size: 16px;
-  line-height: 1.7;
-  color: #444;
-  margin-bottom: 20px;
-}
-
-.hero-desc p {
-  margin-bottom: 16px;
-}
-
-.highlight-bold {
-  font-weight: 700;
-  color: #000;
-}
-
-.highlight-orange {
-  color: #ff5722;
-  font-weight: 700;
-}
-
-.highlight-code {
-  font-family: 'JetBrains Mono', monospace;
-  background: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.slogan-text {
-  font-size: 14px;
-  color: #666;
-  font-style: italic;
-}
-
-.blinking-cursor {
-  animation: blink 1s infinite;
-  font-weight: 300;
-}
-
-@keyframes blink {
-  0%, 50% { opacity: 1; }
-  51%, 100% { opacity: 0; }
-}
-
-.decoration-square {
-  width: 60px;
-  height: 60px;
-  border: 3px solid #000;
-  margin-top: 30px;
-  transform: rotate(45deg);
-}
-
-/* Logo */
-.logo-container {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.hero-logo {
-  max-width: 100%;
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
-}
-
-.scroll-down-btn {
-  position: absolute;
-  bottom: 20px;
-  width: 40px;
-  height: 40px;
-  border: 2px solid #000;
-  background: transparent;
-  border-radius: 50%;
-  font-size: 18px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.scroll-down-btn:hover {
-  background: #000;
-  color: #fff;
-}
-
-/* Dashboard Section */
-.dashboard-section {
-  display: flex;
-  gap: 40px;
-  margin-top: 60px;
-}
-
-.left-panel {
-  flex: 1;
-  padding-right: 20px;
-}
-
-.right-panel {
-  width: 500px;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #666;
-  margin-bottom: 20px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.status-dot {
-  color: #4caf50;
-}
-
-.status-red {
-  color: #f44336 !important;
-}
-
-/* System Details Card */
-.system-details-card {
-  background: #f8f9fa;
-  border: 1px solid #eaeaea;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 24px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.detail-label {
-  font-size: 11px;
-  color: #999;
-  text-transform: uppercase;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.detail-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-/* Settings Panel */
-.settings-panel {
-  border: 1px solid #eaeaea;
-  border-radius: 10px;
-  margin-bottom: 30px;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-  transition: transform 0.2s;
-}
-
-.settings-header {
-  padding: 18px 24px;
-  background: #f8f9fa;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background 0.2s;
-  border-left: 5px solid #ff5722;
-}
-
-.settings-header:hover {
-  background: #f1f1f1;
-}
-
-.settings-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #000;
-  letter-spacing: -0.2px;
-}
-
-.toggle-icon {
-  font-size: 12px;
-  color: #ff5722;
-  font-weight: bold;
-}
-
-.settings-content {
-  padding: 20px;
-  background: #fff;
-  border-top: 1px solid #eaeaea;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: #555;
-}
-
-.settings-select, .settings-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.field-desc {
-  font-size: 11px;
-  color: #888;
-  margin-top: 4px;
-  line-height: 1.4;
-}
-
-.field-desc code {
-  background: #eee;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.settings-select:focus, .settings-input:focus {
-  outline: none;
-  border-color: #ff5722;
-}
-
-.settings-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.save-btn, .test-btn {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.save-btn {
-  background: #ff5722;
-  color: white;
-}
-
-.test-btn {
-  background: #333;
-  color: white;
-}
-
-.save-btn:disabled, .test-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.test-message {
-  margin-top: 12px;
-  padding: 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.test-message.success {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid #c8e6c9;
-}
-
-.test-message.error {
-  background: #ffebee;
-  color: #c62828;
-  border: 1px solid #ffcdd2;
-}
-
-/* Mask Warning Alert */
-.mask-warning-alert {
-  background: #fff3e0;
-  border: 1px solid #ffe0b2;
-  border-radius: 6px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.warning-icon {
-  font-size: 18px;
-}
-
-.warning-text {
-  font-size: 13px;
-  line-height: 1.5;
-  color: #e65100;
-}
-
-.warning-text strong {
-  display: block;
-  margin-bottom: 2px;
-}
-
-.section-title {
-  font-size: 32px;
-  font-weight: 800;
-  margin-bottom: 12px;
-}
-
-.section-desc {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 30px;
-}
-
-/* Metrics */
-.metrics-row {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 40px;
-}
-
-.metric-card {
-  flex: 1;
-  border: 1px solid #eaeaea;
-  padding: 20px;
-  border-radius: 8px;
-}
-
-.metric-value {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.metric-label {
-  font-size: 12px;
-  color: #999;
-}
-
-/* Steps */
-.steps-container {
-  border: 1px solid #eaeaea;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.steps-header {
-  padding: 16px 20px;
-  background: #f9f9f9;
-  border-bottom: 1px solid #eaeaea;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.diamond-icon {
-  color: #ff5722;
-}
-
-.workflow-list {
-  padding: 10px 0;
-}
-
-.workflow-item {
-  display: flex;
-  gap: 16px;
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.workflow-item:last-child {
-  border-bottom: none;
-}
-
-.step-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: #999;
-  min-width: 24px;
-}
-
-.step-info {
-  flex: 1;
-}
-
-.step-title {
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.step-desc {
-  font-size: 12px;
-  color: #888;
-  line-height: 1.5;
-}
-
-/* Console Box */
-.console-box {
-  border: 2px solid #000;
-  border-radius: 8px;
-  padding: 24px;
-  background: #fafafa;
-}
-
-.console-section {
-  margin-bottom: 24px;
-}
-
-.console-section:last-child {
-  margin-bottom: 0;
-}
-
-.console-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.console-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  font-weight: 600;
-  color: #000;
-}
-
-.console-meta {
-  font-size: 11px;
-  color: #999;
-}
-
-/* Upload Zone */
-.upload-zone {
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 40px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: #fff;
-}
-
-.upload-zone:hover,
-.upload-zone.drag-over {
-  border-color: #ff5722;
-  background: #fff5f2;
-}
-
-.upload-zone.has-files {
-  border-style: solid;
-  border-color: #4caf50;
-  padding: 20px;
-}
-
-.upload-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.upload-icon {
-  font-size: 32px;
-  color: #999;
-}
-
-.upload-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-}
-
-.upload-hint {
-  font-size: 12px;
-  color: #999;
-}
-
-.file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #f5f5f5;
-  border-radius: 6px;
-}
-
-.file-icon {
-  font-size: 16px;
-}
-
-.file-name {
-  flex: 1;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.remove-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: #ff4444;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.remove-btn:hover {
-  background: #cc0000;
-}
-
-/* Console Divider */
-.console-divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  margin: 20px 0;
-  color: #999;
-  font-size: 11px;
-}
-
-.console-divider::before,
-.console-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid #ddd;
-}
-
-.console-divider span {
-  padding: 0 10px;
-}
-
-/* Input */
-.input-wrapper {
-  position: relative;
-}
-
-.code-input {
-  width: 100%;
-  padding: 16px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  resize: vertical;
-  min-height: 120px;
-  background: #fff;
-}
-
-.code-input:focus {
-  outline: none;
-  border-color: #ff5722;
-}
-
-.model-badge {
-  display: block;
-  width: fit-content;
-  margin: 6px 0 0 auto;
-  font-size: 10px;
-  color: #999;
-  background: #f5f5f5;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-/* Start Button */
-.btn-section {
-  margin-top: 20px;
-}
-
-.start-engine-btn {
-  width: 100%;
-  padding: 16px 24px;
-  background: #000;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s;
-}
-
-.start-engine-btn:hover:not(:disabled) {
-  background: #333;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.start-engine-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.btn-arrow {
-  font-size: 18px;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .hero-section {
-    flex-direction: column;
-  }
-  
-  .hero-right {
-    width: 100%;
-  }
-  
-  .dashboard-section {
-    flex-direction: column;
-  }
-  
-  .right-panel {
-    width: 100%;
-  }
-  
-  .main-title {
-    font-size: 32px;
-  }
-}
-
-@media (max-width: 768px) {
-  .main-content {
-    padding: 20px;
-  }
-  
-  .navbar {
-    padding: 16px 20px;
-  }
-  
-  .main-title {
-    font-size: 28px;
-  }
-  
-  .metrics-row {
-    flex-direction: column;
-  }
+.home { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
+.topbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 16px; background: color-mix(in srgb, var(--color-bg-canvas) 86%, transparent); backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--color-border-subtle); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+.brand__mark { width: 28px; height: 28px; }
+.brand__name { font-family: var(--font-heading); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+.topbar__right { display: flex; align-items: center; gap: 10px; }
+.icon-btn { width: 40px; height: 40px; border: 1px solid var(--color-border-subtle); border-radius: 50%; background: var(--color-bg-surface-raised); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.icon-btn__swatch { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--theme-light, #fff) 50%, var(--color-brand-primary) 50%); border: 1px solid var(--color-border-default); }
+.topbar__link { color: var(--color-text-secondary); text-decoration: none; font-size: 14px; padding: 8px 4px; }
+.status-pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); border-radius: 999px;
+  padding: 6px 10px; font: inherit; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; min-height: 36px; }
+.status-pill__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success-text); box-shadow: 0 0 0 3px rgba(21,128,61,.15); }
+.status-pill.warn .status-pill__dot { background: var(--color-warning-text); box-shadow: 0 0 0 3px rgba(180,83,9,.15); }
+
+.main { max-width: 760px; margin: 0 auto; padding: 24px 16px 40px; }
+.section { margin-top: 24px; }
+.section__title { font-family: var(--font-heading); font-size: 15px; font-weight: 600; color: var(--color-text-secondary); margin: 0 0 10px; letter-spacing: .02em; text-transform: uppercase; }
+
+.hero { padding: 8px 0 4px; }
+.eyebrow { margin: 0 0 8px; font-size: 13px; color: var(--color-text-muted); }
+.hero__title { font-family: var(--font-heading); font-size: clamp(30px, 7vw, 44px); line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 12px; }
+.hero__lead { font-size: 16px; line-height: 1.55; color: var(--color-text-secondary); margin: 0 0 16px; max-width: 60ch; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.steps li { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-secondary); background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); border-radius: 999px; padding: 6px 12px 6px 6px; }
+.steps__num { width: 22px; height: 22px; border-radius: 50%; background: var(--color-text-primary); color: var(--color-text-inverse); font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+
+.card { background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 16px; padding: 18px; box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px -16px rgba(15,23,42,.18); }
+.card__head { display: flex; justify-content: space-between; align-items: center; }
+.card__title { font-family: var(--font-heading); font-size: 20px; margin: 0 0 14px; }
+.card__foot { margin: 12px 0 0; font-size: 13px; color: var(--color-text-muted); text-align: center; }
+.linkbtn { background: none; border: 0; color: var(--color-brand-primary); font: inherit; font-size: 14px; cursor: pointer; padding: 8px 0; text-decoration: underline; }
+
+.dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 120px; padding: 16px; border: 1.5px dashed var(--color-border-default); border-radius: 12px; background: var(--color-bg-surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; }
+.dropzone:hover, .dropzone:focus-visible, .dropzone.is-over { border-color: var(--color-brand-primary); background: var(--color-brand-subtle); outline: none; }
+.dropzone.has-files { align-items: stretch; cursor: default; }
+.dropzone__icon { color: var(--color-brand-primary); }
+.dropzone__title { font-weight: 600; }
+.dropzone__hint { font-size: 13px; color: var(--color-text-muted); }
+.filelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.filelist__item { display: flex; align-items: center; gap: 10px; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 10px; padding: 8px 8px 8px 10px; }
+.filelist__type { font-family: var(--font-mono); font-size: 11px; background: var(--color-text-primary); color: var(--color-text-inverse); border-radius: 6px; padding: 3px 6px; }
+.filelist__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; text-align: left; }
+.filelist__remove { width: 36px; height: 36px; border: 0; background: transparent; color: var(--color-text-muted); font-size: 20px; border-radius: 8px; cursor: pointer; }
+.filelist__remove:hover { background: var(--color-error-bg); color: var(--color-error-text); }
+.filelist__add button { background: none; border: 0; color: var(--color-brand-primary); font: inherit; font-size: 14px; padding: 8px; cursor: pointer; }
+
+.field { display: block; margin-top: 14px; }
+.field__label { display: block; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 6px; }
+.field__input { width: 100%; font: inherit; font-size: 16px; line-height: 1.45; padding: 12px 14px; border: 1px solid var(--color-border-default); border-radius: 12px; background: var(--color-bg-surface-raised); color: inherit; resize: vertical; }
+.field__input:focus { outline: none; border-color: var(--color-brand-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 15%, transparent); }
+.field__hint { display: block; font-size: 12px; color: var(--color-text-muted); margin-top: 6px; }
+
+.switch { display: flex; align-items: center; gap: 12px; margin-top: 16px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch__track { position: relative; width: 44px; height: 26px; border-radius: 999px; background: var(--color-border-default); transition: background .2s; flex: none; }
+.switch__thumb { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--color-bg-surface-raised); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch input:checked + .switch__track { background: var(--color-brand-primary); }
+.switch input:checked + .switch__track .switch__thumb { transform: translateX(18px); }
+.switch input:focus-visible + .switch__track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 25%, transparent); }
+.switch__text { display: flex; flex-direction: column; font-size: 14px; }
+.switch__text small { color: var(--color-text-muted); font-size: 12px; }
+
+.cta { width: 100%; margin-top: 16px; min-height: 52px; border: 0; border-radius: 14px; background: var(--color-brand-primary); color: var(--color-brand-on-primary); font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: transform .08s, background .15s; }
+.cta:hover:not(:disabled) { background: var(--color-brand-hover); }
+.cta:active:not(:disabled) { transform: scale(.99); }
+.cta:disabled { background: var(--color-border-subtle); color: var(--color-border-strong); cursor: not-allowed; }
+.cta__loading { display: inline-flex; align-items: center; gap: 10px; }
+.spinner { width: 18px; height: 18px; border: 2px solid color-mix(in srgb, var(--color-brand-on-primary) 40%, transparent); border-top-color: var(--color-brand-on-primary); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error { margin: 12px 0 0; color: var(--color-error-text); font-size: 14px; }
+
+.run-card { display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; }
+.run-card__pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--color-brand-primary); flex: none; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-primary) 45%, transparent); } 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-brand-primary) 0%, transparent); } }
+.run-card__body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.run-card__title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-card__meta { font-size: 12px; color: var(--color-text-muted); }
+.run-card__arrow { font-size: 22px; color: var(--color-border-strong); }
+
+.notice { margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--color-brand-subtle); color: var(--color-brand-hover); font-size: 14px; }
+.notice--ok { background: var(--color-success-bg); color: var(--color-success-text); }
+.notice--err { background: var(--color-error-bg); color: var(--color-error-text); }
+.actions { display: flex; gap: 10px; margin-top: 16px; }
+.btn { flex: 1; min-height: 44px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); font: inherit; font-weight: 600; cursor: pointer; }
+.btn--primary { background: var(--color-text-primary); color: var(--color-text-inverse); border-color: var(--color-text-primary); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.foot { margin-top: 40px; text-align: center; font-size: 12px; color: var(--color-text-muted); }
+.foot a { color: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (min-width: 769px) {
+  .main { padding: 40px 24px 60px; max-width: 880px; }
+  .topbar { padding: 12px 24px; }
+  .hero { padding: 16px 0 8px; }
+  .card { padding: 24px; }
 }
 </style>

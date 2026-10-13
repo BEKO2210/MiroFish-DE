@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="160" viewBox="0 0 640 160" role="img" aria-labelledby="title desc">
+  <title id="title">MiroFish Logo</title>
+  <desc id="desc">Bildmarke eines aus einem Punktschwarm geformten Fisches neben dem Schriftzug MiroFish.</desc>
+  <g transform="translate(12 12) scale(.53125)">
+    <g fill="#111111">
+      <path d="M24 128 63 91l4 22c-7 5-12 10-17 15 5 5 10 10 17 15l-4 22Z"/>
+      <circle cx="75" cy="128" r="8"/>
+    </g>
+    <g fill="#ff5722">
+      <circle cx="79" cy="108" r="7"/>
+      <circle cx="82" cy="148" r="6"/>
+      <circle cx="94" cy="94" r="6"/>
+      <circle cx="98" cy="119" r="10"/>
+      <circle cx="98" cy="143" r="8"/>
+      <circle cx="111" cy="160" r="5"/>
+      <circle cx="114" cy="101" r="9"/>
+      <circle cx="119" cy="132" r="11"/>
+      <circle cx="135" cy="153" r="8"/>
+      <circle cx="138" cy="90" r="6"/>
+      <circle cx="143" cy="113" r="10"/>
+      <circle cx="149" cy="136" r="11"/>
+      <circle cx="164" cy="99" r="8"/>
+      <circle cx="171" cy="121" r="12"/>
+      <circle cx="171" cy="145" r="7"/>
+      <path d="M181 92c22 7 39 20 51 36-12 16-29 29-51 36l-13-13 8-18-9-17 9-16Z"/>
+    </g>
+    <circle cx="207" cy="120" r="5" fill="#111111"/>
+  </g>
+  <text x="168" y="104" fill="#111111" font-family="Inter, system-ui, sans-serif" font-size="68" font-weight="700" letter-spacing="-2">Miro<tspan fill="#ff5722">Fish</tspan></text>
+</svg>

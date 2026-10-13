@@ -5,6 +5,7 @@ import SimulationView from '../views/SimulationView.vue'
 import SimulationRunView from '../views/SimulationRunView.vue'
 import ReportView from '../views/ReportView.vue'
 import InteractionView from '../views/InteractionView.vue'
+import RunView from '../views/RunView.vue'
 
 const routes = [
   {
@@ -34,6 +35,12 @@ const routes = [
     path: '/report/:reportId',
     name: 'Report',
     component: ReportView,
+    props: true
+  },
+  {
+    path: '/run/:pipelineId',
+    name: 'Run',
+    component: RunView,
     props: true
   },
   {

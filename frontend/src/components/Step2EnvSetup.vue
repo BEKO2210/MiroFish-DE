@@ -375,7 +375,7 @@
                   <path d="M16.24 7.76L14.12 14.12L7.76 16.24L9.88 9.88L16.24 7.76Z" fill="url(#paint0_linear)" stroke="url(#paint0_linear)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   <defs>
                     <linearGradient id="paint0_linear" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
-                      <stop stop-color="#FF5722"/>
+                      <stop stop-color="var(--color-brand-primary)"/>
                       <stop offset="1" stop-color="#FF9800"/>
                     </linearGradient>
                   </defs>
@@ -1110,8 +1110,8 @@ onUnmounted(() => {
 }
 
 .step-card.active {
-  border-color: #FF5722;
-  box-shadow: 0 4px 12px rgba(255, 87, 34, 0.08);
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
 }
 
 .card-header {
@@ -1154,7 +1154,7 @@ onUnmounted(() => {
 }
 
 .badge.success { background: #E8F5E9; color: #2E7D32; }
-.badge.processing { background: #FF5722; color: #FFF; }
+.badge.processing { background: var(--color-brand-primary); color: #FFF; }
 .badge.pending { background: #F5F5F5; color: #999; }
 .badge.accent { background: #E3F2FD; color: #1565C0; }
 
@@ -1935,7 +1935,7 @@ onUnmounted(() => {
 
 .info-value.mbti {
   font-family: 'JetBrains Mono', monospace;
-  color: #FF5722;
+  color: var(--color-brand-primary);
 }
 
 /* Modulbereich */
@@ -2108,7 +2108,7 @@ onUnmounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid #E5E5E5;
-  border-top-color: #FF5722;
+  border-top-color: var(--color-brand-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -2155,7 +2155,7 @@ onUnmounted(() => {
 }
 
 .special-icon {
-  filter: drop-shadow(0 2px 4px rgba(255, 87, 34, 0.2));
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--color-brand-primary) 20%, transparent));
   transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

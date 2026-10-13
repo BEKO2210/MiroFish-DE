@@ -3185,7 +3185,7 @@ watch(() => props.reportId, (newId) => {
 .tool-badge.tool-orange {
   background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%);
   border-color: #FDBA74;
-  color: #C2410C;
+  color: var(--color-brand-primary);
 }
 .tool-badge.tool-orange .tool-icon {
   stroke: #EA580C;
@@ -4850,7 +4850,7 @@ watch(() => props.reportId, (newId) => {
 :deep(.quicksearch-header .header-title) {
   font-size: 14px;
   font-weight: 700;
-  color: #C2410C;
+  color: var(--color-brand-primary);
 }
 
 :deep(.quicksearch-header .header-stats) {
@@ -5062,7 +5062,7 @@ watch(() => props.reportId, (newId) => {
   border-radius: 4px;
   font-size: 10px;
   font-weight: 500;
-  color: #C2410C;
+  color: var(--color-brand-primary);
   white-space: nowrap;
 }
 

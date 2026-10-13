@@ -6,6 +6,7 @@ jede Stufe unverändert und einzeln nutzbar; der Durchlauf ist nur ein geduldige
 """
 import json
 import os
+import re
 from contextlib import ExitStack
 import threading
 import time
@@ -87,6 +88,7 @@ def _ok(resp):
 
 
 def _set(state, step, status, detail="", **extra):
+    detail = re.sub(r"^\[\w+\]\s*", "", str(detail or ""))  # technische Präfixe wie "[generating]" weg
     state["steps"][step].update({"status": status, "detail": detail, **extra})
     state["current_step"] = step
     _save(state)
@@ -147,7 +149,8 @@ def _run(pid, files, requirement, project_name):
             prog = st.get("progress") or st.get("progress_percent") or 0
             _set(state, "prepare", "running", st.get("message") or st.get("current_step") or "", progress=prog)
             if status in ("ready", "completed") or st.get("already_prepared") or st.get("is_ready"):
-                _set(state, "prepare", "done", f"{st.get('entities_count') or st.get('profiles_count') or ''} Agenten".strip())
+                n = st.get('entities_count') or st.get('profiles_count')
+                _set(state, "prepare", "done", f"{n} Agenten" if n else "Agenten bereit")
                 break
             if status in ("failed", "error"):
                 raise RuntimeError(st.get("error") or "Vorbereitung fehlgeschlagen")
