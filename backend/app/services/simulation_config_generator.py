@@ -869,7 +869,7 @@ Rückgabe-JSON-Format (kein Markdown):
     ]
 }}"""
 
-        system_prompt = "Du bist ein Experte für Social-Media-Verhaltensanalyse. Gib reines JSON zurück, Konfiguration muss chinesischen Tagesrhythmusgewohnheiten entsprechen."
+        system_prompt = "Du bist ein Experte für Social-Media-Verhaltensanalyse. Gib reines JSON zurück, Konfiguration muss dem Tagesrhythmus der Zielgruppe entsprechen (Standard: Mitteleuropa)."
         
         try:
             result = self._call_llm_with_retry(prompt, system_prompt)
