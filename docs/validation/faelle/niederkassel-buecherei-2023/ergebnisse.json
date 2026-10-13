@@ -1,8 +1,8 @@
 [
   {
-    "text_de": "Es wird eine Unterschriftensammlung oder Petition für den Erhalt der Einrichtung durchgeführt.",
+    "text_de": "Fünf Wochen nach dem Beschluss ist eine Petition zum Erhalt der Einrichtung öffentlich bekannt und sammelt weiter Unterstützer.",
     "eingetreten": true,
-    "quelle": "6, 7"
+    "quelle": "6"
   },
   {
     "text_de": "Ein Förderverein oder Verein äußert sich öffentlich enttäuscht oder ablehnend zur Schließung.",
@@ -15,23 +15,13 @@
     "quelle": "6, 7"
   },
   {
-    "text_de": "Die Einrichtung wird wie beschlossen innerhalb von sechs Wochen geschlossen.",
+    "text_de": "Die Stadt stellt den Ausleihbetrieb der Einrichtung wie beschlossen innerhalb von sechs Wochen ein.",
     "eingetreten": true,
     "quelle": "1, 7"
   },
   {
-    "text_de": "Der Rat nimmt den Beschluss zurück oder setzt ihn aus.",
+    "text_de": "Der Rat nimmt den Beschluss innerhalb von fünf Wochen zurück oder setzt ihn aus.",
     "eingetreten": false,
-    "quelle": "1, 6, 7"
-  },
-  {
-    "text_de": "Die Stadt beschließt innerhalb von drei Monaten einen Ersatzstandort für die geschlossene Einrichtung.",
-    "eingetreten": false,
-    "quelle": "6, 7"
-  },
-  {
-    "text_de": "Die Petition für den Erhalt erreicht mehr als 1.000 Unterstützer.",
-    "eingetreten": false,
-    "quelle": "6"
+    "quelle": "1, 6"
   }
 ]

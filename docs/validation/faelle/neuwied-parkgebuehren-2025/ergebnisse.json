@@ -1,0 +1,17 @@
+[
+  {
+    "text_de": "Der Rat nimmt die Erhöhung innerhalb von 3 Monaten nach dem Beschluss zurück oder ändert den Gebührensatz.",
+    "eingetreten": false,
+    "quelle": "3"
+  },
+  {
+    "text_de": "Die Stadt setzt die Erhöhung auf 1,20 Euro pro Stunde wie beschlossen zum 1. März um, dreieinhalb Monate nach dem Beschluss.",
+    "eingetreten": true,
+    "quelle": "3"
+  },
+  {
+    "text_de": "Der Rat beschließt innerhalb von 6 Monaten nach dem Beschluss kostenlosen Busverkehr an allen Samstagen.",
+    "eingetreten": true,
+    "quelle": "4, 5"
+  }
+]

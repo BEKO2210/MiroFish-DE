@@ -14,7 +14,7 @@ Begründung laut Verwaltung:
   Investitionen aus (Investitionsstau).
 - Die Prognosen zur Schülerentwicklung sind für Ostdorf und für die nächstgelegene Grundschule nicht günstig.
 - Rechtliche Rahmenbedingungen des Landesschulamts verlangen Mindestschülerzahlen.
-- Die Kinder sollen künftig die Grundschule in Westau besuchen (rund 10 Kilometer entfernt).
+- Die Kinder sollen künftig die Grundschule in Westau besuchen (rund 8 Kilometer entfernt).
 
 ## Wer die Grundschule Ostdorf heute nutzt
 
