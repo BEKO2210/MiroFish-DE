@@ -113,13 +113,14 @@ sh scripts/start.sh
 `./.env` bzw. ein root-eigenes `data/`) und startet dann `docker compose up -d --build`. Ohne das Skript vorher
 `[ -f .env ] || cp .env.example .env; mkdir -p data` ausführen und `MIROFISH_UID`/`MIROFISH_GID` setzen.
 
-Dann **http://localhost:5001** öffnen. Beim ersten Start kopiert MiroFish die Einstellungen aus `.env` nach
+Dann **http://localhost:5001** öffnen (bei geändertem `MIROFISH_PORT` entsprechend dessen Port). Beim ersten Start kopiert MiroFish die Einstellungen aus `.env` nach
 `data/.env`; dort liegen auch die dauerhaft gespeicherten Einstellungen. **Spätere Änderungen an `./.env` werden
 nicht übernommen** – danach gilt nur `data/.env` (oder die Seite Einstellungen); nach einer Änderung dort
 `docker compose restart`. `FLASK_PORT`/`FLASK_HOST` aus `.env` ignoriert der Container (Port 5001 intern, extern
 über `MIROFISH_PORT`). Uploads, Simulationen und Berichte
 liegen ebenfalls im Ordner `data/`. Einen anderen lokalen Port setzt du vor dem Start in `.env` mit
-`MIROFISH_PORT`. Der Container läuft mit deiner UID/GID (`scripts/start.sh` ermittelt sie per `id -u`/`id -g`; macOS: 501);
+`MIROFISH_PORT`. Für eine zweite Instanz auf demselben Rechner (anderer Ordner) setzt du zusätzlich einen eigenen
+`COMPOSE_PROJECT_NAME` in `.env`, sonst übernimmt Docker Compose die Container der ersten. Der Container läuft mit deiner UID/GID (`scripts/start.sh` ermittelt sie per `id -u`/`id -g`; macOS: 501);
 abweichende Werte kannst du in `.env` als `MIROFISH_UID`/`MIROFISH_GID` setzen. Docker Desktop (macOS/Windows)
 bildet Bind-Mount-Rechte ohnehin auf deinen Benutzer ab, dort stört die UID nicht. Der Container erreicht Ollama auf dem Gastgeber über
 `host.docker.internal`. Docker Desktop (macOS/Windows) braucht keine Freigabe. Unter Linux lässt du Ollama
