@@ -57,6 +57,8 @@ code, pre, .card-id, .mono { font-family: var(--font-mono, 'JetBrains Mono', mon
 @media (max-width: 768px) {
   /* Entwickler-Protokolle am Handy ausblenden: sie überdecken den Inhalt und helfen Nutzern nicht */
   .system-logs, .console-logs { display: none !important; }
+  /* Sprache wählt man am Handy unter Einstellungen; im Kopf der Schrittseiten ist dafür kein Platz */
+  .language-switcher { display: none !important; }
   /* Berichtstitel: lange Wörter umbrechen, Größe fließend */
   .main-title { font-size: clamp(22px, 6.5vw, 30px) !important; overflow-wrap: anywhere; hyphens: auto; }
   .sub-title { font-size: 15px !important; }

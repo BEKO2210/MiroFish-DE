@@ -52,7 +52,7 @@
         <div v-if="selectedItem" class="detail-panel">
           <div class="detail-panel-header">
             <span class="detail-title">{{ selectedItem.type === 'node' ? $t('graph.nodeDetails') : $t('graph.relationship') }}</span>
-            <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: '#fff' }">
+            <span v-if="selectedItem.type === 'node'" class="detail-type-badge" :style="{ background: selectedItem.color, color: 'var(--color-bg-surface-raised)' }">
               {{ selectedItem.entityType }}
             </span>
             <button class="detail-close" @click="closeDetailPanel">×</button>
@@ -238,6 +238,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import * as d3 from 'd3'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   graphData: Object,
@@ -289,7 +292,7 @@ const entityTypes = computed(() => {
   const colors = ['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#3498db', '#9b59b6', '#27ae60', '#f39c12']
   
   props.graphData.nodes.forEach(node => {
-    const type = node.labels?.find(l => l !== 'Entity') || 'Entity'
+    const type = node.labels?.find(l => l !== 'Entity') || t('graph.entity')
     if (!typeMap[type]) {
       typeMap[type] = { name: type, count: 0, color: colors[Object.keys(typeMap).length % colors.length] }
     }
@@ -355,8 +358,8 @@ const renderGraph = () => {
   
   const nodes = nodesData.map(n => ({
     id: n.uuid,
-    name: n.name || 'Unnamed',
-    type: n.labels?.find(l => l !== 'Entity') || 'Entity',
+    name: n.name || t('graph.unknown'),
+    type: n.labels?.find(l => l !== 'Entity') || t('graph.entity'),
     rawData: n
   }))
   
@@ -403,7 +406,7 @@ const renderGraph = () => {
       processedSelfLoopNodes.add(e.source_node_uuid)
       
       const allSelfLoops = selfLoopEdges[e.source_node_uuid]
-      const nodeName = nodeMap[e.source_node_uuid]?.name || 'Unknown'
+      const nodeName = nodeMap[e.source_node_uuid]?.name || t('graph.unknown')
       
       edges.push({
         source: e.source_node_uuid,
@@ -449,8 +452,8 @@ const renderGraph = () => {
     edges.push({
       source: e.source_node_uuid,
       target: e.target_node_uuid,
-      type: e.fact_type || e.name || 'RELATED',
-      name: e.name || e.fact_type || 'RELATED',
+      type: e.fact_type || e.name || t('graph.relationship'),
+      name: e.name || e.fact_type || t('graph.relationship'),
       curvature,
       isSelfLoop: false,
       pairIndex: currentIndex,
@@ -466,7 +469,7 @@ const renderGraph = () => {
   // Color scale
   const colorMap = {}
   entityTypes.value.forEach(t => colorMap[t.name] = t.color)
-  const getColor = (type) => colorMap[type] || '#999'
+  const getColor = (type) => colorMap[type] || 'var(--color-text-muted)'
 
   // Simulation - Knotenabstand dynamisch nach Kantenanzahl anpassen
   const simulation = d3.forceSimulation(nodes)
@@ -571,18 +574,18 @@ const renderGraph = () => {
   const link = linkGroup.selectAll('path')
     .data(edges)
     .enter().append('path')
-    .attr('stroke', '#C0C0C0')
+    .attr('stroke', 'var(--color-border-strong)')
     .attr('stroke-width', 1.5)
     .attr('fill', 'none')
     .style('cursor', 'pointer')
     .on('click', (event, d) => {
       event.stopPropagation()
       // Stil der zuvor ausgewählten Kante zurücksetzen
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--color-bg-surface-raised)')
+      linkLabels.attr('fill', 'var(--color-text-secondary)')
       // Aktuell ausgewählte Kante hervorheben
-      d3.select(event.target).attr('stroke', '#3498db').attr('stroke-width', 3)
+      d3.select(event.target).attr('stroke', 'var(--color-info-text)').attr('stroke-width', 3)
       
       selectedItem.value = {
         type: 'edge',
@@ -594,7 +597,7 @@ const renderGraph = () => {
   const linkLabelBg = linkGroup.selectAll('rect')
     .data(edges)
     .enter().append('rect')
-    .attr('fill', 'rgba(255,255,255,0.95)')
+    .attr('fill', 'var(--color-bg-surface-raised)')
     .attr('rx', 3)
     .attr('ry', 3)
     .style('cursor', 'pointer')
@@ -602,12 +605,12 @@ const renderGraph = () => {
     .style('display', showEdgeLabels.value ? 'block' : 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--color-bg-surface-raised)')
+      linkLabels.attr('fill', 'var(--color-text-secondary)')
       // Zugehörige Kante hervorheben
-      link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
-      d3.select(event.target).attr('fill', 'rgba(52, 152, 219, 0.1)')
+      link.filter(l => l === d).attr('stroke', 'var(--color-info-text)').attr('stroke-width', 3)
+      d3.select(event.target).attr('fill', 'var(--color-info-bg)')
 
       selectedItem.value = {
         type: 'edge',
@@ -621,7 +624,7 @@ const renderGraph = () => {
     .enter().append('text')
     .text(d => d.name)
     .attr('font-size', '9px')
-    .attr('fill', '#666')
+    .attr('fill', 'var(--color-text-secondary)')
     .attr('text-anchor', 'middle')
     .attr('dominant-baseline', 'middle')
     .style('cursor', 'pointer')
@@ -630,12 +633,12 @@ const renderGraph = () => {
     .style('display', showEdgeLabels.value ? 'block' : 'none')
     .on('click', (event, d) => {
       event.stopPropagation()
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-      linkLabels.attr('fill', '#666')
+      linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'var(--color-bg-surface-raised)')
+      linkLabels.attr('fill', 'var(--color-text-secondary)')
       // Zugehörige Kante hervorheben
-      link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
-      d3.select(event.target).attr('fill', '#3498db')
+      link.filter(l => l === d).attr('stroke', 'var(--color-info-text)').attr('stroke-width', 3)
+      d3.select(event.target).attr('fill', 'var(--color-info-text)')
       
       selectedItem.value = {
         type: 'edge',
@@ -656,7 +659,7 @@ const renderGraph = () => {
     .enter().append('circle')
     .attr('r', 10)
     .attr('fill', d => getColor(d.type))
-    .attr('stroke', '#fff')
+    .attr('stroke', 'var(--color-bg-surface-raised)')
     .attr('stroke-width', 2.5)
     .style('cursor', 'pointer')
     .call(d3.drag()
@@ -698,13 +701,13 @@ const renderGraph = () => {
     .on('click', (event, d) => {
       event.stopPropagation()
       // Alle Knotenstile zurücksetzen
-      node.attr('stroke', '#fff').attr('stroke-width', 2.5)
-      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
+      node.attr('stroke', 'var(--color-bg-surface-raised)').attr('stroke-width', 2.5)
+      linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
       // Ausgewählten Knoten hervorheben
-      d3.select(event.target).attr('stroke', '#E91E63').attr('stroke-width', 4)
+      d3.select(event.target).attr('stroke', 'var(--color-error-text)').attr('stroke-width', 4)
       // Mit diesem Knoten verbundene Kanten hervorheben
       link.filter(l => l.source.id === d.id || l.target.id === d.id)
-        .attr('stroke', '#E91E63')
+        .attr('stroke', 'var(--color-error-text)')
         .attr('stroke-width', 2.5)
       
       selectedItem.value = {
@@ -716,12 +719,12 @@ const renderGraph = () => {
     })
     .on('mouseenter', (event, d) => {
       if (!selectedItem.value || selectedItem.value.data?.uuid !== d.rawData.uuid) {
-        d3.select(event.target).attr('stroke', '#333').attr('stroke-width', 3)
+        d3.select(event.target).attr('stroke', 'var(--color-text-primary)').attr('stroke-width', 3)
       }
     })
     .on('mouseleave', (event, d) => {
       if (!selectedItem.value || selectedItem.value.data?.uuid !== d.rawData.uuid) {
-        d3.select(event.target).attr('stroke', '#fff').attr('stroke-width', 2.5)
+        d3.select(event.target).attr('stroke', 'var(--color-bg-surface-raised)').attr('stroke-width', 2.5)
       }
     })
 
@@ -731,7 +734,7 @@ const renderGraph = () => {
     .enter().append('text')
     .text(d => d.name.length > 8 ? d.name.substring(0, 8) + '…' : d.name)
     .attr('font-size', '11px')
-    .attr('fill', '#333')
+    .attr('fill', 'var(--color-text-primary)')
     .attr('font-weight', '500')
     .attr('dx', 14)
     .attr('dy', 4)
@@ -776,10 +779,10 @@ const renderGraph = () => {
   // Klick auf leere Fläche schließt Detailbereich
   svg.on('click', () => {
     selectedItem.value = null
-    node.attr('stroke', '#fff').attr('stroke-width', 2.5)
-    linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
-    linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
-    linkLabels.attr('fill', '#666')
+    node.attr('stroke', 'var(--color-bg-surface-raised)').attr('stroke-width', 2.5)
+    linkGroup.selectAll('path').attr('stroke', 'var(--color-border-strong)').attr('stroke-width', 1.5)
+    linkLabelBg.attr('fill', 'var(--color-bg-surface-raised)')
+    linkLabels.attr('fill', 'var(--color-text-secondary)')
   })
 }
 
@@ -818,8 +821,8 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: #FAFAFA;
-  background-image: radial-gradient(#D0D0D0 1.5px, transparent 1.5px);
+  background-color: var(--color-bg-surface-subtle);
+  background-image: radial-gradient(var(--color-border-strong) 1.5px, transparent 1.5px);
   background-size: 24px 24px;
   overflow: hidden;
 }
@@ -834,14 +837,14 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.95), rgba(255,255,255,0));
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--color-text-primary) 12%, transparent), color-mix(in srgb, var(--color-text-primary) 12%, transparent));
   pointer-events: none;
 }
 
 .panel-title {
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
   pointer-events: auto;
 }
 
@@ -855,24 +858,24 @@ onUnmounted(() => {
 .tool-btn {
   height: 32px;
   padding: 0 12px;
-  border: 1px solid #E0E0E0;
-  background: #FFF;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface-raised);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
-  color: #666;
+  color: var(--color-text-secondary);
   transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   font-size: 13px;
 }
 
 .tool-btn:hover {
-  background: #F5F5F5;
-  color: #000;
-  border-color: #CCC;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
 }
 
 .tool-btn .btn-text {
@@ -902,7 +905,7 @@ onUnmounted(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   text-align: center;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .empty-icon {
@@ -916,11 +919,11 @@ onUnmounted(() => {
   position: absolute;
   bottom: 24px;
   left: 24px;
-  background: rgba(255,255,255,0.95);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   padding: 12px 16px;
   border-radius: 8px;
-  border: 1px solid #EAEAEA;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   z-index: 10;
 }
 
@@ -928,10 +931,10 @@ onUnmounted(() => {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: #E91E63;
+  color: var(--color-error-text);
   margin-bottom: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .legend-items {
@@ -946,7 +949,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #555;
+  color: var(--color-text-secondary);
 }
 
 .legend-dot {
@@ -968,11 +971,11 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
   padding: 8px 14px;
   border-radius: 20px;
-  border: 1px solid #E0E0E0;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid var(--color-border-default);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   z-index: 10;
 }
 
@@ -996,7 +999,7 @@ onUnmounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: #E0E0E0;
+  background-color: var(--color-border-default);
   border-radius: 22px;
   transition: 0.3s;
 }
@@ -1008,13 +1011,13 @@ onUnmounted(() => {
   width: 16px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background: var(--color-bg-surface-raised);
   border-radius: 50%;
   transition: 0.3s;
 }
 
 input:checked + .slider {
-  background-color: #7B2D8E;
+  background-color: var(--color-info-text);
 }
 
 input:checked + .slider:before {
@@ -1023,7 +1026,7 @@ input:checked + .slider:before {
 
 .toggle-label {
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 /* Detail Panel - Right Side */
@@ -1033,12 +1036,12 @@ input:checked + .slider:before {
   right: 20px;
   width: 320px;
   max-height: calc(100% - 100px);
-  background: #FFF;
-  border: 1px solid #EAEAEA;
+  background: var(--color-bg-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   overflow: hidden;
-  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
   z-index: 20;
   display: flex;
@@ -1050,14 +1053,14 @@ input:checked + .slider:before {
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  background: #FAFAFA;
-  border-bottom: 1px solid #EEE;
+  background: var(--color-bg-surface-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
 
 .detail-title {
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
   font-size: 14px;
 }
 
@@ -1075,14 +1078,14 @@ input:checked + .slider:before {
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #999;
+  color: var(--color-text-muted);
   line-height: 1;
   padding: 0;
   transition: color 0.2s;
 }
 
 .detail-close:hover {
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .detail-content {
@@ -1099,39 +1102,39 @@ input:checked + .slider:before {
 }
 
 .detail-label {
-  color: #888;
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 500;
   min-width: 80px;
 }
 
 .detail-value {
-  color: #333;
+  color: var(--color-text-primary);
   flex: 1;
   word-break: break-word;
 }
 
 .detail-value.uuid-text {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-body);
   font-size: 11px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .detail-value.fact-text {
   line-height: 1.5;
-  color: #444;
+  color: var(--color-text-secondary);
 }
 
 .detail-section {
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid #F0F0F0;
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-secondary);
   margin-bottom: 10px;
 }
 
@@ -1147,19 +1150,19 @@ input:checked + .slider:before {
 }
 
 .property-key {
-  color: #888;
+  color: var(--color-text-muted);
   font-weight: 500;
   min-width: 90px;
 }
 
 .property-value {
-  color: #333;
+  color: var(--color-text-primary);
   flex: 1;
 }
 
 .summary-text {
   line-height: 1.6;
-  color: #444;
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -1172,11 +1175,11 @@ input:checked + .slider:before {
 .label-tag {
   display: inline-block;
   padding: 4px 12px;
-  background: #F5F5F5;
-  border: 1px solid #E0E0E0;
+  background: var(--color-bg-surface-subtle);
+  border: 1px solid var(--color-border-default);
   border-radius: 16px;
   font-size: 11px;
-  color: #555;
+  color: var(--color-text-secondary);
 }
 
 .episodes-list {
@@ -1188,24 +1191,24 @@ input:checked + .slider:before {
 .episode-tag {
   display: inline-block;
   padding: 6px 10px;
-  background: #F8F8F8;
-  border: 1px solid #E8E8E8;
+  background: var(--color-bg-surface-subtle);
+  border: 1px solid var(--color-border-default);
   border-radius: 6px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-body);
   font-size: 10px;
-  color: #666;
+  color: var(--color-text-secondary);
   word-break: break-all;
 }
 
 /* Edge relation header */
 .edge-relation-header {
-  background: #F8F8F8;
+  background: var(--color-bg-surface-subtle);
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 16px;
   font-size: 13px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-primary);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -1216,19 +1219,19 @@ input:checked + .slider:before {
   bottom: 160px; /* Moved up from 80px */
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.65);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   backdrop-filter: blur(8px);
-  color: #fff;
+  color: var(--color-text-inverse);
   padding: 10px 20px;
   border-radius: 30px;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   font-weight: 500;
-  letter-spacing: 0.5px;
+  letter-spacing: normal;
   z-index: 100;
 }
 
@@ -1242,18 +1245,18 @@ input:checked + .slider:before {
 .memory-icon {
   width: 18px;
   height: 18px;
-  color: #4CAF50;
+  color: var(--color-success-text);
 }
 
 @keyframes breathe {
-  0%, 100% { opacity: 0.7; transform: scale(1); filter: drop-shadow(0 0 2px rgba(76, 175, 80, 0.3)); }
-  50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 8px rgba(76, 175, 80, 0.6)); }
+  0%, 100% { opacity: 0.7; transform: scale(1); filter: drop-shadow(0 0 2px color-mix(in srgb, var(--color-text-primary) 12%, transparent)); }
+  50% { opacity: 1; transform: scale(1.15); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-text-primary) 12%, transparent)); }
 }
 
 /* Hinweisstil nach Simulationsende */
 .graph-building-hint.finished-hint {
-  background: rgba(0, 0, 0, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
 .finished-hint .hint-icon-wrapper {
@@ -1265,7 +1268,7 @@ input:checked + .slider:before {
 .finished-hint .hint-icon {
   width: 18px;
   height: 18px;
-  color: #FFF;
+  color: var(--color-text-inverse);
 }
 
 .finished-hint .hint-text {
@@ -1279,18 +1282,18 @@ input:checked + .slider:before {
   justify-content: center;
   width: 22px;
   height: 22px;
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  color: #FFF;
+  color: var(--color-text-inverse);
   transition: all 0.2s;
   margin-left: 8px;
   flex-shrink: 0;
 }
 
 .hint-close-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   transform: scale(1.1);
 }
 
@@ -1298,8 +1301,8 @@ input:checked + .slider:before {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid #E0E0E0;
-  border-top-color: #7B2D8E;
+  border: 3px solid var(--color-border-default);
+  border-top-color: var(--color-info-text);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
@@ -1310,15 +1313,15 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, #E8F5E9 0%, #F1F8E9 100%);
-  border: 1px solid #C8E6C9;
+  background: linear-gradient(135deg, var(--color-success-bg) 0%, var(--color-success-bg) 100%);
+  border: 1px solid var(--color-success-border);
 }
 
 .self-loop-count {
   margin-left: auto;
   font-size: 11px;
-  color: #666;
-  background: rgba(255,255,255,0.8);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   padding: 2px 8px;
   border-radius: 10px;
 }
@@ -1330,8 +1333,8 @@ input:checked + .slider:before {
 }
 
 .self-loop-item {
-  background: #FAFAFA;
-  border: 1px solid #EAEAEA;
+  background: var(--color-bg-surface-subtle);
+  border: 1px solid var(--color-border-subtle);
   border-radius: 8px;
 }
 
@@ -1340,24 +1343,24 @@ input:checked + .slider:before {
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  background: #F5F5F5;
+  background: var(--color-bg-surface-subtle);
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .self-loop-item-header:hover {
-  background: #EEEEEE;
+  background: var(--color-border-subtle);
 }
 
 .self-loop-item.expanded .self-loop-item-header {
-  background: #E8E8E8;
+  background: var(--color-border-default);
 }
 
 .self-loop-index {
   font-size: 10px;
   font-weight: 600;
-  color: #888;
-  background: #E0E0E0;
+  color: var(--color-text-muted);
+  background: var(--color-border-default);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1365,7 +1368,7 @@ input:checked + .slider:before {
 .self-loop-name {
   font-size: 12px;
   font-weight: 500;
-  color: #333;
+  color: var(--color-text-primary);
   flex: 1;
 }
 
@@ -1377,20 +1380,20 @@ input:checked + .slider:before {
   justify-content: center;
   font-size: 14px;
   font-weight: 600;
-  color: #888;
-  background: #E0E0E0;
+  color: var(--color-text-muted);
+  background: var(--color-border-default);
   border-radius: 4px;
   transition: all 0.2s;
 }
 
 .self-loop-item.expanded .self-loop-toggle {
-  background: #D0D0D0;
-  color: #666;
+  background: var(--color-border-strong);
+  color: var(--color-text-secondary);
 }
 
 .self-loop-item-content {
   padding: 12px;
-  border-top: 1px solid #EAEAEA;
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .self-loop-item-content .detail-row {
@@ -1419,5 +1422,18 @@ input:checked + .slider:before {
 .episode-tag.small {
   padding: 3px 6px;
   font-size: 9px;
+}
+/* Mobile-first polish */
+button, [role="button"] { min-height: var(--touch-target-min); }
+h1, h2, h3, h4, h5, h6, .panel-title { font-family: var(--font-heading); }
+.detail-value, .property-value, .relation-text { overflow-wrap: anywhere; word-break: break-word; }
+@media (max-width: 768px) {
+  .panel-header { padding: 12px 16px; gap: 8px; flex-wrap: wrap; }
+  .header-tools { gap: 6px; }
+  .tool-btn { min-width: 44px; height: 44px; padding-inline: 10px; }
+  .detail-panel { inset-inline: 8px; width: auto; max-width: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 </style>

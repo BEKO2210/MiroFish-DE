@@ -170,7 +170,7 @@
                   <div v-if="action.action_args?.original_content" class="quoted-block">
                     <div class="quote-header">
                       <svg class="icon-small" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                      <span class="quote-label">@{{ action.action_args.original_author_name || 'User' }}</span>
+                      <span class="quote-label">@{{ action.action_args.original_author_name || $t('step3.user') }}</span>
                     </div>
                     <div class="quote-text">
                       {{ truncateContent(action.action_args.original_content, 150) }}
@@ -182,7 +182,7 @@
                 <template v-if="action.action_type === 'REPOST'">
                   <div class="repost-info">
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-                    <span class="repost-label">Repostet von @{{ action.action_args?.original_author_name || 'User' }}</span>
+                    <span class="repost-label">{{ $t('step3.repostedBy', { user: action.action_args?.original_author_name || $t('step3.user') }) }}</span>
                   </div>
                   <div v-if="action.action_args?.original_content" class="repost-content">
                     {{ truncateContent(action.action_args.original_content, 200) }}
@@ -193,7 +193,7 @@
                 <template v-if="action.action_type === 'LIKE_POST'">
                   <div class="like-info">
                     <svg class="icon-small filled" viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-                    <span class="like-label">Hat den Beitrag von @{{ action.action_args?.post_author_name || 'User' }} geliked</span>
+                    <span class="like-label">{{ $t('step3.likedPostBy', { user: action.action_args?.post_author_name || $t('step3.user') }) }}</span>
                   </div>
                   <div v-if="action.action_args?.post_content" class="liked-content">
                     "{{ truncateContent(action.action_args.post_content, 120) }}"
@@ -224,7 +224,7 @@
                 <template v-if="action.action_type === 'FOLLOW'">
                   <div class="follow-info">
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
-                    <span class="follow-label">{{ $t('step3.nowFollowing', { user: action.action_args?.target_user || action.action_args?.user_id || 'User' }) }}</span>
+                    <span class="follow-label">{{ $t('step3.nowFollowing', { user: action.action_args?.target_user || action.action_args?.user_id || $t('step3.user') }) }}</span>
                   </div>
                 </template>
 
@@ -273,7 +273,6 @@
     <div class="system-logs">
       <div class="log-header">
         <span class="log-title">{{ $t('step3.simulationMonitor') }}</span>
-        <span class="log-id">{{ simulationId || 'NO_SIMULATION' }}</span>
       </div>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in systemLogs" :key="idx">
@@ -594,19 +593,19 @@ const fetchRunStatusDetail = async () => {
 // Hilfsfunktionen
 const getActionTypeLabel = (type) => {
   const labels = {
-    'CREATE_POST': 'POST',
-    'REPOST': 'REPOST',
-    'LIKE_POST': 'LIKE',
-    'CREATE_COMMENT': 'COMMENT',
-    'LIKE_COMMENT': 'LIKE',
-    'DO_NOTHING': 'IDLE',
-    'FOLLOW': 'FOLLOW',
-    'SEARCH_POSTS': 'SEARCH',
-    'QUOTE_POST': 'QUOTE',
-    'UPVOTE_POST': 'UPVOTE',
-    'DOWNVOTE_POST': 'DOWNVOTE'
+    'CREATE_POST': t('step3.post'),
+    'REPOST': t('step3.repost'),
+    'LIKE_POST': t('step3.like'),
+    'CREATE_COMMENT': t('step3.comment'),
+    'LIKE_COMMENT': t('step3.like'),
+    'DO_NOTHING': t('step3.idle'),
+    'FOLLOW': t('step3.follow'),
+    'SEARCH_POSTS': t('step3.search'),
+    'QUOTE_POST': t('step3.quote'),
+    'UPVOTE_POST': t('step3.upvoted'),
+    'DOWNVOTE_POST': t('step3.downvoted')
   }
-  return labels[type] || type || 'UNKNOWN'
+  return labels[type] || t('common.none')
 }
 
 const getActionTypeClass = (type) => {
@@ -687,11 +686,33 @@ watch(() => props.systemLogs?.length, () => {
   })
 })
 
-onMounted(() => {
+onMounted(async () => {
   addLog(t('step3.initialized'))
-  if (props.simulationId) {
-    doStartSimulation()
+  if (!props.simulationId) return
+  // Laufende oder schon gelaufene Simulation nur anzeigen: doStartSimulation startet mit force neu und löscht
+  // dabei die bisherigen Ergebnisse. Gestartet wird nur, was noch nie lief (Weg aus Schritt 2).
+  try {
+    const d = (await getRunStatus(props.simulationId))?.data
+    if (d && ['running', 'starting'].includes(d.runner_status)) {
+      runStatus.value = d
+      phase.value = 1
+      emit('update-status', 'processing')
+      startStatusPolling()
+      startDetailPolling()
+      return
+    }
+    if (d && ((d.current_round || 0) > 0 || ['completed', 'stopped', 'failed'].includes(d.runner_status))) {
+      runStatus.value = d
+      phase.value = 2
+      await fetchRunStatusDetail()
+      emit('update-status', 'completed')
+      return
+    }
+  } catch (err) {
+    startError.value = t('step3.laufzeitstatusKonnteNichtAbgerufenWerden')
+    return
   }
+  doStartSimulation()
 })
 
 onUnmounted(() => {
@@ -704,19 +725,19 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #FFFFFF;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
+  background: var(--color-bg-surface-raised);
+  font-family: var(--font-body);
   overflow: hidden;
 }
 
 /* --- Control Bar --- */
 .control-bar {
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
   padding: 12px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--color-border-subtle);
   z-index: 10;
   height: 64px;
 }
@@ -733,8 +754,8 @@ onUnmounted(() => {
   gap: 4px;
   padding: 6px 12px;
   border-radius: 4px;
-  background: #FAFAFA;
-  border: 1px solid #EAEAEA;
+  background: var(--color-bg-surface-subtle);
+  border: 1px solid var(--color-border-subtle);
   opacity: 0.7;
   transition: all 0.3s;
   min-width: 140px;
@@ -744,14 +765,14 @@ onUnmounted(() => {
 
 .platform-status.active {
   opacity: 1;
-  border-color: #333;
-  background: #FFF;
+  border-color: var(--color-text-primary);
+  background: var(--color-bg-surface-raised);
 }
 
 .platform-status.completed {
   opacity: 1;
-  border-color: #1A936F;
-  background: #F2FAF6;
+  border-color: var(--color-success-text);
+  background: var(--color-success-bg);
 }
 
 /* Actions Tooltip */
@@ -762,10 +783,10 @@ onUnmounted(() => {
   transform: translateX(-50%);
   margin-top: 8px;
   padding: 10px 14px;
-  background: #000;
-  color: #FFF;
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   opacity: 0;
   visibility: hidden;
   transition: all 0.2s ease;
@@ -782,7 +803,7 @@ onUnmounted(() => {
   transform: translateX(-50%);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-bottom: 6px solid #000;
+  border-bottom: 6px solid var(--color-text-primary);
 }
 
 .platform-status:hover .actions-tooltip {
@@ -793,9 +814,9 @@ onUnmounted(() => {
 .tooltip-title {
   font-size: 10px;
   font-weight: 600;
-  color: #999;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+  text-transform: none;
+  letter-spacing: normal;
   margin-bottom: 8px;
 }
 
@@ -809,10 +830,10 @@ onUnmounted(() => {
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   border-radius: 2px;
-  color: #FFF;
-  letter-spacing: 0.03em;
+  color: var(--color-text-inverse);
+  letter-spacing: normal;
 }
 
 .platform-header {
@@ -825,13 +846,13 @@ onUnmounted(() => {
 .platform-name {
   font-size: 11px;
   font-weight: 700;
-  color: #000;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: var(--color-text-primary);
+  text-transform: none;
+  letter-spacing: normal;
 }
 
-.platform-status.twitter .platform-icon { color: #000; }
-.platform-status.reddit .platform-icon { color: #000; }
+.platform-status.twitter .platform-icon { color: var(--color-text-primary); }
+.platform-status.reddit .platform-icon { color: var(--color-text-primary); }
 
 .platform-stats {
   display: flex;
@@ -846,27 +867,27 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 8px;
-  color: #999;
+  color: var(--color-text-muted);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .stat-value {
   font-size: 11px;
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .stat-total, .stat-unit {
   font-size: 9px;
-  color: #999;
+  color: var(--color-text-muted);
   font-weight: 400;
 }
 
 .status-badge {
   margin-left: auto;
-  color: #1A936F;
+  color: var(--color-success-text);
   display: flex;
   align-items: center;
 }
@@ -883,17 +904,17 @@ onUnmounted(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .action-btn.primary {
-  background: #000;
-  color: #FFF;
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
 }
 
 .action-btn.primary:hover:not(:disabled) {
-  background: #333;
+  background: var(--color-text-primary);
 }
 
 .action-btn:disabled {
@@ -906,17 +927,17 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   position: relative;
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
 }
 
 /* Timeline Header */
 .timeline-header {
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   backdrop-filter: blur(8px);
   padding: 12px 24px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--color-border-subtle);
   z-index: 5;
   display: flex;
   justify-content: center;
@@ -927,15 +948,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 16px;
   font-size: 11px;
-  color: #666;
-  background: #F5F5F5;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-surface-subtle);
   padding: 4px 12px;
   border-radius: 20px;
 }
 
 .total-count {
   font-weight: 600;
-  color: #333;
+  color: var(--color-text-primary);
 }
 
 .platform-breakdown {
@@ -950,9 +971,9 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-.breakdown-divider { color: #DDD; }
-.breakdown-item.twitter { color: #000; }
-.breakdown-item.reddit { color: #000; }
+.breakdown-divider { color: var(--color-border-default); }
+.breakdown-item.twitter { color: var(--color-text-primary); }
+.breakdown-item.reddit { color: var(--color-text-primary); }
 
 /* --- Timeline Feed --- */
 .timeline-feed {
@@ -969,7 +990,7 @@ onUnmounted(() => {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #EAEAEA; /* Cleaner line */
+  background: var(--color-border-subtle); /* Cleaner line */
   transform: translateX(-50%);
 }
 
@@ -987,8 +1008,8 @@ onUnmounted(() => {
   top: 24px;
   width: 10px;
   height: 10px;
-  background: #FFF;
-  border: 1px solid #CCC;
+  background: var(--color-bg-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: 50%;
   transform: translateX(-50%);
   z-index: 2;
@@ -1000,30 +1021,30 @@ onUnmounted(() => {
 .marker-dot {
   width: 4px;
   height: 4px;
-  background: #CCC;
+  background: var(--color-border-strong);
   border-radius: 50%;
 }
 
-.timeline-item.twitter .marker-dot { background: #000; }
-.timeline-item.reddit .marker-dot { background: #000; }
-.timeline-item.twitter .timeline-marker { border-color: #000; }
-.timeline-item.reddit .timeline-marker { border-color: #000; }
+.timeline-item.twitter .marker-dot { background: var(--color-text-primary); }
+.timeline-item.reddit .marker-dot { background: var(--color-text-primary); }
+.timeline-item.twitter .timeline-marker { border-color: var(--color-text-primary); }
+.timeline-item.reddit .timeline-marker { border-color: var(--color-text-primary); }
 
 /* Card Layout */
 .timeline-card {
   width: calc(100% - 48px);
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
   border-radius: 2px;
   padding: 16px 20px;
-  border: 1px solid #EAEAEA;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   position: relative;
   transition: all 0.2s;
 }
 
 .timeline-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-  border-color: #DDD;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-color: var(--color-border-default);
 }
 
 /* Left side (Twitter) */
@@ -1053,7 +1074,7 @@ onUnmounted(() => {
   align-items: flex-start;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #F5F5F5;
+  border-bottom: 1px solid var(--color-bg-surface-subtle);
 }
 
 .agent-info {
@@ -1065,21 +1086,21 @@ onUnmounted(() => {
 .avatar-placeholder {
   width: 24px;
   height: 24px;
-  background: #000;
-  color: #FFF;
+  background: var(--color-text-primary);
+  color: var(--color-text-inverse);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 .agent-name {
   font-size: 13px;
   font-weight: 600;
-  color: #000;
+  color: var(--color-text-primary);
 }
 
 .header-meta {
@@ -1089,7 +1110,7 @@ onUnmounted(() => {
 }
 
 .platform-indicator {
-  color: #999;
+  color: var(--color-text-muted);
   display: flex;
   align-items: center;
 }
@@ -1099,39 +1120,39 @@ onUnmounted(() => {
   padding: 2px 6px;
   border-radius: 2px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  text-transform: none;
+  letter-spacing: normal;
   border: 1px solid transparent;
 }
 
 /* Monochromatic Badges */
-.badge-post { background: #F0F0F0; color: #333; border-color: #E0E0E0; }
-.badge-comment { background: #F0F0F0; color: #666; border-color: #E0E0E0; }
-.badge-action { background: #FFF; color: #666; border: 1px solid #E0E0E0; }
-.badge-meta { background: #FAFAFA; color: #999; border: 1px dashed #DDD; }
+.badge-post { background: var(--color-border-subtle); color: var(--color-text-primary); border-color: var(--color-border-default); }
+.badge-comment { background: var(--color-border-subtle); color: var(--color-text-secondary); border-color: var(--color-border-default); }
+.badge-action { background: var(--color-bg-surface-raised); color: var(--color-text-secondary); border: 1px solid var(--color-border-default); }
+.badge-meta { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); border: 1px dashed var(--color-border-default); }
 .badge-idle { opacity: 0.5; }
 
 .content-text {
   font-size: 13px;
   line-height: 1.6;
-  color: #333;
+  color: var(--color-text-primary);
   margin-bottom: 10px;
 }
 
 .content-text.main-text {
   font-size: 14px;
-  color: #000;
+  color: var(--color-text-primary);
 }
 
 /* Info Blocks (Quote, Repost, etc) */
 .quoted-block, .repost-content {
-  background: #F9F9F9;
-  border: 1px solid #EEE;
+  background: var(--color-bg-surface-subtle);
+  border: 1px solid var(--color-border-subtle);
   padding: 10px 12px;
   border-radius: 2px;
   margin-top: 8px;
   font-size: 12px;
-  color: #555;
+  color: var(--color-text-secondary);
 }
 
 .quote-header, .repost-info, .like-info, .search-info, .follow-info, .vote-info, .idle-info, .comment-context {
@@ -1140,19 +1161,19 @@ onUnmounted(() => {
   gap: 6px;
   margin-bottom: 6px;
   font-size: 11px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .icon-small {
-  color: #999;
+  color: var(--color-text-muted);
 }
 .icon-small.filled {
-  color: #999; /* Keep icons neutral unless highlighted */
+  color: var(--color-text-muted); /* Keep icons neutral unless highlighted */
 }
 
 .search-query {
-  font-family: 'JetBrains Mono', monospace;
-  background: #F0F0F0;
+  font-family: var(--font-body);
+  background: var(--color-border-subtle);
   padding: 0 4px;
   border-radius: 2px;
 }
@@ -1162,8 +1183,8 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   font-size: 10px;
-  color: #BBB;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--color-border-strong);
+  font-family: var(--font-body);
 }
 
 /* Waiting State */
@@ -1176,23 +1197,23 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: #CCC;
+  color: var(--color-border-strong);
   font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .pulse-ring {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid #EAEAEA;
+  border: 1px solid var(--color-border-subtle);
   animation: ripple 2s infinite;
 }
 
 @keyframes ripple {
-  0% { transform: scale(0.8); opacity: 1; border-color: #CCC; }
-  100% { transform: scale(2.5); opacity: 0; border-color: #EAEAEA; }
+  0% { transform: scale(0.8); opacity: 1; border-color: var(--color-border-strong); }
+  100% { transform: scale(2.5); opacity: 0; border-color: var(--color-border-subtle); }
 }
 
 /* Animation */
@@ -1212,22 +1233,22 @@ onUnmounted(() => {
 
 /* Logs */
 .system-logs {
-  background: #000;
-  color: #DDD;
+  background: var(--color-text-primary);
+  color: var(--color-border-default);
   padding: 16px;
-  font-family: 'JetBrains Mono', monospace;
-  border-top: 1px solid #222;
+  font-family: var(--font-body);
+  border-top: 1px solid var(--color-text-primary);
   flex-shrink: 0;
 }
 
 .log-header {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--color-text-primary);
   padding-bottom: 8px;
   margin-bottom: 8px;
   font-size: 10px;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .log-content {
@@ -1240,7 +1261,7 @@ onUnmounted(() => {
 }
 
 .log-content::-webkit-scrollbar { width: 4px; }
-.log-content::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+.log-content::-webkit-scrollbar-thumb { background: var(--color-text-primary); border-radius: 2px; }
 
 .log-line {
   font-size: 11px;
@@ -1249,19 +1270,42 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
-.log-time { color: #555; min-width: 75px; }
-.log-msg { color: #BBB; word-break: break-all; }
-.mono { font-family: 'JetBrains Mono', monospace; }
+.log-time { color: var(--color-text-secondary); min-width: 75px; }
+.log-msg { color: var(--color-border-strong); word-break: break-all; }
+.mono { font-family: var(--font-body); }
 
 /* Loading spinner for button */
 .loading-spinner-small {
   display: inline-block;
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #FFF;
+  border: 2px solid color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  border-top-color: var(--color-text-inverse);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin-right: 6px;
+}
+/* Mobile-first polish */
+button, [role="button"], input, select, textarea { min-height: var(--touch-target-min); }
+h1, h2, h3, h4, h5, h6, .platform-name { font-family: var(--font-heading); }
+.timeline-card, .content-text, .agent-name { overflow-wrap: anywhere; word-break: break-word; }
+@media (max-width: 768px) {
+  .simulation-panel { min-width: 0; }
+  .control-bar { height: auto; padding: 12px 16px; align-items: stretch; flex-direction: column; gap: 12px; }
+  .status-group { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .platform-status { width: 100%; min-width: 0; }
+  .action-controls, .action-btn { width: 100%; }
+  .main-content-area { padding: 0 16px calc(80px + env(safe-area-inset-bottom)); }
+  .timeline-header { padding-inline: 0; }
+  .timeline-feed { padding: 16px 0; }
+  .timeline-axis { left: 10px; transform: none; }
+  .timeline-item, .timeline-item.twitter, .timeline-item.reddit { justify-content: flex-start; padding: 0 0 0 28px; margin-bottom: 16px; }
+  .timeline-marker { left: 10px; }
+  .timeline-card, .timeline-item.twitter .timeline-card, .timeline-item.reddit .timeline-card { width: 100%; margin: 0; padding: 14px; }
+  .card-header { gap: 8px; }
+  .actions-tooltip { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 </style>

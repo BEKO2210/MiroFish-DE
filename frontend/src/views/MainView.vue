@@ -3,7 +3,7 @@
     <!-- Header -->
     <header class="app-header">
       <div class="header-left">
-        <div class="brand" @click="router.push('/')">MIROFISH</div>
+        <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
       
       <div class="header-center">
@@ -145,7 +145,7 @@ const statusText = computed(() => {
   if (currentPhase.value >= 2) return t('common.ready')
   if (currentPhase.value === 1) return t('main.graphWirdErstellt')
   if (currentPhase.value === 0) return t('main.ontologieWirdGeneriert')
-  return 'Initialisierung'
+  return t('common.initializing')
 })
 
 // --- Helpers ---
@@ -420,20 +420,20 @@ onUnmounted(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
   overflow: hidden;
-  font-family: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
+  font-family: var(--font-body);
 }
 
 /* Header */
 .app-header {
   height: 60px;
-  border-bottom: 1px solid #EAEAEA;
+  border-bottom: 1px solid var(--color-border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  background: #FFF;
+  background: var(--color-bg-surface-raised);
   z-index: 100;
   position: relative;
 }
@@ -445,16 +445,16 @@ onUnmounted(() => {
 }
 
 .brand {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-body);
   font-weight: 800;
   font-size: 18px;
-  letter-spacing: 1px;
+  letter-spacing: normal;
   cursor: pointer;
 }
 
 .view-switcher {
   display: flex;
-  background: #F5F5F5;
+  background: var(--color-bg-surface-subtle);
   padding: 4px;
   border-radius: 6px;
   gap: 4px;
@@ -466,16 +466,16 @@ onUnmounted(() => {
   padding: 6px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: #666;
+  color: var(--color-text-secondary);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .switch-btn.active {
-  background: #FFF;
-  color: #000;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
 .status-indicator {
@@ -483,7 +483,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -501,32 +501,32 @@ onUnmounted(() => {
 }
 
 .step-num {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-body);
   font-weight: 700;
-  color: #999;
+  color: var(--color-text-muted);
 }
 
 .step-name {
   font-weight: 700;
-  color: #000;
+  color: var(--color-text-primary);
 }
 
 .step-divider {
   width: 1px;
   height: 14px;
-  background-color: #E0E0E0;
+  background-color: var(--color-border-default);
 }
 
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #CCC;
+  background: var(--color-border-strong);
 }
 
 .status-indicator.processing .dot { background: var(--color-brand-primary); animation: pulse 1s infinite; }
-.status-indicator.completed .dot { background: #4CAF50; }
-.status-indicator.error .dot { background: #F44336; }
+.status-indicator.completed .dot { background: var(--color-success-text); }
+.status-indicator.error .dot { background: var(--color-error-text); }
 
 @keyframes pulse { 50% { opacity: 0.5; } }
 
@@ -546,7 +546,7 @@ onUnmounted(() => {
 }
 
 .panel-wrapper.left {
-  border-right: 1px solid #EAEAEA;
+  border-right: 1px solid var(--color-border-subtle);
 }
 @media (max-width: 768px) {
   /* Am Handy nie zwei Spalten: die sichtbare Tafel bekommt die volle Breite, die ausgeblendete verschwindet ganz.
@@ -560,5 +560,50 @@ onUnmounted(() => {
   .step-divider { display: none; }
   .step-name { white-space: nowrap; }
   [data-mode="split"] { display: none !important; } /* zwei Spalten gibt es am Handy nicht */
+}
+/* Ruhige, durchscheinende Kopfzeile wie in AppHeader. */
+.app-header {
+  min-height: 60px;
+  height: auto;
+  background: color-mix(in srgb, var(--color-bg-canvas) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  position: sticky;
+  top: 0;
+}
+
+.brand {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.view-switcher { border-radius: var(--radius-md); border: 1px solid var(--color-border-subtle); }
+.switch-btn { min-height: 36px; font-family: var(--font-body); border-radius: var(--radius-sm); }
+.switch-btn:focus-visible, .brand:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+
+@media (max-width: 768px) {
+  .main-view { height: calc(100dvh - 60px); min-width: 0; }
+  .app-header { padding: 6px 16px; }
+  .header-left, .header-right { min-width: 0; }
+  .header-center { position: static; transform: none; overflow: visible; }
+  .view-switcher { width: 100%; }
+  .switch-btn { flex: 1; min-height: 44px; padding-inline: 8px; }
+  .workflow-step, .status-indicator { font-size: var(--font-size-xs); }
+  .content-area, .panel-wrapper { min-width: 0; }
+  .panel-wrapper { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 </style>
