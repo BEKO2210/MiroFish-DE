@@ -15,108 +15,122 @@
         </div>
       </section>
 
-      <!-- Modell -->
-      <section class="card">
-        <h2 class="card__title">{{ t('settings.model') }}</h2>
-        <p class="card__sub">{{ t('settings.modelHint') }}</p>
-        <label class="field">
-          <span class="field__label">{{ t('settings.provider') }}</span>
-          <select v-model="cfg.llm_provider" class="field__input">
-            <option value="ollama">{{ t('settings.pOllama') }}</option>
-            <option value="lmstudio">{{ t('settings.pLmstudio') }}</option>
-            <option value="local">{{ t('settings.pLocal') }}</option>
-            <option value="openai">OpenAI</option>
-          </select>
-        </label>
-        <template v-if="cfg.llm_provider === 'openai'">
-          <label class="field"><span class="field__label">{{ t('settings.apiKey') }}</span><input type="password" v-model="cfg.llm_api_key" class="field__input" placeholder="sk-…" autocomplete="off"></label>
-          <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
-          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span>
-            <select v-if="models.length" v-model="cfg.llm_model_name" class="field__input">
-              <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ m.name }}</option>
-            </select>
-            <input v-else type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
-        </template>
-        <template v-else>
-          <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
-          <div class="field">
-            <div class="field__row">
-              <span class="field__label">{{ t('settings.mainModel') }}</span>
-              <button type="button" class="linkbtn linkbtn--sm" :disabled="scanning" @click="scan">
-                <span v-if="scanning" class="spin spin--sm"></span>{{ scanning ? t('settings.scanning') : t('settings.rescan') }}
-              </button>
+      <div class="settings-grid">
+        <div class="settings-col">
+          <!-- Modell -->
+          <section class="card">
+            <h2 class="card__title">{{ t('settings.model') }}</h2>
+            <p class="card__sub">{{ t('settings.modelHint') }}</p>
+            <label class="field" for="select-provider">
+              <span class="field__label">{{ t('settings.provider') }}</span>
+              <select id="select-provider" v-model="cfg.llm_provider" class="field__input" :aria-label="t('settings.provider')">
+                <option value="ollama">{{ t('settings.pOllama') }}</option>
+                <option value="lmstudio">{{ t('settings.pLmstudio') }}</option>
+                <option value="local">{{ t('settings.pLocal') }}</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </label>
+            <template v-if="cfg.llm_provider === 'openai'">
+              <label class="field" for="input-api-key"><span class="field__label">{{ t('settings.apiKey') }}</span><input id="input-api-key" type="password" v-model="cfg.llm_api_key" class="field__input" placeholder="sk-…" autocomplete="off"></label>
+              <label class="field" for="input-openai-url"><span class="field__label">{{ t('settings.address') }}</span><input id="input-openai-url" type="url" v-model="cfg.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
+              <label class="field" for="select-openai-model"><span class="field__label">{{ t('settings.modelName') }}</span>
+                <select v-if="models.length" id="select-openai-model" v-model="cfg.llm_model_name" class="field__input" :aria-label="t('settings.modelName')">
+                  <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ m.name }}</option>
+                </select>
+                <input v-else id="select-openai-model" type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
+            </template>
+            <template v-else>
+              <label class="field" for="input-local-url"><span class="field__label">{{ t('settings.address') }}</span><input id="input-local-url" type="url" v-model="cfg.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
+              <div class="field">
+                <div class="field__row">
+                  <label for="select-main-model" class="field__label">{{ t('settings.mainModel') }}</label>
+                  <button type="button" class="linkbtn linkbtn--sm" :disabled="scanning" @click="scan">
+                    <span v-if="scanning" class="spin spin--sm"></span>{{ scanning ? t('settings.scanning') : t('settings.rescan') }}
+                  </button>
+                </div>
+                <select v-if="models.length" id="select-main-model" v-model="cfg.local_llm_model_name" class="field__input" :aria-label="t('settings.mainModel')">
+                  <option v-for="m in withCurrent(models, cfg.local_llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
+                </select>
+                <input v-else id="select-main-model" type="text" v-model="cfg.local_llm_model_name" class="field__input" :placeholder="t('settings.modelPh')" :aria-label="t('settings.mainModel')">
+                <span class="field__hint">{{ models.length ? t('settings.mainModelHint') : (scanned ? t('settings.noModels') : t('settings.modelNameHint')) }}</span>
+              </div>
+              <div class="field">
+                <label for="select-agent-model" class="field__label">{{ t('settings.agentModel') }}</label>
+                <select v-if="models.length" id="select-agent-model" v-model="cfg.llm_model_name" class="field__input" :aria-label="t('settings.agentModel')">
+                  <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
+                </select>
+                <input v-else id="select-agent-model" type="text" v-model="cfg.llm_model_name" class="field__input" :placeholder="t('settings.modelPh')" :aria-label="t('settings.agentModel')">
+                <span class="field__hint">{{ t('settings.agentModelHint') }}</span>
+              </div>
+              <label class="field" for="input-local-key"><span class="field__label">{{ t('settings.localKey') }}</span><input id="input-local-key" type="password" v-model="cfg.local_llm_api_key" class="field__input" autocomplete="off"></label>
+            </template>
+          </section>
+
+          <div class="actions actions--inline">
+            <button type="button" class="btn btn--primary" :disabled="saving" @click="save">{{ saving ? t('settings.saving') : t('settings.save') }}</button>
+            <button type="button" class="btn" :disabled="testing" @click="test"><span v-if="testing" class="spin"></span>{{ testing ? t('settings.testing') : t('settings.test') }}</button>
+          </div>
+          <p v-if="result" class="notice" :class="result.ok ? 'notice--ok' : 'notice--err'" role="status">{{ result.text }}</p>
+        </div>
+
+        <div class="settings-col">
+          <!-- Gedächtnis -->
+          <section class="card">
+            <h2 class="card__title">{{ t('settings.memory') }}</h2>
+            <p class="card__sub">{{ t('settings.memoryHint') }}</p>
+            <label class="field" for="select-memory">
+              <span class="field__label">{{ t('settings.storage') }}</span>
+              <select id="select-memory" v-model="cfg.memory_provider" class="field__input" :aria-label="t('settings.storage')">
+                <option value="obsidian">{{ t('settings.mLocal') }}</option>
+                <option value="zep">Zep Cloud</option>
+                <option value="hybrid">{{ t('settings.mHybrid') }}</option>
+              </select>
+            </label>
+            <label class="field" for="input-zep-key" v-if="cfg.memory_provider !== 'obsidian'">
+              <span class="field__label">{{ t('settings.zepKey') }}</span>
+              <input id="input-zep-key" type="password" v-model="cfg.zep_api_key" class="field__input" autocomplete="off">
+            </label>
+            <p v-if="masked" class="notice">{{ t('settings.masked') }}</p>
+          </section>
+
+          <!-- Darstellung -->
+          <section class="card">
+            <h2 class="card__title">{{ t('settings.look') }}</h2>
+            <button type="button" class="rowbtn" @click="showTheme = true">
+              <span class="swatch"></span>
+              <span class="rowbtn__text"><strong>{{ t('settings.colors') }}</strong><small>{{ t('settings.colorsHint') }}</small></span>
+              <span class="rowbtn__chev">›</span>
+            </button>
+            <div class="langrow">
+              <span class="langrow__label" id="lang-label">{{ t('settings.language') }}</span>
+              <div class="seg" role="radiogroup" aria-labelledby="lang-label">
+                <button type="button" role="radio" :aria-checked="locale === 'de'" :class="{ on: locale === 'de' }" @click="setLang('de')">Deutsch</button>
+                <button type="button" role="radio" :aria-checked="locale === 'en'" :class="{ on: locale === 'en' }" @click="setLang('en')">English</button>
+              </div>
             </div>
-            <select v-if="models.length" v-model="cfg.local_llm_model_name" class="field__input">
-              <option v-for="m in withCurrent(models, cfg.local_llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
-            </select>
-            <input v-else type="text" v-model="cfg.local_llm_model_name" class="field__input" :placeholder="t('settings.modelPh')">
-            <span class="field__hint">{{ models.length ? t('settings.mainModelHint') : (scanned ? t('settings.noModels') : t('settings.modelNameHint')) }}</span>
-          </div>
-          <div class="field">
-            <span class="field__label">{{ t('settings.agentModel') }}</span>
-            <select v-if="models.length" v-model="cfg.llm_model_name" class="field__input">
-              <option v-for="m in withCurrent(models, cfg.llm_model_name)" :key="m.name" :value="m.name">{{ optionLabel(m) }}</option>
-            </select>
-            <input v-else type="text" v-model="cfg.llm_model_name" class="field__input" :placeholder="t('settings.modelPh')">
-            <span class="field__hint">{{ t('settings.agentModelHint') }}</span>
-          </div>
-          <label class="field"><span class="field__label">{{ t('settings.localKey') }}</span><input type="password" v-model="cfg.local_llm_api_key" class="field__input" autocomplete="off"></label>
-        </template>
-      </section>
+          </section>
 
-      <!-- Gedächtnis -->
-      <section class="card">
-        <h2 class="card__title">{{ t('settings.memory') }}</h2>
-        <p class="card__sub">{{ t('settings.memoryHint') }}</p>
-        <label class="field">
-          <span class="field__label">{{ t('settings.storage') }}</span>
-          <select v-model="cfg.memory_provider" class="field__input">
-            <option value="obsidian">{{ t('settings.mLocal') }}</option>
-            <option value="zep">Zep Cloud</option>
-            <option value="hybrid">{{ t('settings.mHybrid') }}</option>
-          </select>
-        </label>
-        <label class="field" v-if="cfg.memory_provider !== 'obsidian'">
-          <span class="field__label">{{ t('settings.zepKey') }}</span>
-          <input type="password" v-model="cfg.zep_api_key" class="field__input" autocomplete="off">
-        </label>
-        <p v-if="masked" class="notice">{{ t('settings.masked') }}</p>
-      </section>
-
-      <div class="actions">
-        <button type="button" class="btn btn--primary" :disabled="saving" @click="save">{{ saving ? t('settings.saving') : t('settings.save') }}</button>
-        <button type="button" class="btn" :disabled="testing" @click="test"><span v-if="testing" class="spin"></span>{{ testing ? t('settings.testing') : t('settings.test') }}</button>
+          <!-- Über -->
+          <section class="card card--about">
+            <img src="/logo-mark.svg" alt="" width="36" height="36" />
+            <div>
+              <strong>MiroFish</strong>
+              <small>{{ t('settings.aboutText') }}</small>
+              <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">{{ t('settings.source') }}</a>
+            </div>
+          </section>
+        </div>
       </div>
-      <p v-if="result" class="notice" :class="result.ok ? 'notice--ok' : 'notice--err'" role="status">{{ result.text }}</p>
-
-      <!-- Darstellung -->
-      <section class="card">
-        <h2 class="card__title">{{ t('settings.look') }}</h2>
-        <button type="button" class="rowbtn" @click="showTheme = true">
-          <span class="swatch"></span>
-          <span class="rowbtn__text"><strong>{{ t('settings.colors') }}</strong><small>{{ t('settings.colorsHint') }}</small></span>
-          <span class="rowbtn__chev">›</span>
-        </button>
-        <div class="langrow">
-          <span class="langrow__label">{{ t('settings.language') }}</span>
-          <div class="seg" role="radiogroup" :aria-label="t('settings.language')">
-            <button type="button" role="radio" :aria-checked="locale === 'de'" :class="{ on: locale === 'de' }" @click="setLang('de')">Deutsch</button>
-            <button type="button" role="radio" :aria-checked="locale === 'en'" :class="{ on: locale === 'en' }" @click="setLang('en')">English</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Über -->
-      <section class="card card--about">
-        <img src="/logo-mark.svg" alt="" width="36" height="36" />
-        <div>
-          <strong>MiroFish</strong>
-          <small>{{ t('settings.aboutText') }}</small>
-          <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">{{ t('settings.source') }}</a>
-        </div>
-      </section>
     </main>
     <ThemePicker :open="showTheme" @close="showTheme = false" />
+    <MobileStickyBar
+      :primary-label="saving ? t('settings.saving') : t('settings.save')"
+      :primary-loading="saving"
+      :secondary-label="testing ? t('settings.testing') : t('settings.test')"
+      :secondary-disabled="testing"
+      @primary-click="save"
+      @secondary-click="test"
+    />
   </div>
 </template>
 
@@ -124,6 +138,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
+import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
 
@@ -228,5 +243,29 @@ onMounted(async () => { await load(); scan() })
 .card--about div { display: flex; flex-direction: column; gap: 4px; }
 .card--about small { color: var(--color-text-muted); font-size: 13px; line-height: 1.45; }
 .card--about a { color: var(--color-brand-primary); font-size: 14px; }
+
+@media (max-width: 768px) {
+  .main { padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
+  .actions--inline { display: none; }
+}
+
 @media (min-width: 769px) { .main { padding: 32px 24px 64px; } }
+
+@media (min-width: 1024px) {
+  .main {
+    max-width: 1200px;
+    padding: 32px 32px 80px;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 28px;
+    align-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin { animation: none; }
+}
 </style>

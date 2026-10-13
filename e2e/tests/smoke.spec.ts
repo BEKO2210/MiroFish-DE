@@ -8,10 +8,8 @@ import {
 } from '../support/helpers'
 import { ROUTES, isLiveMode } from '../support/mockApi'
 
-/** Handy: Fußmenü verdeckt Inhalt – bekannter Fehler, siehe BEFUNDE.md */
+/** Handy: Fußmenü verdeckt Inhalt – bekannter Fehler, siehe BEFUNDE.md (Schrittseiten: anderer Agent) */
 const MOBILE_NAV_COVER = new Set([
-  '/',
-  '/run/run_f68e3af5662f',
 ])
 
 test.describe('Smoke', () => {

@@ -29,6 +29,37 @@ test.describe('Flows', () => {
     expect(startCalls.length).toBeGreaterThanOrEqual(1)
   })
 
+  test('Verlauf: abgebrochener Durchlauf ohne Simulation – Löschen ruft DELETE /api/pipeline', async ({
+    page,
+  }) => {
+    const { api } = await preparePage(page)
+    await page.goto('/history', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    const row = page
+      .locator('article.row')
+      .filter({ hasText: 'E2E Abbruch ohne Simulation' })
+      .filter({ has: page.locator('button.act--danger') })
+      .first()
+    await expect(row).toBeVisible()
+
+    await row.locator('button.act--danger').click()
+    const sheet = page.locator('[role="alertdialog"]')
+    await expect(sheet).toBeVisible()
+
+    api!.reset()
+    await sheet.getByRole('button', { name: 'Löschen' }).click()
+    await expect(sheet).toBeHidden()
+
+    const dels = api!.writes.filter(
+      (c) => c.method === 'DELETE' && c.pathname === '/api/pipeline/run_failed_nosim_e2e',
+    )
+    expect(dels.length).toBe(1)
+    await expect(
+      page.locator('article.row').filter({ hasText: 'E2E Abbruch ohne Simulation' }),
+    ).toHaveCount(0)
+  })
+
   test('Verlauf: Löschen – Abbrechen ruft nichts auf, Bestätigen löscht', async ({ page }) => {
     const { api } = await preparePage(page)
     await page.goto('/history', { waitUntil: 'domcontentloaded' })

@@ -1,3 +1,4 @@
+<!-- frontend/src/components/MobileStickyBar.vue -->
 <template>
   <aside class="mobile-sticky-bar" role="region" :aria-label="ariaLabel || primaryLabel">
     <div class="mobile-sticky-bar__container">
@@ -38,7 +39,9 @@ defineEmits(['primary-click', 'secondary-click'])
 </script>
 
 <style scoped>
-.mobile-sticky-bar { display: none; }
+.mobile-sticky-bar {
+  display: none;
+}
 
 @media (max-width: 768px) {
   .mobile-sticky-bar {
@@ -53,9 +56,17 @@ defineEmits(['primary-click', 'secondary-click'])
     -webkit-backdrop-filter: saturate(180%) blur(16px);
     border-top: 1px solid var(--color-border-subtle);
     padding: 8px 16px;
-    box-shadow: 0 -4px 16px color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
   }
-  .mobile-sticky-bar__container { display: flex; align-items: center; gap: 10px; max-width: 600px; margin: 0 auto; }
+
+  .mobile-sticky-bar__container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
   .sticky-btn {
     flex: 1;
     min-height: 48px;
@@ -73,16 +84,53 @@ defineEmits(['primary-click', 'secondary-click'])
     touch-action: manipulation;
     transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
   }
-  .sticky-btn:active:not(:disabled) { transform: scale(0.98); }
-  .sticky-btn--primary { background: var(--color-brand-primary); color: var(--color-brand-on-primary); box-shadow: 0 2px 8px color-mix(in srgb, var(--color-brand-primary) 30%, transparent); }
-  .sticky-btn--primary:disabled { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); border-color: var(--color-border-subtle); box-shadow: none; cursor: not-allowed; }
-  .sticky-btn--secondary { flex: 0 0 auto; min-width: 110px; background: var(--color-bg-surface-raised); color: var(--color-text-secondary); border-color: var(--color-border-default); }
-  .sticky-btn__spinner { width: 16px; height: 16px; border: 2px solid color-mix(in srgb, currentColor 30%, transparent); border-top-color: currentColor; border-radius: 50%; animation: spin-sticky 0.8s linear infinite; }
+
+  .sticky-btn:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .sticky-btn--primary {
+    background: var(--color-brand-primary);
+    color: var(--color-brand-on-primary);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-brand-primary) 30%, transparent);
+  }
+
+  .sticky-btn--primary:disabled {
+    background: var(--color-bg-surface-subtle);
+    color: var(--color-text-muted);
+    border-color: var(--color-border-subtle);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .sticky-btn--secondary {
+    flex: 0 0 auto;
+    min-width: 110px;
+    background: var(--color-bg-surface-raised);
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-default);
+  }
+
+  .sticky-btn__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin-sticky 0.8s linear infinite;
+  }
 }
 
-@keyframes spin-sticky { to { transform: rotate(360deg); } }
+@keyframes spin-sticky {
+  to { transform: rotate(360deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .sticky-btn { transition: none !important; }
-  .sticky-btn__spinner { animation-duration: 2s !important; }
+  .sticky-btn {
+    transition: none !important;
+  }
+  .sticky-btn__spinner {
+    animation-duration: 2s !important;
+  }
 }
 </style>
