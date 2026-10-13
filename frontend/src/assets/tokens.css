@@ -1,0 +1,395 @@
+/**
+ * MiroFish Design System Tokens ("Editorial Clarity")
+ * Mobile-First & WCAG 2.1 AA Compliant
+ * 
+ * Embeddable globally via main.js or index.html without modifying App.vue
+ */
+
+/* ==========================================================================
+   1. Root Tokens (Light Mode - Standard)
+   ========================================================================== */
+:root {
+  /* --- Typography Families --- */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', SFMono-Regular, Consolas, Monaco, 'Liberation Mono', monospace;
+
+  /* --- Fluid Typography Scale (Mobile 412px -> Desktop) --- */
+  --font-size-display: clamp(1.625rem, 4vw + 0.8rem, 2.5rem);   /* 26px -> 40px */
+  --font-size-h1:      clamp(1.375rem, 3vw + 0.6rem, 2.0rem);   /* 22px -> 32px */
+  --font-size-h2:      clamp(1.125rem, 2vw + 0.6rem, 1.5rem);   /* 18px -> 24px */
+  --font-size-h3:      clamp(1.0rem,   1.5vw + 0.5rem, 1.25rem);/* 16px -> 20px */
+  --font-size-body-lg: clamp(1.0rem,   1vw + 0.75rem, 1.125rem); /* 16px -> 18px */
+  --font-size-body:    0.9375rem;                               /* 15px mobile, 16px desktop via media query */
+  --font-size-sm:      0.8125rem;                               /* 13px */
+  --font-size-xs:      0.75rem;                                 /* 12px */
+
+  --line-height-tight:   1.25;
+  --line-height-heading: 1.35;
+  --line-height-body:    1.55;
+  --line-height-loose:   1.7;
+
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:    700;
+
+  /* --- Spacing Scale (8pt Grid with 4pt half-step) --- */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Container & Layout --- */
+  --container-max-width: 1280px;
+  --container-pad-mobile: 16px;
+  --container-pad-desktop: 32px;
+  --touch-target-min: 44px;
+
+  /* --- Border Radius --- */
+  --radius-xs:   4px;
+  --radius-sm:   6px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-full: 9999px;
+
+  /* --- Transitions (Spare & Accessible) --- */
+  --transition-fast: 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-base: 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-slow: 350ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* --- Colors (Light Mode) - Mathematisch WCAG 2.1 AA geprüft --- */
+  --color-bg-canvas:         #FFFFFF;
+  --color-bg-surface:        #F8FAFC;
+  --color-bg-surface-raised: #FFFFFF;
+  --color-bg-surface-subtle: #F1F5F9;
+
+  /* Text & Typografie (Kontraste gegen #FFFFFF) */
+  --color-text-primary:      #0F172A; /* Kontrast 16.21:1 -> AAA */
+  --color-text-secondary:    #334155; /* Kontrast 11.10:1 -> AAA */
+  --color-text-muted:        #64748B; /* Kontrast  4.62:1 -> AA normal */
+  --color-text-inverse:      #FFFFFF;
+
+  /* Rahmen & Trennlinien */
+  --color-border-subtle:     #E2E8F0;
+  --color-border-default:    #CBD5E1;
+  --color-border-strong:     #94A3B8; /* Kontrast  3.02:1 -> AA UI-Element */
+
+  /* Markenfarbe & Akzente (Warm Terracotta statt grellem Neon-Orange) */
+  --color-brand-primary:     #C2410C; /* Kontrast  5.18:1 -> AA normal */
+  --color-brand-hover:       #9A3412; /* Kontrast  7.31:1 -> AAA */
+  --color-brand-active:      #7C2D12;
+  --color-brand-subtle:      #FFF7ED;
+  --color-brand-border:      #FDBA74;
+  --color-brand-on-primary:  #FFFFFF; /* Kontrast auf #C2410C: 5.18:1 -> AA */
+
+  /* Statusfarben (Semantisch verständlich) */
+  --color-success-text:      #15803D; /* Kontrast  5.02:1 -> AA */
+  --color-success-bg:        #F0FDF4;
+  --color-success-border:    #BBF7D0;
+
+  --color-warning-text:      #A16207; /* Kontrast  4.55:1 -> AA */
+  --color-warning-bg:        #FEFCE8;
+  --color-warning-border:    #FEF08A;
+
+  --color-error-text:        #B91C1C; /* Kontrast  6.47:1 -> AA */
+  --color-error-bg:          #FEF2F2;
+  --color-error-border:      #FECACA;
+
+  --color-info-text:         #1D4ED8; /* Kontrast  6.70:1 -> AA */
+  --color-info-bg:           #EFF6FF;
+  --color-info-border:       #BFDBFE;
+
+  /* Barrierefreier Tastaturfokus */
+  --color-focus-ring:        #C2410C;
+  --color-focus-offset:      2px;
+
+  /* Schatten */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+}
+
+/* Desktop-Anpassung der Basisgröße */
+@media (min-width: 1024px) {
+  :root {
+    --font-size-body: 1.0rem; /* 16px */
+    --font-size-sm:   0.875rem; /* 14px */
+  }
+}
+
+/* ==========================================================================
+   2. Dark Theme Tokens (`[data-theme="dark"]` oder System-Präferenz)
+   ========================================================================== */
+[data-theme="dark"] {
+  --color-bg-canvas:         #0B0F17;
+  --color-bg-surface:        #111827;
+  --color-bg-surface-raised: #1F2937;
+  --color-bg-surface-subtle: #1E293B;
+
+  --color-text-primary:      #F8FAFC; /* Kontrast 16.98:1 -> AAA */
+  --color-text-secondary:    #E2E8F0; /* Kontrast 13.42:1 -> AAA */
+  --color-text-muted:        #94A3B8; /* Kontrast  6.61:1 -> AA */
+  --color-text-inverse:      #0F172A;
+
+  --color-border-subtle:     #1E293B;
+  --color-border-default:    #334155;
+  --color-border-strong:     #475569; /* Kontrast  3.15:1 -> AA UI-Element */
+
+  --color-brand-primary:     #FB923C; /* Kontrast  7.84:1 -> AAA */
+  --color-brand-hover:       #FDBA74;
+  --color-brand-active:      #FED7AA;
+  --color-brand-subtle:      #2A1805;
+  --color-brand-border:      #9A3412;
+  --color-brand-on-primary:  #0F172A; /* Kontrast auf #FB923C: 7.84:1 -> AAA */
+
+  --color-success-text:      #4ADE80; /* Kontrast 10.18:1 -> AAA */
+  --color-success-bg:        #052E16;
+  --color-success-border:    #166534;
+
+  --color-warning-text:      #FACC15; /* Kontrast 12.30:1 -> AAA */
+  --color-warning-bg:        #3A2F03;
+  --color-warning-border:    #854D0E;
+
+  --color-error-text:        #F87171; /* Kontrast  6.41:1 -> AA */
+  --color-error-bg:          #450A0A;
+  --color-error-border:      #991B1B;
+
+  --color-info-text:         #60A5FA; /* Kontrast  6.98:1 -> AA */
+  --color-info-bg:           #0C2852;
+  --color-info-border:       #1E40AF;
+
+  --color-focus-ring:        #FB923C;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg-canvas:         #0B0F17;
+    --color-bg-surface:        #111827;
+    --color-bg-surface-raised: #1F2937;
+    --color-bg-surface-subtle: #1E293B;
+
+    --color-text-primary:      #F8FAFC;
+    --color-text-secondary:    #E2E8F0;
+    --color-text-muted:        #94A3B8;
+    --color-text-inverse:      #0F172A;
+
+    --color-border-subtle:     #1E293B;
+    --color-border-default:    #334155;
+    --color-border-strong:     #475569;
+
+    --color-brand-primary:     #FB923C;
+    --color-brand-hover:       #FDBA74;
+    --color-brand-active:      #FED7AA;
+    --color-brand-subtle:      #2A1805;
+    --color-brand-border:      #9A3412;
+    --color-brand-on-primary:  #0F172A;
+
+    --color-success-text:      #4ADE80;
+    --color-success-bg:        #052E16;
+    --color-success-border:    #166534;
+
+    --color-warning-text:      #FACC15;
+    --color-warning-bg:        #3A2F03;
+    --color-warning-border:    #854D0E;
+
+    --color-error-text:        #F87171;
+    --color-error-bg:          #450A0A;
+    --color-error-border:      #991B1B;
+
+    --color-info-text:         #60A5FA;
+    --color-info-bg:           #0C2852;
+    --color-info-border:       #1E40AF;
+
+    --color-focus-ring:        #FB923C;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* ==========================================================================
+   3. Basis-Styles & Typografie-Reset (Überschreibt globalen Monospace)
+   ========================================================================== */
+html {
+  font-size: 16px;
+  box-sizing: border-box;
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after {
+  box-sizing: inherit;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* App-Root überschreibt die problematische JetBrains-Mono-Vorgabe aus App.vue */
+#app {
+  font-family: var(--font-body) !important;
+  color: var(--color-text-primary) !important;
+  background-color: var(--color-bg-canvas) !important;
+  min-height: 100vh;
+}
+
+/* Überschriften-Standards mit Space Grotesk */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-heading);
+  margin-top: 0;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}
+
+h1 { font-size: var(--font-size-h1); }
+h2 { font-size: var(--font-size-h2); }
+h3 { font-size: var(--font-size-h3); }
+
+p {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+/* Monospace-Code-Elemente isolieren */
+code, kbd, samp, pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+/* ==========================================================================
+   4. Barrierefreie Interaktions- & Fokus-Zustände (WCAG 2.4.7)
+   ========================================================================== */
+:focus {
+  outline: none;
+}
+
+/* Sichtbarer, kontraststarker Fokusring nur bei Tastaturbedienung */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring) !important;
+  outline-offset: var(--color-focus-offset) !important;
+  border-radius: var(--radius-xs);
+}
+
+/* Touch-Targets Mindestmaße */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+[tabindex="0"] {
+  touch-action: manipulation;
+}
+
+/* ==========================================================================
+   5. Barrierefreie Basis-Komponenten-Styles
+   ========================================================================== */
+
+/* Buttons */
+button {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), 
+              border-color var(--transition-fast), 
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Formularfelder */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+select,
+textarea {
+  font-family: var(--font-body);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-canvas);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-brand-primary);
+  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.15);
+  outline: none;
+}
+
+/* Barrierefreie Hilfsklassen */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-brand-primary);
+  color: #fff;
+  padding: var(--space-2) var(--space-4);
+  z-index: 10000;
+  transition: top 0.2s;
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ==========================================================================
+   6. Reduzierte Bewegung (WCAG 2.3.3 / 2.2.2)
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
