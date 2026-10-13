@@ -16,7 +16,7 @@ import MobileNav from './components/MobileNav.vue'
 }
 
 #app {
-  font-family: 'JetBrains Mono', 'Space Grotesk', 'Noto Sans SC', monospace;
+  font-family: var(--font-body, 'Inter', system-ui, sans-serif); /* Fließtext lesbar; Monospace nur noch für Code/IDs */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #000000;
@@ -49,4 +49,6 @@ button {
 @media (max-width: 768px) {
   body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
+h1, h2, h3, .main-title { font-family: var(--font-heading, 'Space Grotesk', system-ui, sans-serif); }
+code, pre, .card-id, .mono { font-family: var(--font-mono, 'JetBrains Mono', monospace); }
 </style>

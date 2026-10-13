@@ -87,7 +87,7 @@ const route = useRoute()
 const router = useRouter()
 
 // Layout State
-const viewMode = ref('split') // graph | split | workbench
+const viewMode = ref(window.innerWidth <= 768 ? 'workbench' : 'split') // graph | split | workbench; am Handy nur eine Spalte
 
 // Step State
 const currentStep = ref(1) // 1: Graph erstellen, 2: Umgebung aufbauen, 3: Simulation starten, 4: Bericht generieren, 5: Tiefe Interaktion
@@ -536,5 +536,17 @@ onUnmounted(() => {
 
 .panel-wrapper.left {
   border-right: 1px solid #EAEAEA;
+}
+@media (max-width: 768px) {
+  /* Am Handy nie zwei Spalten: die sichtbare Tafel bekommt die volle Breite, die ausgeblendete verschwindet ganz.
+     !important, weil die Breiten als Inline-Stile aus leftPanelStyle/rightPanelStyle kommen. */
+  .content-area { flex-direction: column; }
+  .panel-wrapper { width: 100% !important; transform: none !important; }
+  .panel-wrapper[style*="width: 0%"] { display: none !important; }
+  .app-header { flex-wrap: wrap; padding: 8px 12px; gap: 6px; height: auto; min-height: 0; }
+  .header-center { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; }
+  .header-right { gap: 6px; }
+  .step-divider { display: none; }
+  .step-name { white-space: nowrap; }
 }
 </style>
