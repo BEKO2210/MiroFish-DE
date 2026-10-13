@@ -15,6 +15,7 @@ Simple and versatile swarm intelligence engine, predicting everything
 *   **Models detected automatically:** Settings list every installed model to choose from.
 *   **New interface:** for phone and desktop, German and English, freely selectable colour pairs.
 *   **History with export and delete**, HTTP interface for scripts and AI agents ([docs/API.md](docs/API.md)).
+*   **How reliable is it?** Plain-language explanation: [docs/RELIABILITY.md](docs/RELIABILITY.md).
 
 ---
 

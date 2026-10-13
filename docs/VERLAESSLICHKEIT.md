@@ -1,5 +1,7 @@
 # Wie verlässlich ist MiroFish?
 
+*English: [RELIABILITY.md](RELIABILITY.md)*
+
 Wenn in deiner Kommune ein Beschluss ansteht oder dein Verein vor einer schwierigen Entscheidung steht, willst du wissen: Wie reagieren die Menschen? MiroFish simuliert solche Debatten mit künstlichen Rollen (Agenten), die in einem digitalen Netzwerk Beiträge verfassen und aufeinander reagieren.
 
 Doch wie verlässlich sind diese Berichte? Dieser Leitfaden erklärt dir ohne Werbesprache und ohne Fachjargon, was die Simulation leistet und wo ihre Grenzen liegen.

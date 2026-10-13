@@ -15,6 +15,7 @@ Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
 *   **Modelle automatisch erkannt:** Die Einstellungen listen alle installierten Modelle zur Auswahl.
 *   **Neue Oberfläche:** für Handy und Desktop, Deutsch und Englisch, frei wählbare Farb-Combos.
 *   **Verlauf mit Export und Löschen**, HTTP-Schnittstelle für Skripte und KI-Agenten ([docs/API.md](docs/API.md)).
+*   **Wie verlässlich ist das?** Ehrliche Erklärung für Nicht-Fachleute: [docs/VERLAESSLICHKEIT.md](docs/VERLAESSLICHKEIT.md).
 
 ---
 
