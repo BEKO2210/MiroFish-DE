@@ -1261,6 +1261,7 @@ async def run_twitter_simulation(
         stimulus_posts,
         os.path.join(simulation_dir, "twitter", "stimulus_log.json"),
         "twitter",
+        own_only=is_blind_feed(config.get("ensemble_variant")),
     )
     log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     
@@ -1491,6 +1492,7 @@ async def run_reddit_simulation(
         stimulus_posts,
         os.path.join(simulation_dir, "reddit", "stimulus_log.json"),
         "reddit",
+        own_only=is_blind_feed(config.get("ensemble_variant")),
     )
     log_info(f"Startstimulus an {len(list(result.env.agent_graph.get_agents()))} Agenten protokolliert")
     

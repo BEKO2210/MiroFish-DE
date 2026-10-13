@@ -673,6 +673,7 @@ class RedditSimulationRunner:
             fetch_platform_posts(self.env.platform),
             os.path.join(self.simulation_dir, "stimulus_log.json"),
             "reddit",
+            own_only=is_blind_feed(variant),
         )
         
         # Hauptsimulationsschleife

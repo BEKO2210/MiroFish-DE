@@ -38,10 +38,14 @@ def install_blind_feed(platform: Any) -> None:
                 "num_shares FROM post WHERE user_id = ? ORDER BY post_id",
                 (agent_id,),
             )
-            results = platform.db_cursor.fetchall()
-            if not results:
-                return {"success": False, "message": "No posts found."}
+            results = platform.db_cursor.fetchall() or []
             results_with_comments = platform.pl_utils._add_comments_to_posts(results)
+            for post in results_with_comments:
+                post["comments"] = [
+                    comment
+                    for comment in post.get("comments", [])
+                    if int(comment.get("user_id", -1)) == int(agent_id)
+                ]
             return {"success": True, "posts": results_with_comments}
         except Exception as error:
             return {"success": False, "error": str(error)}
@@ -70,37 +74,40 @@ def deliver_opening_stimulus(
     posts: Sequence[Dict[str, Any]],
     log_path: str | Path,
     platform_name: str,
+    *,
+    own_only: bool = False,
 ) -> Dict[str, Any]:
     """Startbeiträge je Agent einmal als gelesenen Stimulus eintragen und protokollieren."""
     from camel.messages import BaseMessage
     from camel.types import OpenAIBackendRole
 
-    lines = []
-    post_ids: List[int] = []
-    for post in posts:
-        pid = int(post.get("post_id", 0))
-        post_ids.append(pid)
-        lines.append(
-            f"- [{pid}] user={post.get('user_id')}: {str(post.get('content') or '').strip()}"
-        )
-    body = (
-        "You have read these opening posts on the platform (one-time stimulus):\n"
-        + ("\n".join(lines) if lines else "- (none)")
-    )
+    post_ids = [int(post.get("post_id", 0)) for post in posts]
     agents_log: List[Dict[str, Any]] = []
     for agent_id, agent in agent_graph.get_agents():
+        visible_posts = own_post_rows(posts, agent_id) if own_only else list(posts)
+        visible_ids = [int(post.get("post_id", 0)) for post in visible_posts]
+        lines = [
+            f"- [{post.get('post_id')}] user={post.get('user_id')}: "
+            f"{str(post.get('content') or '').strip()}"
+            for post in visible_posts
+        ]
+        body = (
+            "You have read these opening posts on the platform (one-time stimulus):\n"
+            + ("\n".join(lines) if lines else "- (none)")
+        )
         message = BaseMessage.make_user_message(role_name="User", content=body)
         agent.update_memory(message, OpenAIBackendRole.USER)
         agents_log.append({
             "agent_id": int(agent_id),
-            "seen_post_ids": list(post_ids),
+            "seen_post_ids": visible_ids,
             "seen": True,
-            "post_count": len(post_ids),
+            "post_count": len(visible_ids),
         })
     document = {
         "platform": platform_name,
         "stimulus": "opening_posts",
         "post_ids": post_ids,
+        "own_only": own_only,
         "agents": agents_log,
     }
     path = Path(log_path)
