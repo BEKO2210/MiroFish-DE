@@ -1,0 +1,1 @@
+WebKit: WebKit heruntergeladen, aber nicht startbar (fehlende Host-Bibliotheken). Nur Chromium (handy/tablet/desktop). Tipp: npx playwright install-deps webkit
