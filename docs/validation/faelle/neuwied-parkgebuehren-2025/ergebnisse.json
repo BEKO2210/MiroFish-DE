@@ -1,17 +1,42 @@
 [
   {
-    "text_de": "Der Rat nimmt die Erhöhung innerhalb von 3 Monaten nach dem Beschluss zurück oder ändert den Gebührensatz.",
+    "id": "primaer",
+    "primaer": true,
+    "t0": "2025-11-13",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 27.11.2025)",
+    "text_de": "Innerhalb von 14 Tagen nach T0 nimmt der Stadtrat die Gebührenerhöhung förmlich zurück, setzt sie aus oder ändert den Gebührensatz.",
     "eingetreten": false,
-    "quelle": "3"
+    "quelle": "3 (23.02.2026: Umsetzung des Beschlusses unverändert zu 1,20 Euro, keine Änderung erwähnt)"
   },
   {
+    "primaer": false,
     "text_de": "Die Stadt setzt die Erhöhung auf 1,20 Euro pro Stunde wie beschlossen zum 1. März um, dreieinhalb Monate nach dem Beschluss.",
     "eingetreten": true,
     "quelle": "3"
   },
   {
+    "primaer": false,
     "text_de": "Der Rat beschließt innerhalb von 6 Monaten nach dem Beschluss kostenlosen Busverkehr an allen Samstagen.",
     "eingetreten": true,
-    "quelle": "4, 5"
+    "quelle": "4, 5 (im T0-Material nur als Prüfauftrag enthalten, das Ergebnis war nicht angekündigt)"
+  },
+  {
+    "primaer": false,
+    "text_de": "Innerhalb von 14 Tagen nach dem Beschluss veröffentlicht eine Ratsfraktion eine Pressemitteilung, die sich gegen die Gebührenerhöhung ausspricht.",
+    "eingetreten": true,
+    "quelle": "6 (AfD-Fraktion, Pressemitteilung vom 16.11.2025)"
+  },
+  {
+    "primaer": false,
+    "text_de": "Die rund 550 kostenlosen Stellplätze unter der Rheinbrücke bleiben nach der Umsetzung der Erhöhung bestehen.",
+    "eingetreten": true,
+    "quelle": "3 (23.02.2026)"
+  },
+  {
+    "primaer": false,
+    "in_material": true,
+    "text_de": "Die Stadt weitet bei der Umsetzung die Bewirtschaftungszonen oder die bewirtschafteten Zeiten (Mo-Fr 9-18 Uhr, Sa 9-14 Uhr) nicht aus.",
+    "eingetreten": true,
+    "quelle": "3 (23.02.2026: „Die bestehenden Parkzonen sowie die bewirtschafteten Zeiten bleiben unverändert“; der Verzicht auf die Zonenausweitung war Teil des T0-Materials, daher in_material und nicht zu scoren)"
   }
 ]

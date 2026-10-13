@@ -1,40 +1,51 @@
 [
   {
+    "id": "primaer",
+    "primaer": true,
+    "t0": "2023-03-02",
+    "zeitfenster": "T0 bis T0+14 Tage (bis 16.03.2023)",
+    "text_de": "Innerhalb von 14 Tagen nach T0 hebt der Gemeinderat den Schließungsbeschluss förmlich auf, setzt ihn aus oder ändert ihn inhaltlich.",
+    "eingetreten": false,
+    "quelle": "3 (Beschluss 02.03.2023); 8, 9, 12 (Beschluss galt weiter, kein Aufhebungs- oder Aussetzungsbeleg)"
+  },
+  {
+    "primaer": false,
     "text_de": "Innerhalb von 3 Monaten wird eine Online-Petition oder Unterschriftensammlung zum Erhalt bzw. Weiterbetrieb des Bades gestartet.",
     "eingetreten": true,
     "quelle": "6 (Start 03.04.2023); 7"
   },
   {
-    "text_de": "Der Rat hebt den Schließungsbeschluss binnen 3 Monaten auf oder setzt ihn aus.",
-    "eingetreten": false,
-    "quelle": "8, 9, 12 (Beschluss galt weiter)"
-  },
-  {
+    "primaer": false,
     "text_de": "Innerhalb von 3 Monaten wird ein Bürgerbegehren zum Erhalt des Bades gestartet.",
     "eingetreten": false,
     "quelle": "11 (Bürgerbegehren erst ab Dezember 2025), 8"
   },
   {
+    "primaer": false,
     "text_de": "Innerhalb von 2 Wochen äußern Vereine oder Verbände (Schwimmverein, Rettungsorganisationen) öffentlich Sorge oder Ablehnung in der Lokalpresse.",
     "eingetreten": true,
     "quelle": "2 (03.03.2023)"
   },
   {
+    "primaer": false,
     "text_de": "Innerhalb von 3 Monaten äußert sich ein Bundes- oder Landespolitiker öffentlich (Pressemitteilung) zur Schließung.",
     "eingetreten": true,
     "quelle": "5 (12.04.2023)"
   },
   {
+    "primaer": false,
     "text_de": "Die Verwaltung sichert innerhalb von 2 Wochen Ausweich-Schwimmzeiten für Schulkinder in anderen Bädern.",
     "eingetreten": true,
-    "quelle": "2 (03.03.2023)"
+    "quelle": "2 (03.03.2023; Mitteilung in der Sitzung vom 02.03.2023)"
   },
   {
+    "primaer": false,
     "text_de": "Innerhalb von 3 Monaten sagen Landkreis oder Nachbarkommunen eine finanzielle Beteiligung am Erhalt oder Betrieb des Bades zu.",
     "eingetreten": false,
     "quelle": "3, 7 (Landrat sieht Kommune in der Zuständigkeit, keine Landkreismittel)"
   },
   {
+    "primaer": false,
     "text_de": "Eine bereits zugesagte Förderung für die Sanierung wird wegen des Beschlusses nicht abgerufen und für andere Projekte freigegeben.",
     "eingetreten": true,
     "quelle": "5 (03.04./12.04.2023)"

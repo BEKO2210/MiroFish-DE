@@ -75,3 +75,40 @@ Entfernte Fragen (Begründung):
 
 Hinweis: Weitere Quellen (Ratsprotokoll, Zeitungsberichte vom 14./15.02.2023, Ratsinformationssystem) wurden nicht
 abgerufen bzw. nicht gefunden.
+
+## T0-Prüfung (T0 = 14.02.2023)
+
+Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst
+(Ereignis an T0; die Stadtmitteilung [1] ist undatiert, Seitentext nennt 14.02. und 16.03.2023 – dokumentierte Ausnahme).
+
+| Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
+|---|---|---|
+| Ausschuss 02.02.2023, große Mehrheit, 17 Ja-Stimmen; Vorschlag der Verwaltung | [3], [4] | 04.02. / 02.02.2023 |
+| Defizit fast 17 Mio. → ca. 9 Mio.; nicht genehmigungsfähig; vorläufige Haushaltsführung; keine neuen Verpflichtungen; Kämmerin scheidet aus | [2] | 03.02.2023 |
+| Keine neuen Flächen anmieten; langfristiger Mietvertrag; wenige Stunden geöffnet; IT zieht ein; < 1,5 % Nutzer; Zwei-Standorte-Plan; Konzept im Frühjahr; Sommer-Beschluss für drei Standorte | [3] | 04.02.2023 |
+| Jugend- und Sozialamt ins Rathaus, Fachbereich in die Rathausstraße | [4] | 02.02.2023 |
+| Sechs Wochenstunden; früher fünf Standorte; Förderverein rund 100 Mitglieder, Arbeitskreis | [5] | 10.02.2023 |
+| Musikschule, Jugendzentren, Hallenbad im Prüfprozess | [2], [4] | 03.02. / 02.02.2023 |
+| Ratsbeschluss (mehrheitlich) | [1], [7] (Ereignis an T0) | undatiert / 13.03.2023 (Ausnahme) |
+
+Entfernt: Neuausleihen „ab sofort“ nicht mehr möglich und Rücknahmefrist (nur [1], undatiert; zudem Inhalt von Frage 5, daher dort
+`in_material`); Öffnungszeiten der Büchereien Lülsdorf und Mondorf (nur [1]); Beratungsgespräche und neuer Raum am Rathaus (nur [1]).
+Hinweis: Der Förderverein hatte sich schon am 10.02.2023 ([5], vor T0) öffentlich enttäuscht geäußert; Frage 3 zählt daher
+nur Äußerungen nach T0 ([6], [7]).
+
+## Kodierbuch-Eintrag Primärergebnis
+
+| Feld | Inhalt |
+|---|---|
+| Ergebnis-ID | `primaer` |
+| Primär | ja |
+| Ergebnisfrage | Nimmt der Stadtrat den Schließungsbeschluss binnen 14 Tagen förmlich zurück, setzt ihn aus oder ändert ihn inhaltlich? |
+| Zeitfenster | 14.02.2023 bis 28.02.2023 |
+| Ja-Kriterium | Ratsbeschluss oder Bekanntmachung der Stadt belegt Rücknahme, Aussetzung oder inhaltliche Änderung im Fenster |
+| Nein-Kriterium | Keine solche Belegstelle; [1] und [6] (13./17.03.2023) behandeln die Schließung weiter als beschlossen („jüngst gebilligt“) |
+| Ausschluss | `in_material`, fehlende Akte, unklare Zeit |
+| Quellen | Pressemitteilungen der Stadt, Ratsinformationssystem, Lokalpresse |
+| Beispiele | Ja: Rat beschließt, die Bücherei vorläufig offen zu halten. Nein: Bücherei wird geschlossen, nur Protest und Petition werden berichtet. |
+
+Ergebnis: Nein (`eingetreten: false`). Einschränkung: Für 01.03.–12.03.2023 liegen keine eigenen Quellen vor; die Nein-Kodierung stützt
+sich darauf, dass spätere Quellen die Schließung ohne Änderung nennen.
