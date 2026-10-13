@@ -3,14 +3,15 @@ services:
     build: .
     image: mirofish-de:latest
     container_name: mirofish
-    # Als dein Benutzer laufen, damit data/ dir gehört (Linux-Standard 1000:1000; sonst UID/GID setzen)
-    user: "${UID:-1000}:${GID:-1000}"
+    # Als dein Benutzer laufen, damit data/ dir gehört (Linux-Standard 1000:1000; sonst Werte in .env setzen)
+    user: "${MIROFISH_UID:-1000}:${MIROFISH_GID:-1000}"
     # Nur auf diesem Rechner erreichbar: die App hat keine Anmeldung. Für Zugriff von anderen Geräten
-    # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN in data/.env setzen.
+    # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN in .env setzen.
     ports:
-      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:${MIROFISH_PORT:-5001}:5001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - ./data:/app/data
+      - ./.env:/app/.env.initial:ro
     restart: unless-stopped

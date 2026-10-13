@@ -131,11 +131,17 @@ Other models work the same way; MiroFish lists every installed model under **Set
 
 ```bash
 git clone https://github.com/BEKO2210/MiroFish-DE.git && cd MiroFish-DE
+cp .env.example .env
+# Adjust the models and LOCAL_LLM_BASE_URL in .env if needed.
+# localhost is changed to host.docker.internal automatically on the first Docker start.
+mkdir -p data
 docker compose up -d --build
 ```
 
-Open **http://localhost:5001**. On first start MiroFish creates `data/.env`; settings, uploads, simulations and
-reports live in `data/`. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
+Open **http://localhost:5001**. On first start MiroFish copies the settings from `.env` to `data/.env`, where
+subsequent setting changes persist. Uploads, simulations and reports also live in `data/`. Before starting, set
+`MIROFISH_PORT` in `.env` to use another local port. On Linux, if `id -u` or `id -g` is not `1000`, also enter
+those values as `MIROFISH_UID` and `MIROFISH_GID`. The container reaches Ollama on the host via `host.docker.internal` – on Linux Ollama must
 listen on all interfaces for that (`Environment="OLLAMA_HOST=0.0.0.0"` in `systemctl edit ollama`).
 
 ### 2b. Run from source

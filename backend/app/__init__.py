@@ -93,6 +93,9 @@ def create_app(config_class=Config):
     # Blueprints registrieren
     from .api import graph_bp, simulation_bp, report_bp
     app.register_blueprint(graph_bp, url_prefix='/api/graph')
+    # Kurze, sprechende System-URLs; die bisherigen /api/graph/system/*-Routen bleiben kompatibel.
+    app.add_url_rule('/api/system/status', 'system_status', app.view_functions['graph.system_status'])
+    app.add_url_rule('/api/system/models', 'system_models', app.view_functions['graph.system_models'])
     app.register_blueprint(simulation_bp, url_prefix='/api/simulation')
     app.register_blueprint(report_bp, url_prefix='/api/report')
     from .api.ensemble import ensemble_bp, mark_stale_ensembles
