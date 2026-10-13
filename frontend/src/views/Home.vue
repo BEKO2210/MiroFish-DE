@@ -1227,9 +1227,9 @@ const startSimulation = () => {
 }
 
 .model-badge {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
+  display: block;
+  width: fit-content;
+  margin: 6px 0 0 auto;
   font-size: 10px;
   color: #999;
   background: #f5f5f5;

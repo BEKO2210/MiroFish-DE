@@ -1003,11 +1003,20 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  /* Am Handy keine gestreute Absolut-Anordnung (läuft seitlich über), sondern eine normale Liste.
+     !important, weil das Skript Position und Transform als Inline-Stile setzt. */
   .cards-container {
-    padding: 0 20px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 0;
+    min-height: auto !important;
   }
   .project-card {
-    width: 200px;
+    position: static !important;
+    width: 100% !important;
+    transform: none !important;
+    opacity: 1 !important;
   }
 }
 
