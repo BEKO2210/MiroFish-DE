@@ -158,22 +158,26 @@
               
               <div class="card-body">
                 <!-- CREATE_POST: Beitrag erstellen -->
-                <div v-if="action.action_type === 'CREATE_POST' && action.action_args?.content" class="content-text main-text">
-                  {{ action.action_args.content }}
-                </div>
+                <div
+                  v-if="action.action_type === 'CREATE_POST' && action.action_args?.content"
+                  class="content-text main-text"
+                  v-html="formatRichText(action.action_args.content)"
+                ></div>
 
                 <!-- QUOTE_POST: Beitrag zitieren -->
                 <template v-if="action.action_type === 'QUOTE_POST'">
-                  <div v-if="action.action_args?.quote_content" class="content-text">
-                    {{ action.action_args.quote_content }}
-                  </div>
+                  <div
+                    v-if="action.action_args?.quote_content"
+                    class="content-text"
+                    v-html="formatRichText(action.action_args.quote_content)"
+                  ></div>
                   <div v-if="action.action_args?.original_content" class="quoted-block">
                     <div class="quote-header">
                       <svg class="icon-small" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                       <span class="quote-label">@{{ action.action_args.original_author_name || $t('step3.user') }}</span>
                     </div>
                     <div class="quote-text">
-                      {{ truncateContent(action.action_args.original_content, 150) }}
+                      <span v-html="formatRichText(truncateContent(action.action_args.original_content, 150))"></span>
                     </div>
                   </div>
                 </template>
@@ -184,9 +188,11 @@
                     <svg class="icon-small" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
                     <span class="repost-label">{{ $t('step3.repostedBy', { user: action.action_args?.original_author_name || $t('step3.user') }) }}</span>
                   </div>
-                  <div v-if="action.action_args?.original_content" class="repost-content">
-                    {{ truncateContent(action.action_args.original_content, 200) }}
-                  </div>
+                  <div
+                    v-if="action.action_args?.original_content"
+                    class="repost-content"
+                    v-html="formatRichText(truncateContent(action.action_args.original_content, 200))"
+                  ></div>
                 </template>
 
                 <!-- LIKE_POST: Beitrag liken -->
@@ -196,15 +202,17 @@
                     <span class="like-label">{{ $t('step3.likedPostBy', { user: action.action_args?.post_author_name || $t('step3.user') }) }}</span>
                   </div>
                   <div v-if="action.action_args?.post_content" class="liked-content">
-                    "{{ truncateContent(action.action_args.post_content, 120) }}"
+                    "<span v-html="formatRichText(truncateContent(action.action_args.post_content, 120))"></span>"
                   </div>
                 </template>
 
                 <!-- CREATE_COMMENT: Kommentar erstellen -->
                 <template v-if="action.action_type === 'CREATE_COMMENT'">
-                  <div v-if="action.action_args?.content" class="content-text">
-                    {{ action.action_args.content }}
-                  </div>
+                  <div
+                    v-if="action.action_args?.content"
+                    class="content-text"
+                    v-html="formatRichText(action.action_args.content)"
+                  ></div>
                   <div v-if="action.action_args?.post_id" class="comment-context">
                     <svg class="icon-small" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
                     <span>{{ $t('step3.replyToPost', { id: action.action_args.post_id }) }}</span>
@@ -236,7 +244,7 @@
                     <span class="vote-label">{{ action.action_type === 'UPVOTE_POST' ? $t('step3.upvoted') : $t('step3.downvoted') }}</span>
                   </div>
                   <div v-if="action.action_args?.post_content" class="voted-content">
-                    "{{ truncateContent(action.action_args.post_content, 120) }}"
+                    "<span v-html="formatRichText(truncateContent(action.action_args.post_content, 120))"></span>"
                   </div>
                 </template>
 
@@ -249,9 +257,11 @@
                 </template>
 
                 <!-- Allgemeiner Fallback: Unbekannter Typ oder Content, der oben nicht behandelt wurde -->
-                <div v-if="!['CREATE_POST', 'QUOTE_POST', 'REPOST', 'LIKE_POST', 'CREATE_COMMENT', 'SEARCH_POSTS', 'FOLLOW', 'UPVOTE_POST', 'DOWNVOTE_POST', 'DO_NOTHING'].includes(action.action_type) && action.action_args?.content" class="content-text">
-                  {{ action.action_args.content }}
-                </div>
+                <div
+                  v-if="!['CREATE_POST', 'QUOTE_POST', 'REPOST', 'LIKE_POST', 'CREATE_COMMENT', 'SEARCH_POSTS', 'FOLLOW', 'UPVOTE_POST', 'DOWNVOTE_POST', 'DO_NOTHING'].includes(action.action_type) && action.action_args?.content"
+                  class="content-text"
+                  v-html="formatRichText(action.action_args.content)"
+                ></div>
               </div>
 
               <div class="card-footer">
@@ -269,18 +279,16 @@
       </div>
     </div>
 
-    <!-- Untere Info / Protokolle -->
-    <div class="system-logs">
-      <div class="log-header">
-        <span class="log-title">{{ $t('step3.simulationMonitor') }}</span>
-      </div>
+    <!-- Untere Info / Protokolle – Desktop eingeklappt -->
+    <details class="system-logs">
+      <summary>{{ $t('common.showProtocol') }}</summary>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in systemLogs" :key="idx">
           <span class="log-time">{{ log.time }}</span>
           <span class="log-msg">{{ log.msg }}</span>
         </div>
       </div>
-    </div>
+    </details>
     <MobileStickyBar
       :primary-label="$t('step3.generateResultsReport')"
       :primary-disabled="phase !== 2"
@@ -302,6 +310,7 @@ import {
 } from '../api/simulation'
 import { generateReport } from '../api/report'
 import MobileStickyBar from './MobileStickyBar.vue'
+import { formatRichText } from '../utils/formatRichText.js'
 
 const { t } = useI18n()
 
@@ -1246,22 +1255,29 @@ onUnmounted(() => {
 
 /* Logs */
 .system-logs {
-  background: var(--color-text-primary);
-  color: var(--color-border-default);
-  padding: 16px;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
   font-family: var(--font-body);
-  border-top: 1px solid var(--color-text-primary);
+  border-top: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
-
-.log-header {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-text-primary);
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  font-size: 10px;
+.system-logs > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--color-text-secondary);
+  list-style: none;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.system-logs > summary::-webkit-details-marker { display: none; }
+.system-logs[open] { padding-bottom: 12px; }
+.system-logs[open] > summary {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .log-content {
@@ -1283,8 +1299,10 @@ onUnmounted(() => {
   line-height: 1.5;
 }
 
-.log-time { color: var(--color-text-secondary); min-width: 75px; }
-.log-msg { color: var(--color-border-strong); word-break: break-all; }
+.log-time { color: var(--color-text-muted); min-width: 75px; }
+.log-msg { color: var(--color-text-primary); word-break: break-all; }
+.content-text :deep(em) { font-style: italic; }
+.content-text :deep(strong) { font-weight: 700; }
 .mono { font-family: var(--font-body); }
 
 /* Loading spinner for button */
@@ -1304,12 +1322,17 @@ h1, h2, h3, h4, h5, h6, .platform-name { font-family: var(--font-heading); }
 .timeline-card, .content-text, .agent-name { overflow-wrap: anywhere; word-break: break-word; }
 @media (max-width: 768px) {
   .action-controls { display: none; }
-  .simulation-panel { min-width: 0; }
+  .simulation-panel { min-width: 0; height: auto; overflow: visible; }
   .control-bar { height: auto; padding: 12px 16px; align-items: stretch; flex-direction: column; gap: 12px; }
   .status-group { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .platform-status { width: 100%; min-width: 0; }
   .action-controls, .action-btn { width: 100%; }
-  .main-content-area { padding: 0 16px calc(80px + env(safe-area-inset-bottom)); }
+  .main-content-area {
+    flex: none;
+    height: auto;
+    overflow: visible;
+    padding: 0 16px calc(64px + 58px + env(safe-area-inset-bottom, 0px));
+  }
   .timeline-header { padding-inline: 0; }
   .timeline-feed { padding: 16px 0; }
   .timeline-axis { left: 10px; transform: none; }

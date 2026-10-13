@@ -413,18 +413,16 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- Bottom Console Logs -->
-    <div class="console-logs">
-      <div class="log-header">
-        <span class="log-title">{{ $t('step4.consoleOutput') }}</span>
       </div>
+    </details>
+
+    <!-- Bottom Console Logs – Desktop eingeklappt -->
+    <details class="console-logs">
+      <summary>{{ $t('common.showProtocol') }}</summary>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in consoleLogs" :key="idx">
           <span class="log-msg" :class="getLogLevelClass(log)">{{ log }}</span>
         </div>
-      </div>
       </div>
     </details>
     <MobileStickyBar
@@ -5310,18 +5308,35 @@ watch(() => props.reportId, (newId) => {
 
 /* Console Logs - konsistent mit Step3Simulation.vue */
 .console-logs {
-  background: var(--color-text-primary);
-  color: var(--color-border-default);
-  padding: 16px;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
   font-family: var(--font-body);
-  border-top: 1px solid var(--color-text-primary);
+  border-top: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
+}
+.console-logs > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  list-style: none;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}
+.console-logs > summary::-webkit-details-marker { display: none; }
+.console-logs[open] { padding-bottom: 12px; }
+.console-logs[open] > summary {
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .log-header {
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border-subtle);
   padding-bottom: 8px;
   margin-bottom: 8px;
   font-size: 10px;
@@ -5456,12 +5471,18 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
 
 @media (max-width: 768px) {
   .next-step-btn { display: none; }
-  .report-main { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
-  .report-panel { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .report-panel,
+  .main-split-layout {
+    height: auto;
+    overflow: visible;
+  }
+  .report-main {
+    padding-bottom: calc(64px + 58px + env(safe-area-inset-bottom, 0px));
+  }
   .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }
   .left-panel.report-style { padding: 24px 16px 40px; border-bottom: 0; }
   .origin-body { max-height: none; overflow: visible; }
-  .origin-body .right-panel { max-height: 70vh; overflow-y: auto; }
+  .origin-body .right-panel { max-height: none; overflow: visible; }
   .workflow-metrics { flex-wrap: wrap; }
   .metric { min-width: calc(50% - 8px); }
   .footer-actions, .action-btn, .next-step-btn { width: 100%; }

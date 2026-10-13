@@ -56,8 +56,32 @@ function resolveFixture(pathname: string): unknown | null {
     if (!rest) return loadFixture(`simulation_${id}`)
     if (rest === 'run-status') return loadFixture(`simulation_${id}_run-status`)
     if (rest === 'run-status/detail') {
+      const detail = loadFixture(`simulation_${id}_run-status_detail`)
+      if (detail) return detail
       const base = loadFixture(`simulation_${id}_run-status`) as { data?: unknown } | null
-      return base ? { success: true, data: { ...(base as { data: object }).data, recent_actions: [] } } : null
+      return base
+        ? {
+            success: true,
+            data: {
+              ...(base as { data: object }).data,
+              recent_actions: [],
+              all_actions: [
+                {
+                  id: 'e2e-rich-post-1',
+                  timestamp: '2026-10-13T09:50:00.000000',
+                  platform: 'twitter',
+                  agent_id: 'agent_e2e',
+                  agent_name: 'Elternbeirat',
+                  action_type: 'CREATE_POST',
+                  action_args: {
+                    content:
+                      'Wir sprechen vom \\"Gemeinwohls\\" und handeln *ganzheitlich* mit **Fakten**.',
+                  },
+                },
+              ],
+            },
+          }
+        : null
     }
     if (rest === 'config' || rest === 'config/realtime') {
       return defaultOk({
@@ -82,8 +106,44 @@ function resolveFixture(pathname: string): unknown | null {
   if (report) {
     const [, id, rest] = report
     if (!rest) return loadFixture(`report_${id}`)
-    if (rest === 'agent-log' || rest === 'console-log') {
-      return defaultOk({ lines: [], content: '', from_line: 0, total_lines: 0 })
+    if (rest === 'console-log') {
+      return defaultOk({ logs: [], lines: [], content: '', from_line: 0, total_lines: 0 })
+    }
+    if (rest === 'agent-log') {
+      // Abgeschlossenen Bericht aus Fixture als Agent-Logs spiegeln (Outline + Abschnitte)
+      const fixture = loadFixture(`report_${id}`) as {
+        data?: {
+          outline?: {
+            title?: string
+            summary?: string
+            sections?: { title: string; content: string }[]
+          }
+        }
+      } | null
+      const outline = fixture?.data?.outline
+      if (!outline?.sections?.length) {
+        return defaultOk({ logs: [], from_line: 0, total_lines: 0 })
+      }
+      const logs: Record<string, unknown>[] = [
+        {
+          action: 'planning_complete',
+          timestamp: '2026-10-13T09:56:30.000000',
+          details: { outline },
+        },
+      ]
+      outline.sections.forEach((section, i) => {
+        logs.push({
+          action: 'section_complete',
+          section_index: i + 1,
+          timestamp: `2026-10-13T09:5${7 + i}:00.000000`,
+          details: { content: section.content },
+        })
+      })
+      logs.push({
+        action: 'report_complete',
+        timestamp: '2026-10-13T10:08:39.000000',
+      })
+      return defaultOk({ logs, from_line: 0, total_lines: logs.length })
     }
   }
 
@@ -238,10 +298,24 @@ export async function installMockApi(page: Page): Promise<MockApi> {
 
       const fixture = resolveFixture(pathname)
       if (fixture) {
+        let payload: unknown = fixture
+        if (pathname.includes('/agent-log')) {
+          const from = Number(url.searchParams.get('from_line') || 0)
+          const data = (fixture as { data?: { logs?: unknown[] } }).data
+          const all = data?.logs || []
+          payload = {
+            success: true,
+            data: {
+              logs: all.slice(from),
+              from_line: from,
+              total_lines: all.length,
+            },
+          }
+        }
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
-          body: JSON.stringify(fixture),
+          body: JSON.stringify(payload),
         })
         return
       }

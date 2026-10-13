@@ -1,6 +1,7 @@
 {
   "common": {
     "completed": "Abgeschlossen",
+    "close": "Schließen",
     "error": "Fehler",
     "generating": "Wird generiert",
     "initializing": "Initialisiere",
@@ -12,6 +13,7 @@
     "ready": "Bereit",
     "refresh": "Aktualisieren",
     "running": "Läuft",
+    "showProtocol": "Protokoll anzeigen",
     "unknownError": "Unbekannter Fehler",
     "language": "Sprache",
     "splitView": "Zweispaltig",
@@ -83,7 +85,7 @@
     "openaiCloud": "OpenAI (Cloud)",
     "provider": "Anbieter:",
     "realitatsSamenExtraktionIndividuenGruppenGedachtnisInjektion": "Realitäts-Samen-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau",
-    "reportagentMitReichhaltigemToolsetFurTiefeInteraktion": "ReportAgent mit reichhaltigem Toolset für tiefe Interaktion",
+    "reportagentMitReichhaltigemToolsetFurTiefeInteraktion": "ReportAgent mit reichhaltigem Toolset zum Nachfragen stellen",
     "selbstMitNurEinemTextKann": "Selbst mit nur einem Text kann",
     "sicherheitshinweis": "Sicherheitshinweis:",
     "simulationStarten": "Simulation starten",
@@ -94,7 +96,7 @@
     "testFehlgeschlagen": "Test fehlgeschlagen: ",
     "text01RealitatsSamen": "01 / Realitäts-Samen",
     "text02SimulationsPrompt": ">_ 02 / Simulations-Prompt",
-    "tiefeInteraktion": "Nachfragen",
+    "tiefeInteraktion": "Nachfragen stellen",
     "umgebungsaufbau": "Agenten vorbereiten",
     "unterstutztPdfMdTxt": "Unterstützt: PDF, MD, TXT",
     "uploadsSimulationsVault": "uploads/simulations/.../vault",
@@ -115,7 +117,7 @@
     "graphLadenFehlgeschlagen": "Graph laden fehlgeschlagen: {p0}",
     "projektErfolgreichGeladen": "Projekt erfolgreich geladen: {p0}",
     "schritt55": "Schritt 5/5",
-    "tiefeInteraktion": "Nachfragen"
+    "tiefeInteraktion": "Nachfragen stellen"
   },
   "main": {
     "customSimulationRounds": "Benutzerdefinierte Simulationsrunden: {count} Runden",
@@ -144,7 +146,7 @@
     "graphdatenKonntenNichtGeladenWerden": "Graphdaten konnten nicht geladen werden: {p0}",
     "graphErstellen": "Wissensgraph",
     "umgebungAufbauen": "Umgebung aufbauen",
-    "tiefeInteraktion": "Nachfragen",
+    "tiefeInteraktion": "Nachfragen stellen",
     "graphWirdErstellt": "Graph wird erstellt",
     "keineAusstehendenDateienGefunden": "Keine ausstehenden Dateien gefunden.",
     "manuelleGraphAktualisierungAusgelost": "Manuelle Graph-Aktualisierung ausgelöst.",
@@ -357,7 +359,7 @@
     "keineZugehorigenDateien": "Keine zugehörigen Dateien",
     "ladenDerProjekthistorieFehlgeschlagen": "Laden der Projekthistorie fehlgeschlagen:",
     "nichtGestartet": "Nicht gestartet",
-    "schritt3SimulationStartenUndSchritt5": "Schritt 3 \"Simulation starten\" und Schritt 5 \"Tiefe Interaktion\" müssen während der Laufzeit gestartet werden und unterstützen keine historische Wiedergabe",
+    "schritt3SimulationStartenUndSchritt5": "Schritt 3 \"Simulation starten\" und Schritt 5 \"Nachfragen stellen\" müssen während der Laufzeit gestartet werden und unterstützen keine historische Wiedergabe",
     "simulationsaufzeichnungen": "SIMULATIONSAUFZEICHNUNGEN",
     "simulationsbedarf": "Simulationsbedarf",
     "simulationswiedergabe": "SIMULATIONSWIEDERGABE",
@@ -683,7 +685,7 @@
     "wirdGeneriert": "wird generiert...",
     "world1": "Welt 1",
     "world2": "Welt 2",
-    "zurTiefeninteraktion": "Zur Tiefeninteraktion",
+    "zurTiefeninteraktion": "Nachfragen stellen",
     "downloadMarkdown": "Als Markdown herunterladen",
     "printPdf": "Drucken / PDF",
     "howItWasMade": "So entstand der Bericht",
@@ -694,7 +696,7 @@
   "step5": {
     "unknownProfession": "Unbekannter Beruf",
     "apologyError": "Entschuldigung, ein Fehler ist aufgetreten: {error}",
-    "initialized": "Schritt 5 Tiefeninteraktion initialisiert",
+    "initialized": "Schritt 5 Nachfragen stellen initialisiert",
     "loadingReportData": "Berichtsdaten laden: {id}",
     "noResponse": "Keine Antwort",
     "noResponseData": "Keine Antwortdaten",

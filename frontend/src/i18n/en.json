@@ -1,6 +1,7 @@
 {
   "common": {
     "completed": "Completed",
+    "close": "Close",
     "error": "Error",
     "generating": "Generating",
     "initializing": "Initializing",
@@ -12,6 +13,7 @@
     "ready": "Ready",
     "refresh": "Refresh",
     "running": "Running",
+    "showProtocol": "Show log",
     "unknownError": "Unknown error",
     "language": "Language",
     "splitView": "Split view",
@@ -83,7 +85,7 @@
     "openaiCloud": "OpenAI (Cloud)",
     "provider": "Provider:",
     "realitatsSamenExtraktionIndividuenGruppenGedachtnisInjektion": "Extract reality seeds & add individual/group memories & build GraphRAG",
-    "reportagentMitReichhaltigemToolsetFurTiefeInteraktion": "ReportAgent with a rich set of tools for in-depth interaction",
+    "reportagentMitReichhaltigemToolsetFurTiefeInteraktion": "ReportAgent with a rich set of tools to ask follow-up questions",
     "selbstMitNurEinemTextKann": "With just one document,",
     "sicherheitshinweis": "Security notice:",
     "simulationStarten": "Start simulation",
@@ -94,7 +96,7 @@
     "testFehlgeschlagen": "Test failed: ",
     "text01RealitatsSamen": "01 / Reality seeds",
     "text02SimulationsPrompt": ">_ 02 / Simulation prompt",
-    "tiefeInteraktion": "Ask questions",
+    "tiefeInteraktion": "Ask follow-up questions",
     "umgebungsaufbau": "Prepare agents",
     "unterstutztPdfMdTxt": "Supported: PDF, MD, TXT",
     "uploadsSimulationsVault": "uploads/simulations/.../vault",
@@ -115,7 +117,7 @@
     "graphLadenFehlgeschlagen": "Could not load graph: {p0}",
     "projektErfolgreichGeladen": "Project loaded successfully: {p0}",
     "schritt55": "Step 5/5",
-    "tiefeInteraktion": "Ask questions"
+    "tiefeInteraktion": "Ask follow-up questions"
   },
   "main": {
     "customSimulationRounds": "Custom simulation rounds: {count}",
@@ -144,7 +146,7 @@
     "graphdatenKonntenNichtGeladenWerden": "Could not load graph data: {p0}",
     "graphErstellen": "Knowledge graph",
     "umgebungAufbauen": "Set up environment",
-    "tiefeInteraktion": "Ask questions",
+    "tiefeInteraktion": "Ask follow-up questions",
     "graphWirdErstellt": "Building graph",
     "keineAusstehendenDateienGefunden": "No pending files found.",
     "manuelleGraphAktualisierungAusgelost": "Manual graph refresh requested.",
@@ -357,7 +359,7 @@
     "keineZugehorigenDateien": "No related files",
     "ladenDerProjekthistorieFehlgeschlagen": "Could not load project history:",
     "nichtGestartet": "Not started",
-    "schritt3SimulationStartenUndSchritt5": "Step 3, \"Start simulation,\" and step 5, \"In-depth interaction,\" must be opened while the simulation is running and cannot be replayed from history.",
+    "schritt3SimulationStartenUndSchritt5": "Step 3, \"Start simulation,\" and step 5, \"Ask follow-up questions,\" must be opened while the simulation is running and cannot be replayed from history.",
     "simulationsaufzeichnungen": "SIMULATION RECORDS",
     "simulationsbedarf": "Simulation goal",
     "simulationswiedergabe": "SIMULATION REPLAY",
@@ -683,7 +685,7 @@
     "wirdGeneriert": "is being generated...",
     "world1": "World 1",
     "world2": "World 2",
-    "zurTiefeninteraktion": "Open in-depth interaction",
+    "zurTiefeninteraktion": "Ask follow-up questions",
     "downloadMarkdown": "Download as Markdown",
     "printPdf": "Print / PDF",
     "howItWasMade": "How this report was made",
@@ -694,7 +696,7 @@
   "step5": {
     "unknownProfession": "Unknown profession",
     "apologyError": "Sorry, an error occurred: {error}",
-    "initialized": "Step 5: in-depth interaction initialized",
+    "initialized": "Step 5: ask follow-up questions initialized",
     "loadingReportData": "Loading report data: {id}",
     "noResponse": "No response",
     "noResponseData": "No response data",

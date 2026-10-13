@@ -31,7 +31,7 @@
             <div class="detail-header">
                <div class="detail-title-group">
                   <span class="detail-type-badge">{{ selectedOntologyItem.itemType === 'entity' ? $t('step1.entity') : $t('step1.relationship') }}</span>
-                  <span class="detail-name">{{ selectedOntologyItem.name }}</span>
+                  <span class="detail-name">{{ selectedOntologyItem.itemType === 'entity' ? formatLabel(selectedOntologyItem.name) : formatLabel(selectedOntologyItem.name, 'relation') }}</span>
                </div>
                <button class="close-btn" @click="selectedOntologyItem = null">×</button>
             </div>
@@ -63,9 +63,9 @@
                   <span class="section-label">{{ $t('step1.verbindungen') }}</span>
                   <div class="conn-list">
                      <div v-for="(conn, idx) in selectedOntologyItem.source_targets" :key="idx" class="conn-item">
-                        <span class="conn-node">{{ conn.source }}</span>
+                        <span class="conn-node">{{ formatLabel(conn.source) }}</span>
                         <span class="conn-arrow">→</span>
-                        <span class="conn-node">{{ conn.target }}</span>
+                        <span class="conn-node">{{ formatLabel(conn.target) }}</span>
                      </div>
                   </div>
                </div>
@@ -82,7 +82,7 @@
                 class="entity-tag clickable"
                 @click="selectOntologyItem(entity, 'entity')"
               >
-                {{ entity.name }}
+                {{ formatLabel(entity.name) }}
               </span>
             </div>
           </div>
@@ -97,7 +97,7 @@
                 class="entity-tag clickable"
                 @click="selectOntologyItem(rel, 'relation')"
               >
-                {{ rel.name }}
+                {{ formatLabel(rel.name, 'relation') }}
               </span>
             </div>
           </div>
@@ -167,18 +167,16 @@
       </div>
     </div>
 
-    <!-- Bottom Info / Logs -->
-    <div class="system-logs">
-      <div class="log-header">
-        <span class="log-title">{{ $t('step1.systemubersicht') }}</span>
-      </div>
+    <!-- Bottom Info / Logs – Desktop eingeklappt, Handy via App.vue ausgeblendet -->
+    <details class="system-logs">
+      <summary>{{ $t('common.showProtocol') }}</summary>
       <div class="log-content" ref="logContent">
         <div class="log-line" v-for="(log, idx) in systemLogs" :key="idx">
           <span class="log-time">{{ log.time }}</span>
           <span class="log-msg">{{ log.msg }}</span>
         </div>
       </div>
-    </div>
+    </details>
     <MobileStickyBar
       :primary-label="$t('step1.toEnvironmentSetup')"
       :primary-disabled="currentPhase < 2"
@@ -194,6 +192,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createSimulation } from '../api/simulation'
 import MobileStickyBar from './MobileStickyBar.vue'
+import { formatLabel } from '../utils/labels.js'
 
 const { t } = useI18n()
 
@@ -647,31 +646,38 @@ watch(() => props.systemLogs.length, () => {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* System Logs */
+/* System Logs – dezente Token-Zeile, eingeklappt */
 .system-logs {
-  background: var(--color-text-primary);
-  color: var(--color-border-default);
-  padding: 16px;
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
   font-family: var(--font-body);
-  border-top: 1px solid var(--color-text-primary);
+  border-top: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
 }
-
-.log-header {
+.system-logs > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  list-style: none;
+  min-height: 32px;
   display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-text-primary);
-  padding-bottom: 8px;
+  align-items: center;
+}
+.system-logs > summary::-webkit-details-marker { display: none; }
+.system-logs[open] { padding-bottom: 12px; }
+.system-logs[open] > summary {
   margin-bottom: 8px;
-  font-size: 10px;
-  color: var(--color-text-muted);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .log-content {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  height: 80px; /* Approx 4 lines visible */
+  height: 80px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -681,7 +687,7 @@ watch(() => props.systemLogs.length, () => {
 }
 
 .log-content::-webkit-scrollbar-thumb {
-  background: var(--color-text-primary);
+  background: var(--color-border-strong);
   border-radius: 2px;
 }
 
@@ -707,9 +713,13 @@ h1, h2, h3, h4, h5, h6, .step-title { font-family: var(--font-heading); }
 .workbench-panel, .scroll-container, .step-card { min-width: 0; }
 .step-card, .description, .log-msg, .detail-value { overflow-wrap: anywhere; }
 @media (max-width: 768px) {
-  .scroll-container { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .workbench-panel,
+  .scroll-container {
+    height: auto;
+    overflow: visible;
+  }
   .step-card:last-child .action-btn { display: none; }
-  .scroll-container { padding: 16px 16px calc(80px + env(safe-area-inset-bottom)); gap: 16px; }
+  .scroll-container { padding: 16px 16px calc(64px + 58px + env(safe-area-inset-bottom, 0px)); gap: 16px; }
   .step-card { width: 100%; padding: 16px; border-radius: var(--radius-lg); }
   .card-header, .step-info { align-items: flex-start; }
   .card-header { gap: 12px; }
