@@ -11,6 +11,7 @@ Zweig. Search/Trend bleiben als Aktionen nutzbar; die Standardbeobachtung nicht.
 from __future__ import annotations
 
 import json
+import types
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
@@ -30,7 +31,9 @@ def install_blind_feed(platform: Any) -> None:
     async def update_rec_table_blind() -> None:
         platform.pl_utils._execute_db_command("DELETE FROM rec", commit=True)
 
-    async def refresh_own_only(agent_id: int) -> Dict[str, Any]:
+    # OASIS übergibt agent_id nur an Aktionen mit mindestens zwei Parametern (self, agent_id);
+    # deshalb als gebundene Methode installieren.
+    async def refresh_own_only(self: Any, agent_id: int) -> Dict[str, Any]:
         try:
             platform.pl_utils._execute_db_command(
                 "SELECT post_id, user_id, original_post_id, content, "
@@ -38,16 +41,20 @@ def install_blind_feed(platform: Any) -> None:
                 "num_shares FROM post WHERE user_id = ? ORDER BY post_id",
                 (agent_id,),
             )
-            results = platform.db_cursor.fetchall()
-            if not results:
-                return {"success": False, "message": "No posts found."}
+            results = platform.db_cursor.fetchall() or []
             results_with_comments = platform.pl_utils._add_comments_to_posts(results)
+            for post in results_with_comments:
+                post["comments"] = [
+                    comment
+                    for comment in post.get("comments", [])
+                    if int(comment.get("user_id", -1)) == int(agent_id)
+                ]
             return {"success": True, "posts": results_with_comments}
         except Exception as error:
             return {"success": False, "error": str(error)}
 
     platform.update_rec_table = update_rec_table_blind  # type: ignore[method-assign]
-    platform.refresh = refresh_own_only  # type: ignore[method-assign]
+    platform.refresh = types.MethodType(refresh_own_only, platform)  # type: ignore[method-assign]
     platform._blind_feed = True
 
 
@@ -70,37 +77,44 @@ def deliver_opening_stimulus(
     posts: Sequence[Dict[str, Any]],
     log_path: str | Path,
     platform_name: str,
+    *,
+    own_only: bool = False,
 ) -> Dict[str, Any]:
     """Startbeiträge je Agent einmal als gelesenen Stimulus eintragen und protokollieren."""
     from camel.messages import BaseMessage
     from camel.types import OpenAIBackendRole
 
-    lines = []
-    post_ids: List[int] = []
-    for post in posts:
-        pid = int(post.get("post_id", 0))
-        post_ids.append(pid)
-        lines.append(
-            f"- [{pid}] user={post.get('user_id')}: {str(post.get('content') or '').strip()}"
-        )
-    body = (
-        "You have read these opening posts on the platform (one-time stimulus):\n"
-        + ("\n".join(lines) if lines else "- (none)")
-    )
+    post_ids = [int(post.get("post_id", 0)) for post in posts]
     agents_log: List[Dict[str, Any]] = []
     for agent_id, agent in agent_graph.get_agents():
+        visible_posts = own_post_rows(posts, agent_id) if own_only else list(posts)
+        visible_ids = [int(post.get("post_id", 0)) for post in visible_posts]
+        lines = [
+            f"- [{post.get('post_id')}] user={post.get('user_id')}: "
+            f"{str(post.get('content') or '').strip()}"
+            for post in visible_posts
+        ]
+        body = (
+            "You have read these opening posts on the platform (one-time stimulus):\n"
+            + ("\n".join(lines) if lines else "- (none)")
+        )
         message = BaseMessage.make_user_message(role_name="User", content=body)
-        agent.update_memory(message, OpenAIBackendRole.USER)
+        try:
+            agent.update_memory(message, OpenAIBackendRole.USER)
+            seen = True
+        except Exception:
+            seen = False
         agents_log.append({
             "agent_id": int(agent_id),
-            "seen_post_ids": list(post_ids),
-            "seen": True,
-            "post_count": len(post_ids),
+            "seen_post_ids": visible_ids if seen else [],
+            "seen": seen,
+            "post_count": len(visible_ids),
         })
     document = {
         "platform": platform_name,
         "stimulus": "opening_posts",
         "post_ids": post_ids,
+        "own_only": own_only,
         "agents": agents_log,
     }
     path = Path(log_path)

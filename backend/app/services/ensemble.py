@@ -1000,8 +1000,9 @@ def compute_run_stats(
     *,
     narrative: str = "",
     audit: Optional[Dict[str, Any]] = None,
+    run_dir: Optional[Path] = None,
 ) -> Dict[str, int]:
-    """Beitragszahl, Zeichenzahl und Stapelzahl eines Laufs."""
+    """Textmengen, Klassifikationsstapel und beobachtbare Feed-Lecks je Lauf."""
     texts = [str(post.get("text") or "") for post in posts]
     if narrative:
         character_count = len(narrative)
@@ -1014,11 +1015,91 @@ def compute_run_stats(
         batches = (document.get("raters") or {}).get("a", {}).get("batches") or []
     else:
         batches = document.get("batches") or []
+    leak_stats = measure_blind_feed_usage(run_dir) if run_dir else {
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
     return {
         "post_count": int(post_count),
         "character_count": int(character_count),
         "batch_count": int(len(batches)),
+        **leak_stats,
     }
+
+
+def measure_blind_feed_usage(run_dir: Path) -> Dict[str, int]:
+    """Search/Trend und Interaktionen mit fremden Beiträgen aus OASIS-Traces."""
+    counts = {
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
+    target_fields = {
+        "like_post": "post_id",
+        "repost": "reposted_id",
+        "quote_post": "quoted_id",
+    }
+    for platform in ("twitter", "reddit"):
+        db_path = Path(run_dir) / f"{platform}_simulation.db"
+        if not db_path.is_file():
+            continue
+        connection = sqlite3.connect(str(db_path))
+        connection.row_factory = sqlite3.Row
+        try:
+            trace_columns = _table_columns(connection, "trace")
+            post_columns = _table_columns(connection, "post")
+            if not {"user_id", "action", "info"}.issubset(trace_columns):
+                continue
+            if not {"post_id", "user_id"}.issubset(post_columns):
+                continue
+            post_authors = {
+                int(row["post_id"]): int(row["user_id"])
+                for row in connection.execute("SELECT post_id, user_id FROM post")
+            }
+            comment_posts: Dict[int, int] = {}
+            if {"comment_id", "post_id"}.issubset(_table_columns(connection, "comment")):
+                comment_posts = {
+                    int(row["comment_id"]): int(row["post_id"])
+                    for row in connection.execute("SELECT comment_id, post_id FROM comment")
+                }
+            for row in connection.execute("SELECT user_id, action, info FROM trace"):
+                action = str(row["action"] or "").lower()
+                if action == "search_posts":
+                    counts["search_action_count"] += 1
+                    continue
+                if action == "trend":
+                    counts["trend_action_count"] += 1
+                    continue
+                if action not in {*target_fields, "create_comment"}:
+                    continue
+                try:
+                    info = json.loads(row["info"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if not isinstance(info, dict):
+                    continue
+                if action == "create_comment":
+                    target_post_id = info.get("post_id")
+                    if target_post_id is None:
+                        try:
+                            target_post_id = comment_posts.get(int(info.get("comment_id")))
+                        except (TypeError, ValueError):
+                            target_post_id = None
+                else:
+                    target_post_id = info.get(target_fields[action])
+                try:
+                    author_id = post_authors.get(int(target_post_id))
+                    actor_id = int(row["user_id"])
+                except (TypeError, ValueError):
+                    continue
+                if author_id is not None and actor_id != author_id:
+                    counts["foreign_interaction_count"] += 1
+        except sqlite3.Error:
+            logger.warning("Leak-Statistik konnte nicht aus %s gelesen werden", db_path)
+        finally:
+            connection.close()
+    return counts
 
 
 def build_null_arm_prompt(
@@ -2346,7 +2427,9 @@ class EnsembleService:
                                 key,
                             )
                             audit = _read_json(run_dir / "classification.json")
-                            stats = compute_run_stats(narrative=narrative, audit=audit)
+                            stats = compute_run_stats(
+                                narrative=narrative, audit=audit, run_dir=run_dir
+                            )
                         else:
                             config = _read_json(run_dir / "simulation_config.json")
                             initial = (config.get("event_config") or {}).get("initial_posts") or []
@@ -2355,7 +2438,7 @@ class EnsembleService:
                                 state, posts, seed, run_number, run_dir
                             )
                             audit = _read_json(run_dir / "classification.json")
-                            stats = compute_run_stats(posts, audit=audit)
+                            stats = compute_run_stats(posts, audit=audit, run_dir=run_dir)
                         run_stats[key].append({"run": run_number, **stats})
                         per_run[key].append(classified)
                         variant["done"] = run_number
@@ -2445,7 +2528,7 @@ class EnsembleService:
                             )
                             audit = _read_json(run_dir / "classification.json")
                             stats = compute_run_stats(
-                                narrative=narrative, audit=audit
+                                narrative=narrative, audit=audit, run_dir=run_dir
                             )
                         else:
                             config = prepare_run_directory(
@@ -2489,7 +2572,7 @@ class EnsembleService:
                                 state, posts, seed, run_number, run_dir
                             )
                             audit = _read_json(run_dir / "classification.json")
-                            stats = compute_run_stats(posts, audit=audit)
+                            stats = compute_run_stats(posts, audit=audit, run_dir=run_dir)
                         stats = {"run": run_number, **stats}
                         run_stats[key].append(stats)
                         per_run[key].append(classified)
@@ -2581,8 +2664,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             "",
             "### Textmengen je Lauf",
             "",
-            "| Variante | Lauf | Beiträge | Zeichen | Stapel |",
-            "|---|---:|---:|---:|---:|",
+            "| Variante | Lauf | Beiträge | Zeichen | Stapel | Search | Trend | Fremdinteraktionen |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
         ])
         for variant in state["variants"]:
             key = variant["key"]
@@ -2590,7 +2673,10 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
                 lines.append(
                     f"| {labels[key]} | {row.get('run', '—')} | "
                     f"{row.get('post_count', 0)} | {row.get('character_count', 0)} | "
-                    f"{row.get('batch_count', 0)} |"
+                    f"{row.get('batch_count', 0)} | "
+                    f"{row.get('search_action_count', 0)} | "
+                    f"{row.get('trend_action_count', 0)} | "
+                    f"{row.get('foreign_interaction_count', 0)} |"
                 )
     if state.get("reliability"):
         lines.extend([
