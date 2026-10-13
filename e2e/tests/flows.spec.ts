@@ -208,7 +208,7 @@ test.describe('Flows', () => {
     await expect(page.getByText('Feed ausgeblendet (blinder Feed)', { exact: false }).first()).toBeVisible()
     await expect(page.getByText('Nur Dokument (Nullmodell Dokument)', { exact: false }).first()).toBeVisible()
     await expect(page.getByText('Mit Rollen (Nullmodell Personas)', { exact: false }).first()).toBeVisible()
-    await expect(page.locator('.run-stats--list:visible .run-stats__run').first()).toBeVisible()
+    await expect(page.locator('.run-stats--list:visible .run-stats__run, .run-stats--table:visible tbody tr').first()).toBeVisible()
   })
 
   test('eigene Frage hinzufügen und Mehrfachlauf starten', async ({ page }) => {
