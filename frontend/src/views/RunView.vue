@@ -1,8 +1,8 @@
 <template>
   <div class="run">
     <header class="topbar">
-      <router-link to="/" class="back" aria-label="Zur Startseite">‹ Start</router-link>
-      <span class="topbar__title">Durchlauf</span>
+      <router-link to="/" class="back" :aria-label="t('run.backAria')">{{ t('run.back') }}</router-link>
+      <span class="topbar__title">{{ t('run.title') }}</span>
       <span class="topbar__spacer"></span>
     </header>
 
@@ -18,7 +18,7 @@
 
       <template v-else>
         <section class="head">
-          <p class="eyebrow">{{ fmtDate(state.created_at) }} · {{ (state.files || []).length }} Datei(en)</p>
+          <p class="eyebrow">{{ fmtDate(state.created_at) }} · {{ t('run.files', { n: (state.files || []).length }) }}</p>
           <h1 class="title">{{ state.requirement }}</h1>
 
           <!-- Gesamtstatus -->
@@ -27,16 +27,16 @@
               <span class="orb" aria-hidden="true"><span></span><span></span><span></span></span>
               <div>
                 <strong>{{ currentLabel }}</strong>
-                <small>{{ currentDetail || 'Wird vorbereitet …' }}</small>
+                <small>{{ currentDetail || t('run.preparing') }}</small>
               </div>
             </template>
             <template v-else-if="state.status === 'completed'">
               <span class="check" aria-hidden="true">✓</span>
-              <div><strong>Bericht ist fertig</strong><small>Dauer {{ fmtDuration(state.created_at, state.completed_at) }}</small></div>
+              <div><strong>{{ t('run.done') }}</strong><small>{{ t('run.duration', { d: fmtDuration(state.created_at, state.completed_at) }) }}</small></div>
             </template>
             <template v-else>
               <span class="cross" aria-hidden="true">!</span>
-              <div><strong>Abgebrochen</strong><small>{{ state.error }}</small></div>
+              <div><strong>{{ t('run.stopped') }}</strong><small>{{ state.error }}</small></div>
             </template>
           </div>
 
@@ -61,11 +61,11 @@
             </span>
             <div class="step__body">
               <div class="step__row">
-                <span class="step__label">{{ STEP_LABELS[key] }}</span>
+                <span class="step__label">{{ t(`steps.${key}`) }}</span>
                 <span v-if="state.steps[key].status === 'running' && state.steps[key].progress" class="step__pct">{{ Math.round(state.steps[key].progress) }} %</span>
               </div>
               <p v-if="state.steps[key].detail" class="step__detail">{{ state.steps[key].detail }}</p>
-              <p v-else-if="state.steps[key].status === 'running'" class="step__detail step__detail--hint">{{ HINTS[key] }}</p>
+              <p v-else-if="state.steps[key].status === 'running'" class="step__detail step__detail--hint">{{ t(HINTS[key]) }}</p>
               <div v-if="state.steps[key].status === 'running'" class="step__bar">
                 <div class="step__bar-fill" :style="{ width: (state.steps[key].progress || 0) + '%' }"></div>
               </div>
@@ -75,14 +75,14 @@
 
         <!-- Aktionen -->
         <section class="actions">
-          <router-link v-if="state.report_id" :to="`/report/${state.report_id}`" class="btn btn--primary">Bericht öffnen</router-link>
-          <router-link v-if="state.simulation_id" :to="`/simulation/${state.simulation_id}/start`" class="btn">Simulation ansehen</router-link>
-          <router-link v-if="state.project_id && !state.simulation_id" :to="`/process/${state.project_id}`" class="btn">Wissensgraph ansehen</router-link>
-          <a v-if="state.simulation_id && state.status !== 'running'" :href="`/api/simulation/${state.simulation_id}/export`" class="btn" download>Alles exportieren (ZIP)</a>
+          <router-link v-if="state.report_id" :to="`/report/${state.report_id}`" class="btn btn--primary">{{ t('run.openReport') }}</router-link>
+          <router-link v-if="state.simulation_id" :to="`/simulation/${state.simulation_id}/start`" class="btn">{{ t('run.openSim') }}</router-link>
+          <router-link v-if="state.project_id && !state.simulation_id" :to="`/process/${state.project_id}`" class="btn">{{ t('run.openGraph') }}</router-link>
+          <a v-if="state.simulation_id && state.status !== 'running'" :href="`/api/simulation/${state.simulation_id}/export`" class="btn" download>{{ t('run.export') }}</a>
         </section>
 
         <p v-if="state.status === 'running'" class="hint">
-          Du kannst diese Seite schließen. Der Durchlauf läuft auf dem Rechner weiter – unter „Läuft gerade" auf der Startseite findest du ihn wieder.
+          {{ t('run.closeHint') }}
         </p>
       </template>
     </main>
@@ -91,23 +91,18 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { getPipeline, STEP_ORDER, STEP_LABELS } from '../api/pipeline'
+import { useI18n } from 'vue-i18n'
+import { getPipeline, STEP_ORDER } from '../api/pipeline'
 
 const props = defineProps({ pipelineId: { type: String, required: true } })
+const { t, locale } = useI18n()
 const state = ref(null)
 const loadError = ref('')
 let timer = null
 
 // Gewichte nach typischer Dauer, Summe 100
 const WEIGHTS = { ontology: 10, graph: 15, create: 2, prepare: 13, simulate: 50, report: 10 }
-const HINTS = {
-  ontology: 'Das Modell liest die Dokumente und leitet daraus Rollen und Beziehungen ab.',
-  graph: 'Aus den Dokumenten entstehen Knoten und Kanten für die Simulation.',
-  create: 'Die Simulationsumgebung wird eingerichtet.',
-  prepare: 'Jeder Agent bekommt eine Persönlichkeit und ein Gedächtnis – das dauert pro Agent einige Sekunden.',
-  simulate: 'Agenten posten, antworten und reagieren. Das ist der längste Schritt.',
-  report: 'Das Modell wertet alle Aktionen aus und schreibt den Vorhersagebericht.'
-}
+const HINTS = { ontology: 'steps.hOntology', graph: 'steps.hGraph', create: 'steps.hCreate', prepare: 'steps.hPrepare', simulate: 'steps.hSimulate', report: 'steps.hReport' }
 
 const overall = computed(() => {
   if (!state.value) return 0
@@ -120,24 +115,24 @@ const overall = computed(() => {
   }
   return Math.round(sum)
 })
-const currentLabel = computed(() => STEP_LABELS[state.value?.current_step] || 'Wird gestartet')
+const currentLabel = computed(() => (state.value?.current_step ? t(`steps.${state.value.current_step}`) : t('run.starting')))
 const currentDetail = computed(() => state.value?.steps?.[state.value.current_step]?.detail || '')
 
 // Grobe Restzeit: bisher verbrauchte Zeit hochgerechnet auf den Gesamtfortschritt
 const etaText = computed(() => {
-  if (!state.value || overall.value < 5) return 'Restzeit wird geschätzt …'
+  if (!state.value || overall.value < 5) return t('run.eta')
   const elapsed = (Date.now() - new Date(state.value.created_at).getTime()) / 1000
   const remaining = elapsed * (100 - overall.value) / overall.value
-  if (remaining < 90) return 'gleich fertig'
-  if (remaining < 3600) return `noch etwa ${Math.round(remaining / 60)} Min.`
-  return `noch etwa ${(remaining / 3600).toFixed(1)} Std.`
+  if (remaining < 90) return t('run.etaSoon')
+  if (remaining < 3600) return t('run.etaMin', { n: Math.round(remaining / 60) })
+  return t('run.etaH', { n: (remaining / 3600).toFixed(1) })
 })
 
-const fmtDate = (iso) => { try { return new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
 const fmtDuration = (a, b) => {
   const s = Math.max(0, (new Date(b) - new Date(a)) / 1000)
-  if (s < 3600) return `${Math.round(s / 60)} Min.`
-  return `${Math.floor(s / 3600)} Std. ${Math.round((s % 3600) / 60)} Min.`
+  if (s < 3600) return t('run.min', { n: Math.round(s / 60) })
+  return t('run.hmin', { h: Math.floor(s / 3600), m: Math.round((s % 3600) / 60) })
 }
 
 const load = async () => {
@@ -147,7 +142,7 @@ const load = async () => {
     loadError.value = ''
     if (state.value.status !== 'running') { clearInterval(timer); timer = null }
   } catch (err) {
-    if (!state.value) loadError.value = 'Durchlauf nicht gefunden: ' + (err.response?.data?.error || err.message)
+    if (!state.value) loadError.value = t('run.notFound', { msg: err.response?.data?.error || err.message })
   }
 }
 

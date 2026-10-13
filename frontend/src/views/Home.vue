@@ -1,8 +1,8 @@
 <template>
   <div class="home">
     <AppHeader>
-      <router-link to="/settings" class="status" :class="status.ready ? 'ok' : 'warn'" :title="status.ready ? 'Modell verbunden' : 'Einstellungen öffnen'">
-        <span class="status__dot"></span><span>{{ status.ready ? 'Bereit' : 'Einrichten' }}</span>
+      <router-link to="/settings" class="status" :class="status.ready ? 'ok' : 'warn'" :title="status.ready ? t('start.readyTitle') : t('start.setupTitle')">
+        <span class="status__dot"></span><span>{{ status.ready ? t('start.ready') : t('start.setup') }}</span>
       </router-link>
     </AppHeader>
 
@@ -10,8 +10,8 @@
     <section class="hero">
       <SwarmCanvas class="hero__swarm" />
       <div class="hero__inner">
-        <h1 class="hero__title">Was passiert<br>als Nächstes?</h1>
-        <p class="hero__lead">Lade Dokumente hoch und stelle eine Frage. Hunderte KI-Agenten spielen die Reaktion durch – du bekommst den Bericht.</p>
+        <h1 class="hero__title">{{ t('start.title1') }}<br>{{ t('start.title2') }}</h1>
+        <p class="hero__lead">{{ t('start.lead') }}</p>
       </div>
     </section>
 
@@ -22,7 +22,7 @@
           <span class="live__pulse"></span>
           <span class="live__body">
             <span class="live__title">{{ run.requirement }}</span>
-            <span class="live__meta">{{ stepLabel(run.current_step) }} · seit {{ fmtTime(run.created_at) }}</span>
+            <span class="live__meta">{{ stepLabel(run.current_step) }} · {{ t('start.since', { time: fmtTime(run.created_at) }) }}</span>
           </span>
           <span class="live__chev">›</span>
         </router-link>
@@ -31,65 +31,65 @@
       <!-- Formular -->
       <section class="block" id="start">
         <form class="form" @submit.prevent="start">
-          <h2 class="form__title">Neue Vorhersage</h2>
+          <h2 class="form__title">{{ t('start.newForecast') }}</h2>
 
           <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" class="sr-only" @change="onFiles" />
           <div class="drop" :class="{ 'is-over': over, 'has-files': files.length }" role="button" tabindex="0"
                @click="pick" @keydown.enter.prevent="pick" @dragover.prevent="over = true" @dragleave.prevent="over = false" @drop.prevent="onDrop">
             <template v-if="!files.length">
               <svg class="drop__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14h5M10 17h5"/></svg>
-              <span class="drop__title">Dokumente hinzufügen</span>
-              <span class="drop__hint">PDF, Markdown oder Text</span>
+              <span class="drop__title">{{ t('start.addDocs') }}</span>
+              <span class="drop__hint">{{ t('start.docTypes') }}</span>
             </template>
             <ul v-else class="files" @click.stop>
               <li v-for="(f, i) in files" :key="f.name + i" class="files__item">
                 <span class="files__type">{{ f.name.split('.').pop().toUpperCase() }}</span>
                 <span class="files__name">{{ f.name }}</span>
-                <button type="button" class="files__rm" :aria-label="`${f.name} entfernen`" @click.stop="files.splice(i, 1)">×</button>
+                <button type="button" class="files__rm" :aria-label="t('start.remove', { name: f.name })" @click.stop="files.splice(i, 1)">×</button>
               </li>
-              <li><button type="button" class="files__add" @click.stop="pick">+ Weitere Datei</button></li>
+              <li><button type="button" class="files__add" @click.stop="pick">{{ t('start.addMore') }}</button></li>
             </ul>
           </div>
 
           <label class="field">
-            <span class="field__label">Deine Frage</span>
-            <textarea v-model="question" class="field__input" rows="3" placeholder="Wie reagieren Anwohner und Einzelhandel in den ersten vier Wochen auf die neuen Parkgebühren?"></textarea>
+            <span class="field__label">{{ t('start.question') }}</span>
+            <textarea v-model="question" class="field__input" rows="3" :placeholder="t('start.placeholder')"></textarea>
           </label>
 
           <label class="switch">
             <input type="checkbox" v-model="autopilot" />
             <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
-            <span class="switch__text"><strong>Bis zum Bericht durchlaufen</strong><small>Alle Schritte automatisch. Du kannst die Seite schließen.</small></span>
+            <span class="switch__text"><strong>{{ t('start.autoTitle') }}</strong><small>{{ t('start.autoHint') }}</small></span>
           </label>
 
           <p v-if="error" class="error" role="alert">{{ error }}</p>
           <button type="submit" class="cta" :disabled="!canSubmit || loading">
-            <span v-if="!loading">{{ autopilot ? 'Vorhersage starten' : 'Schritt für Schritt starten' }}</span>
-            <span v-else class="cta__busy"><span class="spin"></span>Wird hochgeladen …</span>
+            <span v-if="!loading">{{ autopilot ? t('start.go') : t('start.goManual') }}</span>
+            <span v-else class="cta__busy"><span class="spin"></span>{{ t('start.uploading') }}</span>
           </button>
-          <p v-if="!status.ready" class="form__foot"><router-link to="/settings">Erst das Sprachmodell verbinden</router-link></p>
+          <p v-if="!status.ready" class="form__foot"><router-link to="/settings">{{ t('start.connectFirst') }}</router-link></p>
         </form>
       </section>
 
       <!-- So funktioniert es -->
       <section class="block">
-        <h2 class="block__title">So funktioniert es</h2>
+        <h2 class="block__title">{{ t('start.how') }}</h2>
         <ol class="how">
           <li class="how__step">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
-            <strong>Dokumente</strong><span>Berichte, Artikel, Protokolle – alles, was die Lage beschreibt.</span>
+            <strong>{{ t('start.how1t') }}</strong><span>{{ t('start.how1') }}</span>
           </li>
           <li class="how__step">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <strong>Welt</strong><span>Daraus entstehen Gruppen, Personen und ihre Beziehungen.</span>
+            <strong>{{ t('start.how2t') }}</strong><span>{{ t('start.how2') }}</span>
           </li>
           <li class="how__step">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="18" cy="9" r="2"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="17" r="2"/><path d="M7.5 9.5 10 14M13 7l3.8 1.2M10 15.5l4 1"/></svg>
-            <strong>Schwarm</strong><span>Hunderte Agenten reden, reagieren und streiten – über Tage bis Wochen.</span>
+            <strong>{{ t('start.how3t') }}</strong><span>{{ t('start.how3') }}</span>
           </li>
           <li class="how__step">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            <strong>Bericht</strong><span>Was wahrscheinlich passiert, wer es treibt, worauf du achten solltest.</span>
+            <strong>{{ t('start.how4t') }}</strong><span>{{ t('start.how4') }}</span>
           </li>
         </ol>
       </section>
@@ -97,16 +97,16 @@
       <!-- Zuletzt -->
       <section v-if="recent.length" class="block">
         <div class="block__head">
-          <h2 class="block__title">Zuletzt</h2>
-          <router-link to="/history" class="block__link">Alle anzeigen</router-link>
+          <h2 class="block__title">{{ t('start.recent') }}</h2>
+          <router-link to="/history" class="block__link">{{ t('start.showAll') }}</router-link>
         </div>
         <router-link v-for="r in recent" :key="r.simulation_id" :to="r.report_id ? `/report/${r.report_id}` : `/simulation/${r.simulation_id}`" class="recent">
-          <span class="recent__title">{{ r.simulation_requirement || r.project_name || 'Ohne Titel' }}</span>
-          <span class="recent__meta">{{ fmtDate(r.created_at) }}<template v-if="r.report_id"> · Bericht</template></span>
+          <span class="recent__title">{{ r.simulation_requirement || r.project_name || t('start.untitled') }}</span>
+          <span class="recent__meta">{{ fmtDate(r.created_at) }}<template v-if="r.report_id"> · {{ t('start.hasReport') }}</template></span>
         </router-link>
       </section>
 
-      <footer class="foot">MiroFish · Open Source · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">GitHub</a></footer>
+      <footer class="foot">{{ t('start.footer') }} · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">GitHub</a></footer>
     </main>
   </div>
 </template>
@@ -114,13 +114,16 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import SwarmCanvas from '../components/SwarmCanvas.vue'
 import service from '../api/index'
 import { getSimulationHistory } from '../api/simulation'
-import { startPipeline, listPipelines, STEP_LABELS } from '../api/pipeline'
+import { startPipeline, listPipelines } from '../api/pipeline'
 
 const router = useRouter()
+const { t, locale } = useI18n()
+const loc = () => (locale.value === 'en' ? 'en-GB' : 'de-DE')
 const question = ref('')
 const files = ref([])
 const loading = ref(false)
@@ -134,9 +137,9 @@ const status = ref({ ready: false })
 let timer = null
 
 const canSubmit = computed(() => question.value.trim() && files.value.length > 0)
-const stepLabel = (s) => STEP_LABELS[s] || 'Wird vorbereitet'
-const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) } catch (e) { return '' } }
-const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' }) } catch (e) { return '' } }
+const stepLabel = (s) => (s ? t(`steps.${s}`) : t('run.preparing'))
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' }) } catch (e) { return '' } }
+const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString(loc(), { day: '2-digit', month: 'short' }) } catch (e) { return '' } }
 
 const loadStatus = async () => {
   try { const r = await service.get('/api/graph/system/status'); status.value.ready = !!r?.success } catch (e) { status.value.ready = false }
@@ -153,7 +156,7 @@ const onFiles = (e) => { add(Array.from(e.target.files)); e.target.value = '' }
 const onDrop = (e) => { over.value = false; if (!loading.value) add(Array.from(e.dataTransfer.files)) }
 const add = (list) => {
   const ok = list.filter(f => ['pdf', 'md', 'txt'].includes(f.name.split('.').pop().toLowerCase()))
-  error.value = ok.length < list.length ? 'Nur PDF, Markdown (.md) und Text (.txt) werden gelesen.' : ''
+  error.value = ok.length < list.length ? t('start.onlyTypes') : ''
   files.value.push(...ok)
 }
 
@@ -171,7 +174,7 @@ const start = async () => {
     const res = await startPipeline(files.value, question.value)
     router.push(`/run/${res.data.pipeline_id}`)
   } catch (err) {
-    error.value = 'Start fehlgeschlagen: ' + (err.response?.data?.error || err.message)
+    error.value = t('start.failed', { msg: err.response?.data?.error || err.message })
   } finally { loading.value = false }
 }
 

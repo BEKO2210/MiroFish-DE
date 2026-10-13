@@ -1,17 +1,17 @@
 <template>
-  <nav class="mobile-nav" aria-label="Hauptnavigation">
+  <nav class="mobile-nav" :aria-label="t('nav.start')">
     <router-link to="/" class="mobile-nav__item" :class="{ active: route.path === '/' }">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h5v-6h4v6h5V10"/></svg>
-      <span>Start</span>
+      <span>{{ t('nav.start') }}</span>
     </router-link>
     <router-link to="/history" class="mobile-nav__item" :class="{ active: route.path.startsWith('/history') || route.path.startsWith('/run') }">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
-      <span>Verlauf</span>
-      <i v-if="activeCount" class="mobile-nav__badge" :aria-label="`${activeCount} laufend`"></i>
+      <span>{{ t('nav.history') }}</span>
+      <i v-if="activeCount" class="mobile-nav__badge" :aria-label="t('nav.running', { n: activeCount })"></i>
     </router-link>
     <router-link to="/settings" class="mobile-nav__item" :class="{ active: route.path.startsWith('/settings') }">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
-      <span>Einstellungen</span>
+      <span>{{ t('nav.settings') }}</span>
     </router-link>
   </nav>
 </template>
@@ -19,9 +19,11 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { listPipelines } from '../api/pipeline'
 
 const route = useRoute()
+const { t } = useI18n()
 const activeCount = ref(0)
 let timer = null
 const poll = async () => {

@@ -5,52 +5,55 @@
         <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="theme-title">
           <header class="sheet__head">
             <div>
-              <h2 id="theme-title" class="sheet__title">Farben</h2>
-              <p class="sheet__sub">Jede Combo ist geprüft lesbar. Quelle: <a :href="COMBO_SITE" target="_blank" rel="noopener">Combo Studio</a>, 1 Mio. Paare.</p>
+              <h2 id="theme-title" class="sheet__title">{{ t('theme.title') }}</h2>
+              <p class="sheet__sub">{{ t('theme.sub') }} <a :href="COMBO_SITE" target="_blank" rel="noopener">Combo Studio</a>, {{ t('theme.subTail') }}</p>
             </div>
-            <button type="button" class="sheet__close" aria-label="Schließen" @click="$emit('close')">×</button>
+            <button type="button" class="sheet__close" :aria-label="t('theme.close')" @click="$emit('close')">×</button>
           </header>
 
           <!-- Aktuelle Wahl -->
           <div class="current">
             <span class="swatch swatch--lg" :style="swatchStyle(current)"></span>
             <div class="current__text">
-              <strong>{{ current.id ? `Combo #${current.id}` : 'Standard' }}</strong>
+              <strong>{{ current.id ? t('theme.combo', { id: current.id }) : t('theme.default') }}</strong>
               <small>{{ current.aName }} · {{ current.bName }}</small>
             </div>
-            <a v-if="current.id" :href="`${COMBO_SITE}/#${current.id}`" target="_blank" rel="noopener" class="linkbtn">Karte ↗</a>
+            <a v-if="current.id" :href="`${COMBO_SITE}/#${current.id}`" target="_blank" rel="noopener" class="linkbtn">{{ t('theme.card') }}</a>
           </div>
+          <button v-if="!isDefault" type="button" class="resetbtn" @click="reset">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+            {{ t('theme.resetFull') }}
+          </button>
 
           <!-- Modus -->
-          <div class="seg" role="radiogroup" aria-label="Wie stark einfärben">
-            <button type="button" :class="{ on: current.mode !== 'full' }" @click="setMode('soft')">Dezent</button>
-            <button type="button" :class="{ on: current.mode === 'full' }" @click="setMode('full')">Voll</button>
+          <div class="seg" role="radiogroup" :aria-label="t('theme.modeAria')">
+            <button type="button" :class="{ on: current.mode !== 'full' }" @click="setMode('soft')">{{ t('theme.soft') }}</button>
+            <button type="button" :class="{ on: current.mode === 'full' }" @click="setMode('full')">{{ t('theme.full') }}</button>
           </div>
 
           <!-- Vorgaben -->
           <div class="grid">
-            <button type="button" class="tile" :class="{ on: !current.id && current.b === DEFAULT_THEME.b }" @click="choose(DEFAULT_THEME)" title="Standard">
+            <button type="button" class="tile" :class="{ on: !current.id && current.b === DEFAULT_THEME.b }" @click="choose(DEFAULT_THEME)" :title="t('theme.default')">
               <span class="swatch" :style="swatchStyle(DEFAULT_THEME)"></span>
             </button>
             <button v-for="p in PRESETS" :key="p.id" type="button" class="tile" :class="{ on: current.id === p.id }" @click="choose(p)" :title="`#${p.id} ${p.aName} / ${p.bName}`">
               <span class="swatch" :style="swatchStyle(p)"></span>
             </button>
-            <button type="button" class="tile tile--random" :disabled="busy" @click="random" title="Zufällige Combo aus dem Katalog">
+            <button type="button" class="tile tile--random" :disabled="busy" @click="random" :title="t('theme.random')" :aria-label="t('theme.random')">
               <span v-if="!busy">?</span><span v-else class="spin"></span>
             </button>
           </div>
 
           <!-- Eingabe -->
           <form class="row" @submit.prevent="submit">
-            <input v-model="input" class="input" type="text" inputmode="numeric" placeholder="Combo-Nr. oder Link, z. B. 482913" aria-label="Combo-Nummer oder Link" />
-            <button type="submit" class="btn" :disabled="busy || !input.trim()">Laden</button>
+            <input v-model="input" class="input" type="text" inputmode="numeric" :placeholder="t('theme.inputPh')" :aria-label="t('theme.inputAria')" />
+            <button type="submit" class="btn" :disabled="busy || !input.trim()">{{ t('theme.load') }}</button>
           </form>
           <div class="row row--own">
             <label class="own">
               <input type="color" v-model="ownColor" @change="chooseOwn" />
-              <span>Eigene Farbe</span>
+              <span>{{ t('theme.own') }}</span>
             </label>
-            <button type="button" class="linkbtn" @click="reset">Zurücksetzen</button>
           </div>
           <p v-if="error" class="error" role="alert">{{ error }}</p>
         </section>
@@ -60,16 +63,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { PRESETS, DEFAULT_THEME, COMBO_SITE, loadTheme, saveTheme, resetTheme, fetchCombo, randomComboId, parseComboInput } from '../theme'
 
 defineProps({ open: Boolean })
 defineEmits(['close'])
+const { t } = useI18n()
 
 const current = ref(loadTheme())
 const input = ref('')
 const ownColor = ref(current.value.b)
 const busy = ref(false)
+const isDefault = computed(() => !current.value.id && current.value.b === DEFAULT_THEME.b && current.value.a === DEFAULT_THEME.a && current.value.mode !== 'full')
 const error = ref('')
 
 const swatchStyle = (t) => ({ background: `linear-gradient(135deg, ${t.a} 50%, ${t.b} 50%)` })
@@ -80,7 +86,7 @@ const choose = (t) => {
 }
 const setMode = (m) => choose({ ...current.value, mode: m })
 const reset = () => { current.value = { ...DEFAULT_THEME }; resetTheme() }
-const chooseOwn = () => choose({ id: null, a: '#FFFFFF', aName: 'Weiß', b: ownColor.value.toUpperCase(), bName: 'Eigene Farbe' })
+const chooseOwn = () => choose({ id: null, a: '#FFFFFF', aName: 'Weiß', b: ownColor.value.toUpperCase(), bName: t('theme.own') })
 
 const random = async () => {
   busy.value = true; error.value = ''
@@ -88,7 +94,7 @@ const random = async () => {
 }
 const submit = async () => {
   const p = parseComboInput(input.value)
-  if (!p) { error.value = 'Bitte eine Combo-Nummer (1–1.000.000), einen Combo-Link oder ein Paar wie 1B211E-27FBCC eingeben.'; return }
+  if (!p) { error.value = t('theme.badInput'); return }
   if (p.pair) { choose({ id: null, a: p.pair[0], aName: p.pair[0], b: p.pair[1], bName: p.pair[1] }); input.value = ''; return }
   busy.value = true; error.value = ''
   try { choose(await fetchCombo(p.id)); input.value = '' } catch (e) { error.value = e.message } finally { busy.value = false }
@@ -110,6 +116,9 @@ const submit = async () => {
 .swatch { display: inline-block; width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--color-border-subtle); flex: none; }
 .swatch--lg { width: 44px; height: 44px; }
 
+.resetbtn { width: 100%; margin-top: 10px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--color-border-default); border-radius: 12px; background: var(--color-bg-surface); color: var(--color-text-primary); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
+.resetbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.resetbtn:active { transform: scale(.98); }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 14px; padding: 4px; background: var(--color-bg-surface-subtle); border-radius: 12px; }
 .seg button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; }
 .seg button.on { background: var(--color-bg-surface-raised); color: var(--color-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }

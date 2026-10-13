@@ -6,7 +6,7 @@
           <h2 class="sheet__title">{{ title }}</h2>
           <p class="sheet__text">{{ text }}</p>
           <div class="sheet__actions">
-            <button type="button" class="btn" :disabled="busy" @click="$emit('close')">Abbrechen</button>
+            <button type="button" class="btn" :disabled="busy" @click="$emit('close')">{{ t('confirm.cancel') }}</button>
             <button type="button" class="btn btn--confirm" :class="{ 'btn--danger': danger }" :disabled="busy" @click="$emit('confirm')">
               <span v-if="!busy">{{ confirmLabel }}</span><span v-else class="spin"></span>
             </button>
@@ -18,6 +18,8 @@
 </template>
 
 <script setup>
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 defineProps({ open: Boolean, title: String, text: String, confirmLabel: { type: String, default: 'OK' }, busy: Boolean, danger: Boolean })
 defineEmits(['confirm', 'close'])
 </script>

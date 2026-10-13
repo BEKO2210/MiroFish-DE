@@ -2,77 +2,84 @@
   <div class="page">
     <AppHeader />
     <main class="main">
-      <h1 class="page__title">Einstellungen</h1>
+      <h1 class="page__title">{{ t('settings.title') }}</h1>
 
       <!-- Zustand -->
       <section class="card card--status" :class="status.ready ? 'ok' : 'warn'">
         <span class="dot"></span>
         <div class="card--status__text">
-          <strong v-if="status.ready">Bereit – Modell antwortet</strong>
-          <strong v-else>Noch nicht verbunden</strong>
-          <small v-if="status.ready">{{ status.llm_model }} · Gedächtnis {{ memoryLabel }}</small>
-          <small v-else>Trage unten die Adresse deines Sprachmodells ein und prüfe die Verbindung.</small>
+          <strong v-if="status.ready">{{ t('settings.ready') }}</strong>
+          <strong v-else>{{ t('settings.notReady') }}</strong>
+          <small v-if="status.ready">{{ status.llm_model }} · {{ t('settings.memoryIs', { where: memoryLabel }) }}</small>
+          <small v-else>{{ t('settings.notReadyHint') }}</small>
         </div>
       </section>
 
       <!-- Modell -->
       <section class="card">
-        <h2 class="card__title">Sprachmodell</h2>
-        <p class="card__sub">Das Modell liest deine Dokumente, spielt die Agenten und schreibt den Bericht.</p>
+        <h2 class="card__title">{{ t('settings.model') }}</h2>
+        <p class="card__sub">{{ t('settings.modelHint') }}</p>
         <label class="field">
-          <span class="field__label">Anbieter</span>
+          <span class="field__label">{{ t('settings.provider') }}</span>
           <select v-model="cfg.llm_provider" class="field__input">
-            <option value="ollama">Ollama (auf diesem Rechner)</option>
-            <option value="lmstudio">LM Studio (auf diesem Rechner)</option>
-            <option value="local">Anderer OpenAI-kompatibler Server</option>
+            <option value="ollama">{{ t('settings.pOllama') }}</option>
+            <option value="lmstudio">{{ t('settings.pLmstudio') }}</option>
+            <option value="local">{{ t('settings.pLocal') }}</option>
             <option value="openai">OpenAI</option>
           </select>
         </label>
         <template v-if="cfg.llm_provider === 'openai'">
-          <label class="field"><span class="field__label">API-Schlüssel</span><input type="password" v-model="cfg.llm_api_key" class="field__input" placeholder="sk-…" autocomplete="off"></label>
-          <label class="field"><span class="field__label">Adresse</span><input type="url" v-model="cfg.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
-          <label class="field"><span class="field__label">Modell</span><input type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
+          <label class="field"><span class="field__label">{{ t('settings.apiKey') }}</span><input type="password" v-model="cfg.llm_api_key" class="field__input" placeholder="sk-…" autocomplete="off"></label>
+          <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.llm_base_url" class="field__input" placeholder="https://api.openai.com/v1"></label>
+          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span><input type="text" v-model="cfg.llm_model_name" class="field__input" placeholder="gpt-4o-mini"></label>
         </template>
         <template v-else>
-          <label class="field"><span class="field__label">Adresse</span><input type="url" v-model="cfg.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
-          <label class="field"><span class="field__label">Modell</span><input type="text" v-model="cfg.local_llm_model_name" class="field__input" placeholder="z. B. gemma4:12b"><span class="field__hint">Der Name, den `ollama list` anzeigt.</span></label>
-          <label class="field"><span class="field__label">Schlüssel (nur falls der Server einen verlangt)</span><input type="password" v-model="cfg.local_llm_api_key" class="field__input" autocomplete="off"></label>
+          <label class="field"><span class="field__label">{{ t('settings.address') }}</span><input type="url" v-model="cfg.local_llm_base_url" class="field__input" placeholder="http://127.0.0.1:11434/v1"></label>
+          <label class="field"><span class="field__label">{{ t('settings.modelName') }}</span><input type="text" v-model="cfg.local_llm_model_name" class="field__input" :placeholder="t('settings.modelPh')"><span class="field__hint">{{ t('settings.modelNameHint') }}</span></label>
+          <label class="field"><span class="field__label">{{ t('settings.localKey') }}</span><input type="password" v-model="cfg.local_llm_api_key" class="field__input" autocomplete="off"></label>
         </template>
       </section>
 
       <!-- Gedächtnis -->
       <section class="card">
-        <h2 class="card__title">Gedächtnis der Agenten</h2>
-        <p class="card__sub">Hier merkt sich MiroFish, wer wen kennt und was passiert ist.</p>
+        <h2 class="card__title">{{ t('settings.memory') }}</h2>
+        <p class="card__sub">{{ t('settings.memoryHint') }}</p>
         <label class="field">
-          <span class="field__label">Speicherort</span>
+          <span class="field__label">{{ t('settings.storage') }}</span>
           <select v-model="cfg.memory_provider" class="field__input">
-            <option value="obsidian">Auf diesem Rechner (empfohlen)</option>
+            <option value="obsidian">{{ t('settings.mLocal') }}</option>
             <option value="zep">Zep Cloud</option>
-            <option value="hybrid">Beides</option>
+            <option value="hybrid">{{ t('settings.mHybrid') }}</option>
           </select>
         </label>
         <label class="field" v-if="cfg.memory_provider !== 'obsidian'">
-          <span class="field__label">Zep-API-Schlüssel</span>
+          <span class="field__label">{{ t('settings.zepKey') }}</span>
           <input type="password" v-model="cfg.zep_api_key" class="field__input" autocomplete="off">
         </label>
-        <p v-if="masked" class="notice">Gespeicherte Schlüssel werden maskiert angezeigt. Zum Ändern neu eingeben.</p>
+        <p v-if="masked" class="notice">{{ t('settings.masked') }}</p>
       </section>
 
       <div class="actions">
-        <button type="button" class="btn btn--primary" :disabled="saving" @click="save">{{ saving ? 'Speichert …' : 'Speichern' }}</button>
-        <button type="button" class="btn" :disabled="testing" @click="test"><span v-if="testing" class="spin"></span>{{ testing ? 'Prüft …' : 'Verbindung prüfen' }}</button>
+        <button type="button" class="btn btn--primary" :disabled="saving" @click="save">{{ saving ? t('settings.saving') : t('settings.save') }}</button>
+        <button type="button" class="btn" :disabled="testing" @click="test"><span v-if="testing" class="spin"></span>{{ testing ? t('settings.testing') : t('settings.test') }}</button>
       </div>
       <p v-if="result" class="notice" :class="result.ok ? 'notice--ok' : 'notice--err'" role="status">{{ result.text }}</p>
 
       <!-- Darstellung -->
       <section class="card">
-        <h2 class="card__title">Darstellung</h2>
+        <h2 class="card__title">{{ t('settings.look') }}</h2>
         <button type="button" class="rowbtn" @click="showTheme = true">
           <span class="swatch"></span>
-          <span class="rowbtn__text"><strong>Farben</strong><small>Eine von einer Million geprüften Farb-Combos</small></span>
+          <span class="rowbtn__text"><strong>{{ t('settings.colors') }}</strong><small>{{ t('settings.colorsHint') }}</small></span>
           <span class="rowbtn__chev">›</span>
         </button>
+        <div class="langrow">
+          <span class="langrow__label">{{ t('settings.language') }}</span>
+          <div class="seg" role="radiogroup" :aria-label="t('settings.language')">
+            <button type="button" role="radio" :aria-checked="locale === 'de'" :class="{ on: locale === 'de' }" @click="setLang('de')">Deutsch</button>
+            <button type="button" role="radio" :aria-checked="locale === 'en'" :class="{ on: locale === 'en' }" @click="setLang('en')">English</button>
+          </div>
+        </div>
       </section>
 
       <!-- Über -->
@@ -80,8 +87,8 @@
         <img src="/logo-mark.svg" alt="" width="36" height="36" />
         <div>
           <strong>MiroFish</strong>
-          <small>Schwarm-Simulation zur Vorhersage öffentlicher Reaktionen. Open Source (AGPL-3.0).</small>
-          <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">Quellcode und Anleitung</a>
+          <small>{{ t('settings.aboutText') }}</small>
+          <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">{{ t('settings.source') }}</a>
         </div>
       </section>
     </main>
@@ -91,14 +98,17 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
 
+const { t, locale } = useI18n()
+const setLang = (l) => { locale.value = l; try { localStorage.setItem('lang', l) } catch (e) { /* privater Modus */ } document.documentElement.lang = l }
 const status = ref({ ready: false, llm_model: '', memory_provider: '' })
 const cfg = ref({ llm_provider: 'ollama', llm_api_key: '', llm_base_url: '', llm_model_name: '', local_llm_base_url: '', local_llm_model_name: '', local_llm_api_key: '', zep_api_key: '', memory_provider: 'obsidian' })
 const saving = ref(false), testing = ref(false), result = ref(null), showTheme = ref(false)
-const memoryLabel = computed(() => ({ obsidian: 'auf diesem Rechner', zep: 'Zep Cloud', hybrid: 'beides' }[status.value.memory_provider] || status.value.memory_provider))
+const memoryLabel = computed(() => ({ obsidian: t('settings.wLocal'), zep: t('settings.wZep'), hybrid: t('settings.wHybrid') }[status.value.memory_provider] || status.value.memory_provider))
 const masked = computed(() => Object.values(cfg.value).some(v => typeof v === 'string' && v.includes('...****')))
 
 const load = async () => {
@@ -114,16 +124,16 @@ const save = async () => {
   saving.value = true; result.value = null
   try {
     const res = await service.post('/api/graph/system/config', cfg.value)
-    if (res?.success) { result.value = { ok: true, text: 'Gespeichert.' }; await load() }
-  } catch (e) { result.value = { ok: false, text: 'Speichern fehlgeschlagen: ' + (e.response?.data?.error || e.message) } }
+    if (res?.success) { result.value = { ok: true, text: t('settings.saved') }; await load() }
+  } catch (e) { result.value = { ok: false, text: t('settings.saveFailed', { msg: e.response?.data?.error || e.message }) } }
   finally { saving.value = false }
 }
 const test = async () => {
   testing.value = true; result.value = null
   try {
     const res = await service.post('/api/graph/system/test-llm')
-    if (res?.success) result.value = { ok: true, text: `Verbindung steht. Das Modell ${res.data.model} antwortet.` }
-  } catch (e) { result.value = { ok: false, text: 'Keine Antwort vom Modell: ' + (e.response?.data?.error || e.message) } }
+    if (res?.success) result.value = { ok: true, text: t('settings.testOk', { model: res.data.model }) }
+  } catch (e) { result.value = { ok: false, text: t('settings.testFailed', { msg: e.response?.data?.error || e.message }) } }
   finally { testing.value = false }
 }
 onMounted(load)
@@ -160,6 +170,11 @@ onMounted(load)
 .rowbtn__text small { color: var(--color-text-muted); font-size: 12px; }
 .rowbtn__chev { font-size: 22px; color: var(--color-text-muted); }
 .swatch { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--theme-light, #fff) 50%, var(--color-brand-primary) 50%); border: 1px solid var(--color-border-default); }
+.langrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; border-top: 1px solid var(--color-border-subtle); margin-top: 6px; }
+.langrow__label { font-weight: 600; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--color-bg-surface-subtle); border-radius: 12px; min-width: 200px; }
+.seg button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; font-size: 14px; color: var(--color-text-secondary); cursor: pointer; }
+.seg button.on { background: var(--color-bg-surface-raised); color: var(--color-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .card--about { display: flex; gap: 14px; align-items: flex-start; }
 .card--about div { display: flex; flex-direction: column; gap: 4px; }
 .card--about small { color: var(--color-text-muted); font-size: 13px; line-height: 1.45; }

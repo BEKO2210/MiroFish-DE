@@ -3,8 +3,8 @@
     <AppHeader />
     <main class="main">
       <div class="page__head">
-        <h1 class="page__title">Verlauf</h1>
-        <router-link to="/" class="btn btn--primary btn--sm">+ Neue Vorhersage</router-link>
+        <h1 class="page__title">{{ t('hist.title') }}</h1>
+        <router-link to="/" class="btn btn--primary btn--sm">{{ t('hist.new') }}</router-link>
       </div>
 
       <div v-if="loading && !items.length" class="list" aria-busy="true">
@@ -13,8 +13,8 @@
 
       <div v-else-if="!items.length" class="empty">
         <img src="/logo-mark.svg" alt="" width="48" height="48" />
-        <p>Noch keine Vorhersagen. Starte die erste auf der Startseite.</p>
-        <router-link to="/" class="btn btn--primary">Neue Vorhersage</router-link>
+        <p>{{ t('hist.empty') }}</p>
+        <router-link to="/" class="btn btn--primary">{{ t('hist.emptyCta') }}</router-link>
       </div>
 
       <section v-else class="list">
@@ -28,14 +28,14 @@
             <div v-if="it.state === 'running' && it.progress != null" class="row__bar"><div :style="{ width: it.progress + '%' }"></div></div>
           </component>
           <div class="row__actions">
-            <router-link v-if="it.reportHref" :to="it.reportHref" class="act" title="Bericht öffnen" aria-label="Bericht öffnen">
-              <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>Bericht</span>
+            <router-link v-if="it.reportHref" :to="it.reportHref" class="act" :title="t('run.openReport')">
+              <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>{{ t('hist.report') }}</span>
             </router-link>
-            <a v-if="it.exportHref" :href="it.exportHref" class="act" title="Exportieren (ZIP)" aria-label="Exportieren" download>
-              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>Export</span>
+            <a v-if="it.exportHref" :href="it.exportHref" class="act" :title="t('hist.exportTitle')" download>
+              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>{{ t('hist.export') }}</span>
             </a>
-            <button v-if="it.simulationId && it.state !== 'running'" type="button" class="act act--danger" title="Löschen" aria-label="Löschen" @click="askDelete(it)">
-              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>Löschen</span>
+            <button v-if="it.simulationId && it.state !== 'running'" type="button" class="act act--danger" @click="askDelete(it)">
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>{{ t('hist.delete') }}</span>
             </button>
           </div>
         </article>
@@ -43,18 +43,20 @@
       <p v-if="error" class="error" role="alert">{{ error }}</p>
     </main>
 
-    <ConfirmSheet :open="!!pending" title="Vorhersage löschen?" :text="pending ? `„${pending.title}“ wird samt Bericht und Daten dauerhaft entfernt.` : ''"
-                  confirm-label="Löschen" :busy="deleting" danger @confirm="doDelete" @close="pending = null" />
+    <ConfirmSheet :open="!!pending" :title="t('hist.confirmTitle')" :text="pending ? t('hist.confirmText', { title: pending.title }) : ''"
+                  :confirm-label="t('hist.delete')" :busy="deleting" danger @confirm="doDelete" @close="pending = null" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
 import { getSimulationHistory, deleteSimulation } from '../api/simulation'
-import { listPipelines, STEP_LABELS } from '../api/pipeline'
+import { listPipelines } from '../api/pipeline'
 
+const { t, locale } = useI18n()
 const items = ref([])
 const loading = ref(true)
 const error = ref('')
@@ -62,8 +64,9 @@ const pending = ref(null)
 const deleting = ref(false)
 let timer = null
 
-const fmt = (iso) => { try { return new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
-const STATES = { running: 'Läuft', completed: 'Fertig', failed: 'Abgebrochen', idle: 'Nicht gestartet', progress: 'Unterbrochen' }
+const fmt = (iso) => { try { return new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
+const stateLabel = (s) => t({ running: 'hist.sRunning', completed: 'hist.sCompleted', failed: 'hist.sFailed', idle: 'hist.sIdle', progress: 'hist.sProgress' }[s] || 'hist.sIdle')
+const stepLabel = (s) => (s ? t(`steps.${s}`) : t('run.preparing'))
 
 const load = async () => {
   try {
@@ -79,7 +82,7 @@ const load = async () => {
       if (p.status === 'completed') continue
       out.push({
         key: p.pipeline_id, title: p.requirement, date: fmt(p.created_at), state: p.status === 'running' ? 'running' : 'failed',
-        stateLabel: STATES[p.status] || p.status, meta: p.status === 'running' ? STEP_LABELS[p.current_step] : (p.error || '').slice(0, 80),
+        stateLabel: stateLabel(p.status === 'running' ? 'running' : 'failed'), meta: p.status === 'running' ? stepLabel(p.current_step) : (p.error || '').slice(0, 80),
         href: `/run/${p.pipeline_id}`, created: p.created_at
       })
     }
@@ -88,10 +91,10 @@ const load = async () => {
       const running = p?.status === 'running'
       const done = (s.current_round || 0) > 0 && s.current_round >= (s.total_rounds || 0) && (s.total_rounds || 0) > 0
       const state = running ? 'running' : s.report_id ? 'completed' : done ? 'completed' : (s.current_round || 0) > 0 ? 'progress' : p?.status === 'failed' ? 'failed' : 'idle'
-      const title = s.simulation_requirement || s.project_name || 'Ohne Titel'
+      const title = s.simulation_requirement || s.project_name || t('start.untitled')
       out.push({
-        key: s.simulation_id, simulationId: s.simulation_id, title, date: fmt(s.created_at), state, stateLabel: STATES[state],
-        meta: running ? STEP_LABELS[p.current_step] : s.total_rounds ? `${s.current_round || 0} von ${s.total_rounds} Runden` : '',
+        key: s.simulation_id, simulationId: s.simulation_id, title, date: fmt(s.created_at), state, stateLabel: stateLabel(state),
+        meta: running ? stepLabel(p.current_step) : s.total_rounds ? t('hist.rounds', { cur: s.current_round || 0, total: s.total_rounds }) : '',
         progress: running ? null : undefined,
         href: running ? `/run/${p.pipeline_id}` : s.report_id ? `/report/${s.report_id}` : `/simulation/${s.simulation_id}`,
         reportHref: s.report_id ? `/report/${s.report_id}` : null,
@@ -102,7 +105,7 @@ const load = async () => {
     items.value = out
     error.value = ''
   } catch (e) {
-    error.value = 'Verlauf konnte nicht geladen werden.'
+    error.value = t('hist.loadFailed')
   } finally { loading.value = false }
 }
 
@@ -115,7 +118,7 @@ const doDelete = async () => {
     items.value = items.value.filter(i => i.key !== pending.value.key)
     pending.value = null
   } catch (e) {
-    error.value = 'Löschen fehlgeschlagen: ' + (e.response?.data?.error || e.message)
+    error.value = t('hist.deleteFailed', { msg: e.response?.data?.error || e.message })
   } finally { deleting.value = false }
 }
 
@@ -145,7 +148,7 @@ onUnmounted(() => clearInterval(timer))
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 .row__actions { display: flex; border-top: 1px solid var(--color-border-subtle); }
 .row__actions:empty { display: none; }
-.act { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; }
+.act { flex: 1; min-height: 44px; border-radius: 0; box-shadow: none; -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; }
 .act + .act { border-left: 1px solid var(--color-border-subtle); }
 .act svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .act:hover { background: var(--color-bg-surface-subtle); }

@@ -61,7 +61,6 @@ export function deriveVars(theme) {
   const lightIsLight = luminance(light) > 0.4
   const canvas = full ? light : (lightIsLight ? mix(light, '#FFFFFF', 0.35) : '#FFFFFF')
   const darkCanvas = luminance(canvas) <= 0.4
-  const white = darkCanvas ? '#000000' : '#FFFFFF'
   const ink = darkCanvas ? '#FFFFFF' : '#000000'
   const text = ensureContrast(full ? dark : mix(dark, ink, 0.6), canvas, 7)
   const accent = ensureContrast(accentRaw, canvas, 4.5)
@@ -70,7 +69,8 @@ export function deriveVars(theme) {
   return {
     '--color-bg-canvas': canvas,
     '--color-bg-surface': surface,
-    '--color-bg-surface-raised': darkCanvas ? mix(canvas, '#FFFFFF', 0.92) : '#FFFFFF',
+    // Karten und Felder: hellere (bzw. bei dunklem Grund etwas hellere) Abstufung der Combo statt reinem Weiß
+    '--color-bg-surface-raised': darkCanvas ? mix(canvas, '#FFFFFF', 0.9) : mix(canvas, '#FFFFFF', 0.45),
     '--color-bg-surface-subtle': mix(canvas, ink, 0.94),
     '--color-text-primary': text,
     '--color-text-secondary': ensureContrast(mix(text, canvas, 0.8), canvas, 7),

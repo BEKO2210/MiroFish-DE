@@ -1,17 +1,17 @@
 <template>
   <header class="appbar">
-    <router-link to="/" class="appbar__brand" aria-label="MiroFish – Startseite">
+    <router-link to="/" class="appbar__brand" :aria-label="t('nav.homeAria')">
       <img src="/logo-mark.svg" alt="" width="28" height="28" />
       <span>MiroFish</span>
     </router-link>
-    <nav class="appbar__nav" aria-label="Hauptnavigation">
-      <router-link to="/" :class="{ on: route.path === '/' }">Start</router-link>
-      <router-link to="/history" :class="{ on: route.path.startsWith('/history') }">Verlauf</router-link>
-      <router-link to="/settings" :class="{ on: route.path.startsWith('/settings') }">Einstellungen</router-link>
+    <nav class="appbar__nav" :aria-label="t('nav.start')">
+      <router-link to="/" :class="{ on: route.path === '/' }">{{ t('nav.start') }}</router-link>
+      <router-link to="/history" :class="{ on: route.path.startsWith('/history') }">{{ t('nav.history') }}</router-link>
+      <router-link to="/settings" :class="{ on: route.path.startsWith('/settings') }">{{ t('nav.settings') }}</router-link>
     </nav>
     <div class="appbar__right">
       <slot />
-      <button type="button" class="appbar__icon" aria-label="Farben" title="Farben" @click="showTheme = true">
+      <button type="button" class="appbar__icon" :aria-label="t('nav.colors')" :title="t('nav.colors')" @click="showTheme = true">
         <span class="appbar__swatch"></span>
       </button>
     </div>
@@ -22,9 +22,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import ThemePicker from './ThemePicker.vue'
 
 const route = useRoute()
+const { t } = useI18n()
 const showTheme = ref(false)
 </script>
 
