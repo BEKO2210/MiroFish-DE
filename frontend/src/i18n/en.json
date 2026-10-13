@@ -675,7 +675,13 @@
     "wirdGeneriert": "is being generated...",
     "world1": "World 1",
     "world2": "World 2",
-    "zurTiefeninteraktion": "Open in-depth interaction"
+    "zurTiefeninteraktion": "Open in-depth interaction",
+    "downloadMarkdown": "Download as Markdown",
+    "printPdf": "Print / PDF",
+    "howItWasMade": "How this report was made",
+    "contents": "Contents",
+    "expandSection": "Expand section",
+    "collapseSection": "Collapse section"
   },
   "step5": {
     "unknownProfession": "Unknown profession",

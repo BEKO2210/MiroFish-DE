@@ -408,4 +408,37 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+@media print {
+  .app-header { display: none !important; }
+  .main-view {
+    height: auto !important;
+    overflow: visible !important;
+    background: var(--color-bg-canvas) !important;
+    color: var(--color-text-primary) !important;
+  }
+  .content-area {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .panel-wrapper {
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    transform: none !important;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+  .panel-wrapper.left { display: none !important; }
+  :global(.mobile-nav) { display: none !important; }
+  :global(html),
+  :global(body) {
+    height: auto !important;
+    overflow: visible !important;
+    background: var(--color-bg-canvas) !important;
+    color: var(--color-text-primary) !important;
+  }
+}
 </style>

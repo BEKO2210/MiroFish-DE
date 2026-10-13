@@ -4,22 +4,50 @@
     <div class="main-split-layout">
       <!-- LEFT PANEL: Report Style -->
       <div class="left-panel report-style" ref="leftPanel">
-        <div v-if="reportOutline" class="report-content-wrapper">
+        <div v-if="reportOutline" class="article-shell">
+          <nav class="report-toc" :aria-label="$t('step4.contents')">
+            <p class="toc-label">{{ $t('step4.contents') }}</p>
+            <ol class="toc-list">
+              <li v-for="(section, idx) in reportOutline.sections" :key="'toc-' + idx">
+                <button
+                  type="button"
+                  class="toc-link"
+                  :class="{ 'is-current': activeTocIndex === idx }"
+                  @click="scrollToSection(idx)"
+                >
+                  <span class="toc-num">{{ String(idx + 1).padStart(2, '0') }}</span>
+                  <span class="toc-title">{{ section.title }}</span>
+                </button>
+              </li>
+            </ol>
+          </nav>
+
+          <div class="report-content-wrapper">
           <!-- Report Header -->
-          <div class="report-header-block">
+          <header class="report-header-block">
             <div class="report-meta">
               <span class="report-tag">{{ $t('step4.vorhersagebericht') }}</span>
             </div>
             <h1 class="main-title">{{ reportOutline.title }}</h1>
             <p class="sub-title">{{ reportOutline.summary }}</p>
-            <div class="header-divider"></div>
-          </div>
+            <div class="report-actions">
+              <a
+                class="report-action"
+                :href="`/api/report/${reportId}/download`"
+                download
+              >{{ $t('step4.downloadMarkdown') }}</a>
+              <button type="button" class="report-action" @click="printReport">
+                {{ $t('step4.printPdf') }}
+              </button>
+            </div>
+          </header>
 
           <!-- Sections List -->
           <div class="sections-list">
             <div 
               v-for="(section, idx) in reportOutline.sections" 
               :key="idx"
+              :id="'report-section-' + idx"
               class="report-section-item"
               :class="{ 
                 'is-active': currentSectionIndex === idx + 1,
@@ -29,20 +57,29 @@
             >
               <div class="section-header-row" @click="toggleSectionCollapse(idx)" :class="{ 'clickable': isSectionCompleted(idx + 1) }">
                 <span class="section-number">{{ String(idx + 1).padStart(2, '0') }}</span>
-                <h3 class="section-title">{{ section.title }}</h3>
-                <svg 
-                  v-if="isSectionCompleted(idx + 1)" 
-                  class="collapse-icon" 
-                  :class="{ 'is-collapsed': collapsedSections.has(idx) }"
-                  viewBox="0 0 24 24" 
-                  width="20" 
-                  height="20" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  stroke-width="2"
+                <h2 class="section-title">{{ section.title }}</h2>
+                <button
+                  v-if="isSectionCompleted(idx + 1)"
+                  type="button"
+                  class="collapse-toggle"
+                  :aria-expanded="!collapsedSections.has(idx)"
+                  :aria-label="collapsedSections.has(idx) ? $t('step4.expandSection') : $t('step4.collapseSection')"
+                  @click.stop="toggleSectionCollapse(idx)"
                 >
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
+                  <svg 
+                    class="collapse-icon" 
+                    :class="{ 'is-collapsed': collapsedSections.has(idx) }"
+                    viewBox="0 0 24 24" 
+                    width="20" 
+                    height="20" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    stroke-width="2"
+                    aria-hidden="true"
+                  >
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
               </div>
               
               <div class="section-body" v-show="!collapsedSections.has(idx)">
@@ -62,6 +99,7 @@
               </div>
             </div>
           </div>
+          </div>
         </div>
 
         <!-- Waiting State -->
@@ -74,7 +112,11 @@
           <span class="waiting-text">{{ $t('step4.wartenAufBerichtsAgent') }}</span>
         </div>
       </div>
+    </div>
 
+    <details class="report-origin">
+      <summary class="report-origin-summary">{{ $t('step4.howItWasMade') }}</summary>
+      <div class="origin-body">
       <!-- RIGHT PANEL: Workflow Timeline -->
       <div class="right-panel" ref="rightPanel">
         <div class="panel-header" :class="`panel-header--${activeStep.status}`" v-if="!isComplete">
@@ -383,7 +425,8 @@
           <span class="log-msg" :class="getLogLevelClass(log)">{{ log }}</span>
         </div>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 </template>
 
@@ -410,6 +453,20 @@ const goToInteraction = () => {
   if (props.reportId) {
     router.push({ name: 'Interaction', params: { reportId: props.reportId } })
   }
+}
+
+const printReport = () => {
+  window.print()
+}
+
+const activeTocIndex = ref(0)
+
+const scrollToSection = (idx) => {
+  activeTocIndex.value = idx
+  const el = document.getElementById('report-section-' + idx)
+  if (!el) return
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
 }
 
 // State
@@ -2174,11 +2231,13 @@ watch(() => props.reportId, (newId) => {
   overflow: hidden;
 }
 
-/* Main Split Layout */
+/* Main Split Layout — der Bericht füllt die Fläche, das Protokoll liegt darunter */
 .main-split-layout {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Panel Headers */
@@ -2279,14 +2338,16 @@ watch(() => props.reportId, (newId) => {
 
 /* Left Panel - Report Style */
 .left-panel.report-style {
-  width: 45%;
-  min-width: 450px;
-  background: var(--color-bg-surface-raised);
-  border-right: 1px solid var(--color-border-default);
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  min-height: 0;
+  background: var(--color-bg-canvas);
+  border-right: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding: 30px 50px 60px 50px;
+  padding: 28px 16px 72px;
 }
 
 .left-panel::-webkit-scrollbar {
@@ -2311,15 +2372,26 @@ watch(() => props.reportId, (newId) => {
   background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
-/* Report Header */
+/* Report column: ~68 characters, centered. TOC sits beside it from 1024px. */
+.article-shell {
+  width: min(100%, 68ch);
+  margin-inline: auto;
+  font-size: 17px;
+}
+
+.report-toc {
+  display: none;
+}
+
 .report-content-wrapper {
-  max-width: 800px;
+  max-width: 68ch;
   margin: 0 auto;
   width: 100%;
+  font-size: inherit;
 }
 
 .report-header-block {
-  margin-bottom: 30px;
+  margin-bottom: 2.5rem;
 }
 
 .report-meta {
@@ -2330,13 +2402,14 @@ watch(() => props.reportId, (newId) => {
 }
 
 .report-tag {
-  background: var(--color-text-primary);
-  color: var(--color-text-inverse);
-  font-size: 11px;
-  font-weight: 700;
-  padding: 4px 8px;
-  letter-spacing: normal;
-  text-transform: none;
+  background: transparent;
+  color: var(--color-brand-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  padding: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .report-id {
@@ -2348,27 +2421,63 @@ watch(() => props.reportId, (newId) => {
 
 .main-title {
   font-family: var(--font-heading);
-  font-size: 36px;
+  font-size: var(--font-size-display);
   font-weight: 700;
   color: var(--color-text-primary);
-  line-height: 1.2;
-  margin: 0 0 16px 0;
+  line-height: var(--line-height-tight);
+  margin: 0 0 0.6em 0;
   letter-spacing: -0.02em;
 }
 
 .sub-title {
-  font-family: var(--font-heading);
-  font-size: 16px;
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
   color: var(--color-text-secondary);
-  font-style: italic;
+  font-style: normal;
   line-height: 1.6;
-  margin: 0 0 30px 0;
+  margin: 0;
   font-weight: 400;
+  max-width: 68ch;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 1.25rem;
+}
+
+.report-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-default);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.report-action:hover {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+}
+
+.report-action:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .header-divider {
   height: 1px;
-  background: var(--color-border-default);
+  background: var(--color-border-subtle);
   width: 100%;
 }
 
@@ -2376,7 +2485,7 @@ watch(() => props.reportId, (newId) => {
 .sections-list {
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: 2.75rem;
 }
 
 .report-section-item {
@@ -2387,12 +2496,12 @@ watch(() => props.reportId, (newId) => {
 
 .section-header-row {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   transition: background-color 0.2s ease;
-  padding: 8px 12px;
-  margin: -8px -12px;
-  border-radius: 8px;
+  padding: 4px 0;
+  margin: 0;
+  border-radius: var(--radius-md);
 }
 
 .section-header-row.clickable {
@@ -2403,12 +2512,39 @@ watch(() => props.reportId, (newId) => {
   background-color: var(--color-bg-surface-subtle);
 }
 
-.collapse-icon {
+.collapse-toggle {
   margin-left: auto;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
   color: var(--color-text-muted);
-  transition: transform 0.3s ease;
+  cursor: pointer;
   flex-shrink: 0;
-  align-self: center;
+}
+
+.collapse-toggle:hover {
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-primary);
+}
+
+.collapse-toggle:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.collapse-icon {
+  display: block;
+  color: currentColor;
+  transition: transform 0.3s ease;
+  pointer-events: none;
 }
 
 .collapse-icon.is-collapsed {
@@ -2417,17 +2553,21 @@ watch(() => props.reportId, (newId) => {
 
 .section-number {
   font-family: var(--font-body);
-  font-size: 16px;
-  color: var(--color-text-muted); /* Dunkelgrau, ändert sich nicht mit dem Status */
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 .section-title {
   font-family: var(--font-heading);
-  font-size: 24px;
+  font-size: var(--font-size-h2);
   font-weight: 600;
+  line-height: var(--line-height-heading);
   color: var(--color-text-primary);
   margin: 0;
+  letter-spacing: -0.015em;
   transition: color 0.3s ease;
 }
 
@@ -2442,54 +2582,115 @@ watch(() => props.reportId, (newId) => {
 }
 
 .section-body {
-  padding-left: 28px;
+  padding-left: 0;
   overflow: hidden;
+}
+
+.report-section-item {
+  scroll-margin-top: 16px;
 }
 
 /* Generated Content */
 .generated-content {
   font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.8;
+  font-size: 1em;
+  line-height: 1.7;
+  color: var(--color-text-primary);
+  max-width: 68ch;
+}
+
+.generated-content :deep(p),
+.generated-content :deep(.md-p) {
+  margin: 0 0 1em;
   color: var(--color-text-primary);
 }
 
-.generated-content :deep(p) {
-  margin-bottom: 1em;
+.generated-content :deep(p:has(> strong:only-child)) {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: var(--line-height-heading);
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  margin-top: 1.75em;
+  margin-bottom: 0.45em;
+}
+
+.generated-content :deep(> strong) {
+  display: block;
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 600;
+  line-height: var(--line-height-heading);
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  margin-top: 1.75em;
+  margin-bottom: 0.45em;
+}
+
+.generated-content :deep(p:last-child) {
+  margin-bottom: 0;
 }
 
 .generated-content :deep(.md-h2),
 .generated-content :deep(.md-h3),
-.generated-content :deep(.md-h4) {
+.generated-content :deep(.md-h4),
+.generated-content :deep(.md-h5) {
   font-family: var(--font-heading);
   color: var(--color-text-primary);
-  margin-top: 1.5em;
-  margin-bottom: 0.8em;
-  font-weight: 700;
+  line-height: var(--line-height-heading);
+  margin-top: 1.75em;
+  margin-bottom: 0.45em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
-.generated-content :deep(.md-h2) { font-size: 20px; border-bottom: 1px solid var(--color-border-subtle); padding-bottom: 8px; }
-.generated-content :deep(.md-h3) { font-size: 18px; }
-.generated-content :deep(.md-h4) { font-size: 16px; }
+.generated-content :deep(.md-h2) { font-size: 1.35rem; }
+.generated-content :deep(.md-h3) { font-size: 1.2rem; }
+.generated-content :deep(.md-h4) { font-size: 1.05rem; }
+.generated-content :deep(.md-h5) { font-size: 1rem; }
+
+.generated-content :deep(.md-h2:first-child),
+.generated-content :deep(.md-h3:first-child),
+.generated-content :deep(.md-h4:first-child),
+.generated-content :deep(.md-h5:first-child) {
+  margin-top: 0;
+}
 
 .generated-content :deep(.md-ul),
 .generated-content :deep(.md-ol) {
-  padding-left: 24px;
-  margin: 12px 0;
+  padding-left: 1.4em;
+  margin: 0 0 1em;
 }
 
 .generated-content :deep(.md-li),
 .generated-content :deep(.md-oli) {
-  margin: 6px 0;
+  margin: 0.35em 0;
+  padding-left: 0.2em;
 }
 
+.generated-content :deep(.md-li[data-level="1"]),
+.generated-content :deep(.md-oli[data-level="1"]) { margin-left: 1.25em; }
+.generated-content :deep(.md-li[data-level="2"]),
+.generated-content :deep(.md-oli[data-level="2"]) { margin-left: 2.5em; }
+
 .generated-content :deep(.md-quote) {
-  border-left: 3px solid var(--color-border-default);
-  padding-left: 16px;
-  margin: 1.5em 0;
+  border: 0;
+  border-left: 3px solid var(--color-brand-primary);
+  background: var(--color-bg-surface);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 0.9em 1.15em;
+  margin: 1.4em 0;
   color: var(--color-text-secondary);
-  font-style: italic;
-  font-family: var(--font-heading);
+  font-style: normal;
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
+
+.generated-content :deep(.md-hr) {
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  margin: 2em 0;
 }
 
 .generated-content :deep(.code-block) {
@@ -2554,8 +2755,6 @@ watch(() => props.reportId, (newId) => {
 /* Content Styles Override for this view */
 .generated-content :deep(.md-h2) {
   font-family: var(--font-heading);
-  font-size: 18px;
-  margin-top: 0;
 }
 
 
@@ -2620,6 +2819,59 @@ watch(() => props.reportId, (newId) => {
 
 .waiting-text {
   font-size: 14px;
+}
+
+/* Arbeitsprotokoll: für Leser zugeklappt */
+.report-origin {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface);
+}
+
+.report-origin-summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  list-style: none;
+}
+
+.report-origin-summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-origin-summary::before {
+  content: '';
+  width: 0;
+  height: 0;
+  margin-right: 10px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 6px solid var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.report-origin[open] > .report-origin-summary::before {
+  transform: rotate(90deg);
+}
+
+.report-origin-summary:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+
+.origin-body {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.origin-body .right-panel {
+  max-height: min(46vh, 480px);
+  overflow-y: auto;
 }
 
 /* Right Panel */
@@ -4057,14 +4309,16 @@ watch(() => props.reportId, (newId) => {
 
 :deep(.interview-display .quote-item) {
   margin: 0;
-  padding: 10px 12px;
-  background: var(--color-bg-surface-raised);
-  border: 1px solid var(--color-border-default);
-  border-radius: 6px;
-  font-size: 12px;
-  font-style: italic;
+  padding: 12px 14px 12px 16px;
+  background: var(--color-bg-surface);
+  border: 0;
+  border-left: 3px solid var(--color-brand-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  font-family: var(--font-body);
+  font-size: 0.95em;
+  font-style: normal;
   color: var(--color-text-secondary);
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 /* Summary Section */
@@ -4139,11 +4393,16 @@ watch(() => props.reportId, (newId) => {
 }
 
 :deep(.interview-display .summary-content blockquote) {
-  margin: 8px 0;
-  padding-left: 12px;
-  border-left: 3px solid var(--color-border-default);
+  margin: 1em 0;
+  padding: 0.85em 1em;
+  background: var(--color-bg-surface);
+  border: 0;
+  border-left: 3px solid var(--color-brand-primary);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--color-text-secondary);
-  font-style: italic;
+  font-family: var(--font-body);
+  font-style: normal;
+  line-height: 1.7;
 }
 
 /* Markdown styles in quotes */
@@ -5095,20 +5354,159 @@ watch(() => props.reportId, (newId) => {
 .log-msg.success { color: var(--color-success-text); }
 /* Mobile-first polish */
 button, [role="button"], input, select, textarea { min-height: var(--touch-target-min); }
+.toc-link { min-height: 0; }
 h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-heading); }
 .report-id { display: none; }
 .generated-content, .tool-content, .timeline-content { overflow-wrap: anywhere; word-break: break-word; }
-@media (max-width: 768px) {
+.generated-content { overflow-wrap: break-word; word-break: normal; }
+
+.toc-label {
+  margin: 0 0 10px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toc-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toc-link:hover,
+.toc-link.is-current {
+  color: var(--color-text-primary);
+}
+
+.toc-link:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.toc-num {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.toc-link.is-current .toc-num {
+  color: var(--color-brand-primary);
+}
+
+.toc-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .left-panel.report-style { padding: 40px 32px 80px; }
+  .article-shell {
+    width: min(100%, calc(68ch + 220px));
+    font-size: 18px;
+    display: grid;
+    grid-template-columns: 180px minmax(0, 68ch);
+    column-gap: 40px;
+    align-items: start;
+  }
+  .report-toc {
+    display: block;
+    position: sticky;
+    top: 24px;
+  }
+  .sub-title { font-size: 1.2rem; }
+}
+
+@media (max-width: 1023px) {
   .report-panel { overflow-y: auto; }
-  .main-split-layout { display: block; overflow: visible; }
+  .main-split-layout { overflow: visible; flex: none; }
+  .left-panel.report-style { overflow: visible; height: auto; flex: none; }
+}
+
+@media (max-width: 768px) {
+  .report-panel { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
   .left-panel.report-style, .right-panel { width: 100%; min-width: 0; height: auto; overflow: visible; border-right: 0; }
-  .left-panel.report-style { padding: 24px 16px; border-bottom: 1px solid var(--color-border-subtle); }
-  .right-panel { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
-  .main-title { font-size: var(--font-size-h1); }
+  .left-panel.report-style { padding: 24px 16px 40px; border-bottom: 0; }
+  .origin-body { max-height: none; overflow: visible; }
+  .origin-body .right-panel { max-height: 70vh; overflow-y: auto; }
   .workflow-metrics { flex-wrap: wrap; }
   .metric { min-width: calc(50% - 8px); }
   .footer-actions, .action-btn, .next-step-btn { width: 100%; }
 }
+
+@media print {
+  .report-panel,
+  .main-split-layout,
+  .left-panel.report-style,
+  .article-shell {
+    height: auto !important;
+    overflow: visible !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    display: block !important;
+    background: var(--color-bg-canvas) !important;
+    color: var(--color-text-primary) !important;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+  .report-content-wrapper,
+  .generated-content {
+    max-width: 68ch !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    background: transparent !important;
+    color: var(--color-text-primary) !important;
+  }
+  .report-origin,
+  .report-actions,
+  .report-toc,
+  .collapse-toggle,
+  .waiting-placeholder,
+  .loading-state,
+  button {
+    display: none !important;
+  }
+  .section-body { display: block !important; }
+  .main-title,
+  .section-title,
+  .sub-title,
+  .generated-content,
+  .generated-content :deep(*) {
+    color: var(--color-text-primary) !important;
+    background: transparent !important;
+  }
+  .generated-content :deep(.md-quote) {
+    background: var(--color-bg-canvas) !important;
+    border-left-color: var(--color-brand-primary) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
