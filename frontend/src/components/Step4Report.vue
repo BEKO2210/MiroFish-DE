@@ -640,7 +640,7 @@ const parsePanorama = (text) => {
     const nodesMatch = text.match(/Gesamtanzahl der Knoten:\s*(\d+)/)
     const edgesMatch = text.match(/Gesamtanzahl der Kanten:\s*(\d+)/)
     const activeMatch = text.match(/Aktuell gültige Fakten:\s*(\d+)/)
-    const histMatch = text.match(/Historische/Abgelaufene Fakten:\s*(\d+)/)
+    const histMatch = text.match(/Historische\/abgelaufene Fakten:\s*(\d+)/)
     if (nodesMatch) result.stats.nodes = parseInt(nodesMatch[1])
     if (edgesMatch) result.stats.edges = parseInt(edgesMatch[1])
     if (activeMatch) result.stats.activeFacts = parseInt(activeMatch[1])
