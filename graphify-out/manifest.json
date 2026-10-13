@@ -1,8 +1,8 @@
 {
   "backend/app/__init__.py": {
-    "mtime": 1791843059.5158672,
-    "seen": 1791844998.5018795,
-    "ast_hash": "72c23030666528b8f7229b124b90729c",
+    "mtime": 1791877250.3446403,
+    "seen": 1791877262.4548085,
+    "ast_hash": "23d9d39534f904efb4089a9b0e354500",
     "semantic_hash": ""
   },
   "backend/app/api/__init__.py": {
@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "backend/app/api/simulation.py": {
-    "mtime": 1791843059.5188675,
-    "seen": 1791844998.501891,
-    "ast_hash": "a2bb0fe224e2f15437c6a6b21480cc2a",
+    "mtime": 1791877217.2564852,
+    "seen": 1791877262.4548354,
+    "ast_hash": "38a06b37cdcfc4e782aa941d5006fc71",
     "semantic_hash": ""
   },
   "backend/app/api/system.py": {
@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "backend/app/services/simulation_config_generator.py": {
-    "mtime": 1791857779.106592,
-    "seen": 1791859646.6028516,
-    "ast_hash": "046eb962a44666a6c2db10cbe6821a00",
+    "mtime": 1791875926.0434098,
+    "seen": 1791877262.4548824,
+    "ast_hash": "6c9e76e6b493fb4a103a10e5d1e7bba9",
     "semantic_hash": ""
   },
   "backend/app/services/simulation_ipc.py": {
@@ -156,15 +156,15 @@
     "semantic_hash": ""
   },
   "backend/app/services/zep_graph_memory_updater.py": {
-    "mtime": 1791843059.5268676,
-    "seen": 1791844998.501919,
-    "ast_hash": "f81c339f8ec91f734b3a0827001cd3f9",
+    "mtime": 1791860164.836767,
+    "seen": 1791877262.4548998,
+    "ast_hash": "74a30b6f205f49522d57f344b880c83c",
     "semantic_hash": ""
   },
   "backend/app/services/zep_tools.py": {
-    "mtime": 1791843059.5278678,
-    "seen": 1791844998.5019202,
-    "ast_hash": "52b706668d1c9a4654543bd08ec6ced6",
+    "mtime": 1791860256.3729544,
+    "seen": 1791877262.4549024,
+    "ast_hash": "4e3b3a8c36e241c1d349c6541f9c46ce",
     "semantic_hash": ""
   },
   "backend/app/utils/__init__.py": {
@@ -252,9 +252,9 @@
     "semantic_hash": ""
   },
   "frontend/src/App.vue": {
-    "mtime": 1791843059.536868,
-    "seen": 1791844998.5019386,
-    "ast_hash": "8375c7a7f08a2feb19e7a054b376c991",
+    "mtime": 1791877217.258485,
+    "seen": 1791877262.4549472,
+    "ast_hash": "b8043966d14c5b4ef522cb20bc8c6d27",
     "semantic_hash": ""
   },
   "frontend/src/api/graph.js": {
@@ -264,9 +264,9 @@
     "semantic_hash": ""
   },
   "frontend/src/api/index.js": {
-    "mtime": 1791851150.7652173,
-    "seen": 1791859646.6028929,
-    "ast_hash": "215ca507019bdcde291c7231bcfe1bfc",
+    "mtime": 1791875954.9134178,
+    "seen": 1791877262.4549613,
+    "ast_hash": "4503227524d247689b8f227513841eb9",
     "semantic_hash": ""
   },
   "frontend/src/api/report.js": {
@@ -276,9 +276,9 @@
     "semantic_hash": ""
   },
   "frontend/src/api/simulation.js": {
-    "mtime": 1791851150.7652173,
-    "seen": 1791859646.6028955,
-    "ast_hash": "c0f9e07ffc7828d3f84458a2a8c9a9f9",
+    "mtime": 1791877217.2574852,
+    "seen": 1791877262.454978,
+    "ast_hash": "013c0f4456881dcdc54f5c6522b5bc4d",
     "semantic_hash": ""
   },
   "frontend/src/components/GraphPanel.vue": {
@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/HistoryDatabase.vue": {
-    "mtime": 1791843059.5428681,
-    "seen": 1791844998.5019467,
-    "ast_hash": "8e0f0366d152cb89496d0046cbec9ce6",
+    "mtime": 1791877250.3446403,
+    "seen": 1791877262.4549882,
+    "ast_hash": "4615d8a0a47e59e3ff928d8d0503c5d6",
     "semantic_hash": ""
   },
   "frontend/src/components/Step1GraphBuild.vue": {
@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/Home.vue": {
-    "mtime": 1791851772.7129261,
-    "seen": 1791859646.602912,
-    "ast_hash": "41360edce5614828e8403d8c58da697c",
+    "mtime": 1791877168.69879,
+    "seen": 1791877262.4550326,
+    "ast_hash": "843b7c6bfc9ad3b3bce0e3095839b53e",
     "semantic_hash": ""
   },
   "frontend/src/views/InteractionView.vue": {
@@ -408,9 +408,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791851150.761217,
-    "seen": 1791859646.6029284,
-    "ast_hash": "a92e3a9c900c5c121bdd0fe7afb6927e",
+    "mtime": 1791861009.958195,
+    "seen": 1791877262.4550629,
+    "ast_hash": "18f87008ce61f85572f07a219d59ab80",
     "semantic_hash": ""
   },
   "backend/requirements.txt": {
@@ -426,9 +426,9 @@
     "semantic_hash": ""
   },
   "frontend/index.html": {
-    "mtime": 1791851150.7652173,
-    "seen": 1791859646.602932,
-    "ast_hash": "77d9fc340804988534256906d379c4eb",
+    "mtime": 1791876852.468751,
+    "seen": 1791877262.455071,
+    "ast_hash": "fa0d6c4f715bc7940445385d4950fc60",
     "semantic_hash": ""
   },
   "test_data.txt": {
@@ -525,6 +525,18 @@
     "mtime": 1791851150.7812178,
     "seen": 1791859646.6029556,
     "ast_hash": "896504198d201af067f6b111749efa17",
+    "semantic_hash": ""
+  },
+  "backend/app/api/pipeline.py": {
+    "mtime": 1791877250.3446403,
+    "seen": 1791877262.4548283,
+    "ast_hash": "cde9e5ebea745f66ac28bb0f9b06e3a8",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/MobileNav.vue": {
+    "mtime": 1791877217.258485,
+    "seen": 1791877262.4549932,
+    "ast_hash": "12cda79d3d2642e07d810a6f633df354",
     "semantic_hash": ""
   }
 }
