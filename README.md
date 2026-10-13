@@ -29,6 +29,36 @@ MiroFish wurde massiv erweitert, um flexibler und benutzerfreundlicher zu sein:
 
 </div>
 
+## Lokaler Betrieb mit Ollama (Stand 13.10.2026)
+
+Getestet auf einer RTX 3070 (8 GB): kompletter Durchlauf Ontologie → Graph → Profile → Simulation → Bericht ohne Cloud.
+
+```bash
+# Python 3.11 ist Pflicht (camel-oasis), Abhängigkeiten exakt aus dem Lockfile:
+cd backend && uv venv --python 3.11 ../.venv && uv export --frozen --no-hashes -o /tmp/req.txt \
+  && uv pip install --python ../.venv/bin/python -r /tmp/req.txt
+cd ../frontend && npm install
+```
+
+`.env` im Projektwurzelverzeichnis:
+
+```
+LLM_PROVIDER=ollama
+LOCAL_LLM_BASE_URL=http://127.0.0.1:11434/v1
+LOCAL_LLM_MODEL_NAME=gemma4:12b-it-qat-16k   # Backend: Ontologie, Extraktion, Profile, Bericht (braucht >4k Kontext)
+LOCAL_LLM_API_KEY=ollama
+LLM_API_KEY=ollama
+LLM_BASE_URL=http://127.0.0.1:11434/v1
+LLM_MODEL_NAME=gemma4:e4b-it-qat-16k         # Agenten in der Simulation (5x schneller)
+MEMORY_PROVIDER=obsidian
+FLASK_PORT=5002
+FLASK_DEBUG=false                            # der Reloader würde laufende Simulationen beenden
+```
+
+Modellvarianten mit größerem Kontext anlegen: `printf "FROM gemma4:12b-it-qat\nPARAMETER num_ctx 16384\n" > Modelfile && ollama create gemma4:12b-it-qat-16k -f Modelfile` (analog für `gemma4:e4b-it-qat`).
+Reasoning wird für lokale Provider automatisch abgeschaltet (`reasoning_effort=none`), das Empfehlungsmodell von OASIS läuft auf der CPU, damit die GPU dem Sprachmodell gehört.
+Start: `cd backend && ../.venv/bin/python run.py` und `cd frontend && npx vite --port 3000`.
+
 ## ⚡ Projektübersicht
 
 **MiroFish** ist eine neue Generation von KI-Vorhersage-Engines basierend auf Multi-Agent-Technologie. Durch die Extraktion von Realwelt-Daten (wie Breaking News, Richtlinienentwürfe, Finanzsignale) wird automatisch eine detailgetreue parallele digitale Welt erstellt. In diesem Raum interagieren und entwickeln sich Tausende von Agenten mit unabhängigen Persönlichkeiten, Langzeitgedächtnis und Verhaltenslogik frei. Über die "Gott-Perspektive" können dynamisch Variablen injiziert werden, um zukünftige Entwicklungen präzise zu antizipieren – **Lass die Zukunft im digitalen Sandkasten vorausspielen, lass Entscheidungen nach hunderten Simulationen triumphieren**.
