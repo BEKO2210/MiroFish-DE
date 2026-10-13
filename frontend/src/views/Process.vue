@@ -1052,22 +1052,28 @@ const renderGraph = () => {
     closeDetailPanel()
   })
   
-  simulation.on('tick', () => {
-    // Position aller Kanten aktualisieren (sichtbare Linie und transparenter Klickbereich)
+  const applyTickPositions = () => {
     linkGroup.selectAll('line')
       .attr('x1', d => d.source.x)
       .attr('y1', d => d.source.y)
       .attr('x2', d => d.target.x)
       .attr('y2', d => d.target.y)
-    
-    // Position der Kantenbeschriftungen aktualisieren
     linkLabel
       .attr('x', d => (d.source.x + d.target.x) / 2)
       .attr('y', d => (d.source.y + d.target.y) / 2 - 5)
-    
     node.attr('transform', d => `translate(${d.x},${d.y})`)
-  })
-  
+  }
+
+  const preferStatic =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (preferStatic) {
+    simulation.stop()
+    for (let i = 0; i < 300; i++) simulation.tick()
+    applyTickPositions()
+  } else {
+    simulation.on('tick', applyTickPositions)
+  }
+
   function dragstarted(event) {
     if (!event.active) simulation.alphaTarget(0.3).restart()
     event.subject.fx = event.subject.x

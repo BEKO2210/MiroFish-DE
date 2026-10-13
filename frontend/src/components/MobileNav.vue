@@ -46,4 +46,12 @@ onUnmounted(() => clearInterval(timer))
   .mobile-nav__badge { position: absolute; top: 8px; left: calc(50% + 8px); width: 8px; height: 8px; border-radius: 50%; background: var(--color-brand-primary); animation: pulse 1.6s ease-in-out infinite; }
   @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-primary) 45%, transparent); } 50% { box-shadow: 0 0 0 6px transparent; } }
 }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--color-bg-surface-raised);
+  }
+  .mobile-nav__badge { animation: none; }
+}
 </style>

@@ -75,8 +75,7 @@
           <li v-for="(c, i) in comparisons" :key="i">
             <strong>{{ compareVariantLabel(c.variant) }}</strong>
             · {{ outcomeText(c.outcome_id) }}:
-            <span class="mono">{{ fmtDiff(c.diff) }}</span>
-            <span class="ci">({{ pct01(c.ci_low) }}–{{ pct01(c.ci_high) }})</span>
+            <span class="mono">{{ fmtDiff(c.diff) }} {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
             — {{ interpretDiff(c) }}
           </li>
         </ul>
@@ -86,6 +85,30 @@
         <h2 class="section-title">{{ t('ensemble.ciHelpTitle') }}</h2>
         <p>{{ t('ensemble.ciHelpBody') }}</p>
       </aside>
+
+      <footer v-if="canCancel || canGoReport || canDelete" class="foot">
+        <button
+          v-if="canCancel"
+          type="button"
+          class="foot__primary foot__primary--neutral foot__desk"
+          :disabled="busy"
+          @click="askCancel"
+        >{{ t('ensemble.cancel') }}</button>
+        <button
+          v-else-if="canGoReport"
+          type="button"
+          class="foot__primary foot__desk"
+          :disabled="busy"
+          @click="goToReport"
+        >{{ t('ensemble.toReport') }}</button>
+        <button
+          v-if="canDelete"
+          type="button"
+          class="foot__delete"
+          :disabled="busy"
+          @click="askDelete"
+        >{{ t('ensemble.delete') }}</button>
+      </footer>
     </main>
 
     <main v-else-if="loadError" class="main">
@@ -94,10 +117,21 @@
     <main v-else class="main"><p class="muted">{{ t('common.loading') }}</p></main>
 
     <MobileStickyBar
-      v-if="data && (canCancel || canDelete)"
-      :primary-label="canCancel ? t('ensemble.cancel') : t('ensemble.delete')"
+      v-if="data && (canCancel || canGoReport)"
+      :primary-label="canCancel ? t('ensemble.cancel') : t('ensemble.toReport')"
+      :primary-neutral="canCancel"
       :primary-loading="busy"
-      @primary-click="canCancel ? doCancel() : askDelete()"
+      @primary-click="canCancel ? askCancel() : goToReport()"
+    />
+
+    <ConfirmSheet
+      :open="confirmCancel"
+      :title="t('ensemble.cancelTitle')"
+      :text="t('ensemble.cancelText')"
+      :confirm-label="t('ensemble.cancel')"
+      :busy="busy"
+      @confirm="doCancel"
+      @close="confirmCancel = false"
     />
 
     <ConfirmSheet
@@ -121,6 +155,7 @@ import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
 import { getEnsemble, cancelEnsemble, deleteEnsemble } from '../api/ensemble'
+import { getSimulationHistory } from '../api/simulation'
 
 const props = defineProps({ ensembleId: String })
 const { t, locale } = useI18n()
@@ -130,6 +165,7 @@ const data = ref(null)
 const loadError = ref('')
 const busy = ref(false)
 const confirmDelete = ref(false)
+const confirmCancel = ref(false)
 let timer = null
 
 const variants = computed(() => data.value?.variants || [])
@@ -137,6 +173,7 @@ const checklist = computed(() => data.value?.checklist || [])
 const comparisons = computed(() => data.value?.comparisons || [])
 const canCancel = computed(() => ['queued', 'running'].includes(data.value?.status))
 const canDelete = computed(() => ['completed', 'failed', 'cancelled'].includes(data.value?.status))
+const canGoReport = computed(() => canDelete.value && !!data.value?.simulation_id)
 const statusLabel = computed(() => t(`ensemble.status.${data.value?.status || 'queued'}`))
 const currentVariantLabel = computed(() => {
   const key = data.value?.current?.variant
@@ -169,14 +206,19 @@ function pct(v) {
   if (!v?.total) return 0
   return Math.min(100, Math.round((100 * (v.done || 0)) / v.total))
 }
-function pct01(x) {
+/** Prozentpunkte mit Unicode-Minus und Vorzeichen bei positiven Werten. */
+function fmtPp(x) {
   if (x == null || Number.isNaN(x)) return '—'
-  return Math.round(x * 100) + ' %'
+  const p = Math.round(x * 100)
+  if (p === 0) return '0'
+  return (p > 0 ? '+' : '−') + Math.abs(p)
 }
 function fmtDiff(d) {
   if (d == null) return '—'
-  const p = Math.round(d * 100)
-  return (p > 0 ? '+' : '') + p + ' %'
+  return `${fmtPp(d)} ${t('ensemble.percentagePoints')}`
+}
+function fmtDiffCi(low, high) {
+  return t('ensemble.diffCi', { low: fmtPp(low), high: fmtPp(high) })
 }
 function interpretDiff(c) {
   if (c.ci_low <= 0 && c.ci_high >= 0) return t('ensemble.diffNone')
@@ -248,10 +290,14 @@ function clearTimer() {
   }
 }
 
+function askCancel() {
+  confirmCancel.value = true
+}
 async function doCancel() {
   busy.value = true
   try {
     await cancelEnsemble(props.ensembleId)
+    confirmCancel.value = false
     await refresh()
   } catch (e) {
     loadError.value = e.message || t('common.error')
@@ -268,6 +314,25 @@ async function doDelete() {
     await deleteEnsemble(props.ensembleId)
     confirmDelete.value = false
     router.push('/')
+  } catch (e) {
+    loadError.value = e.message || t('common.error')
+  } finally {
+    busy.value = false
+  }
+}
+async function goToReport() {
+  const simId = data.value?.simulation_id
+  if (!simId) return
+  busy.value = true
+  try {
+    const res = await getSimulationHistory(50)
+    const hit = (res?.data || []).find((s) => s.simulation_id === simId && s.report_id)
+    if (hit?.report_id) {
+      router.push(`/report/${hit.report_id}`)
+      return
+    }
+    const cached = localStorage.getItem('mirofish:lastReport')
+    if (cached) router.push(`/report/${cached}`)
   } catch (e) {
     loadError.value = e.message || t('common.error')
   } finally {
@@ -311,6 +376,40 @@ onUnmounted(clearTimer)
 .help { margin-top: 2rem; padding: 1rem 1.1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .help p { margin: 0; }
 
+.foot { margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border-subtle); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.foot__primary {
+  display: none;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--color-brand-primary);
+  color: var(--color-brand-on-primary);
+}
+.foot__primary--neutral {
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+.foot__primary:disabled, .foot__delete:disabled { opacity: 0.6; cursor: not-allowed; }
+.foot__delete {
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-error-text);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .material { margin-top: 6px; font-size: 13px; }
 .material summary { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; color: var(--color-warning-text); font-weight: 600; }
 .snippet { margin: 6px 0 0; padding: 8px 10px; background: var(--color-bg-surface-subtle); border-radius: 8px; color: var(--color-text-secondary); }
@@ -341,6 +440,7 @@ onUnmounted(clearTimer)
   .results--table { display: block; }
   .results--cards { display: none; }
   .main { padding: 28px 24px 80px; }
+  .foot__desk { display: inline-flex; align-items: center; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .prog__fill { transition: none; }

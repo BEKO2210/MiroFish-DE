@@ -855,22 +855,15 @@ const renderGraph = () => {
   updateNodeLabelVisibility()
   updateEdgeLabelVisibility()
 
-  let tickCount = 0
-  simulation.on('tick', () => {
-    tickCount += 1
-    // Kurvenpfade aktualisieren
+  const applyTickPositions = () => {
     link.attr('d', d => getLinkPath(d))
-    
-    // Kantenbeschriftungspositionen aktualisieren (ohne Rotation, horizontal besser lesbar)
     linkLabels.each(function(d) {
       const mid = getLinkMidpoint(d)
       d3.select(this)
         .attr('x', mid.x)
         .attr('y', mid.y)
-        .attr('transform', '') // Rotation entfernen, horizontal halten
+        .attr('transform', '')
     })
-    
-    // Kantenbeschriftung-Hintergrund aktualisieren
     linkLabelBg.each(function(d, i) {
       const mid = getLinkMidpoint(d)
       const textEl = linkLabels.nodes()[i]
@@ -880,22 +873,31 @@ const renderGraph = () => {
         .attr('y', mid.y - bbox.height / 2 - 2)
         .attr('width', bbox.width + 8)
         .attr('height', bbox.height + 4)
-        .attr('transform', '') // Rotation entfernen
+        .attr('transform', '')
     })
+    node.attr('cx', d => d.x).attr('cy', d => d.y)
+    nodeLabels.attr('x', d => d.x).attr('y', d => d.y)
+  }
 
-    node
-      .attr('cx', d => d.x)
-      .attr('cy', d => d.y)
-
-    nodeLabels
-      .attr('x', d => d.x)
-      .attr('y', d => d.y)
-
-    if (tickCount >= 300) simulation.stop()
-  })
-  simulation.on('end', () => zoomToFit(0.88))
   clearTimeout(fitTimer)
-  fitTimer = setTimeout(() => zoomToFit(0.88), 450)
+  // Ohne Animation: Layout sofort fertig rechnen (sonst flaky Pixelvergleiche)
+  const preferStatic =
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (preferStatic) {
+    simulation.stop()
+    for (let i = 0; i < 300; i++) simulation.tick()
+    applyTickPositions()
+    zoomToFit(0.88, false)
+  } else {
+    let tickCount = 0
+    simulation.on('tick', () => {
+      tickCount += 1
+      applyTickPositions()
+      if (tickCount >= 300) simulation.stop()
+    })
+    simulation.on('end', () => zoomToFit(0.88))
+    fitTimer = setTimeout(() => zoomToFit(0.88), 450)
+  }
   
   // Klick auf leere Fläche schließt Detailbereich
   svg.on('click', () => {

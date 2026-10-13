@@ -17,7 +17,7 @@
         <button
           type="button"
           class="sticky-btn sticky-btn--primary"
-          :class="{ 'is-loading': primaryLoading }"
+          :class="{ 'is-loading': primaryLoading, 'sticky-btn--neutral': primaryNeutral }"
           :disabled="primaryDisabled || primaryLoading"
           @click="$emit('primary-click')"
         >
@@ -34,6 +34,8 @@ defineProps({
   primaryLabel: { type: String, required: true },
   primaryDisabled: { type: Boolean, default: false },
   primaryLoading: { type: Boolean, default: false },
+  /** Neutraler Hauptknopf (kein Marken-/Warn-/Fehlerrot) */
+  primaryNeutral: { type: Boolean, default: false },
   secondaryLabel: { type: String, default: '' },
   secondaryDisabled: { type: Boolean, default: false },
   ariaLabel: { type: String, default: '' }
@@ -106,6 +108,13 @@ defineEmits(['primary-click', 'secondary-click'])
     cursor: not-allowed;
   }
 
+  .sticky-btn--primary.sticky-btn--neutral {
+    background: var(--color-bg-surface-raised);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
+    box-shadow: none;
+  }
+
   .sticky-btn--secondary {
     flex: 0 0 auto;
     min-width: 110px;
@@ -129,11 +138,16 @@ defineEmits(['primary-click', 'secondary-click'])
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .mobile-sticky-bar {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--color-bg-canvas);
+  }
   .sticky-btn {
     transition: none !important;
   }
   .sticky-btn__spinner {
-    animation-duration: 2s !important;
+    animation: none !important;
   }
 }
 </style>

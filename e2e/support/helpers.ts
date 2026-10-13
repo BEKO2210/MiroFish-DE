@@ -21,6 +21,18 @@ export async function preparePage(page: Page): Promise<{ api: MockApi | null; er
   return { api, errors }
 }
 
+/** CDN-Fonts stubben → Systemfonts, stabile fullPage-Höhe (nur Visual-Tests). */
+export async function stubWebFonts(page: Page) {
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+    const url = route.request().url()
+    if (url.includes('googleapis.com')) {
+      await route.fulfill({ status: 200, contentType: 'text/css', body: '/* e2e: system fonts */' })
+    } else {
+      await route.fulfill({ status: 200, contentType: 'font/woff2', body: Buffer.alloc(0) })
+    }
+  })
+}
+
 export async function expectNoHorizontalScroll(page: Page) {
   const ok = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)
   expect(ok, 'keine horizontale Scrollleiste').toBe(true)
@@ -104,6 +116,7 @@ export async function expectMinTouchTargets(page: Page) {
 
 export async function settle(page: Page) {
   await page.waitForLoadState('networkidle').catch(() => {})
+  await page.evaluate(() => (document.fonts ? document.fonts.ready : Promise.resolve())).catch(() => {})
   await page.waitForTimeout(400)
 }
 
