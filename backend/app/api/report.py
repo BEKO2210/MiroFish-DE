@@ -297,11 +297,20 @@ def get_report(report_id: str):
                 "error": f"Bericht nicht gefunden: {report_id}"
             }), 404
         
+        data = report.to_dict()
+        # Ältere Berichte (vor V1) haben keinen Methodik-Abschnitt: deterministisch aus den Simulationsdaten nachrechnen
+        if not data.get("methodology") and report.simulation_id:
+            try:
+                from ..services.report_validation import build_methodology
+                data["methodology"] = build_methodology(report.simulation_id, report.markdown_content or "")
+            except Exception as me:
+                logger.warning(f"Methodik für {report_id} nicht berechenbar: {me}")
+
         return jsonify({
             "success": True,
-            "data": report.to_dict()
+            "data": data
         })
-        
+
     except Exception as e:
         logger.error(f"Abrufen des Berichts fehlgeschlagen: {str(e)}")
         return jsonify({
