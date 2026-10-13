@@ -2,7 +2,6 @@ services:
   mirofish:
     build: .
     image: mirofish-de:latest
-    container_name: mirofish
     # Als dein Benutzer laufen, damit data/ dir gehört (Linux-Standard 1000:1000; sonst Werte in .env setzen)
     user: "${MIROFISH_UID:-1000}:${MIROFISH_GID:-1000}"
     # Nur auf diesem Rechner erreichbar: die App hat keine Anmeldung. Für Zugriff von anderen Geräten
