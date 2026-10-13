@@ -10,12 +10,17 @@ und auf dem Desktop per Screenshot geprüft ist, der Build grün ist und die Kon
 | 3 | Verlauf | Eigene Seite `/history`: Liste mit Status-Chip (Läuft/Fertig/Abgebrochen), Titel = Frage, Datum, Runden; Aktionen Bericht/Export/Löschen mit Bestätigungsblatt. Keine IDs, keine Monospace-Schrift, keine Rauten. | Löschen und Export am Handy getestet | Claude |
 | 4 | Einstellungen | Eigene Seite `/settings`: Modell, Gedächtnis, Verbindung prüfen, Farben, Sprache, Über. Fachbegriffe erklärt. | Speichern + Verbindung prüfen funktionieren | Claude |
 | 5 | Durchlauf | `/run/:id` bleibt, Details ohne technische Präfixe, Agentenzahl, Restzeit, Abschlussbild mit Link zum Bericht. | Vollständiger Durchlauf im UI bis Bericht | Claude |
-| 6 | Farben | Fehler „Voll" nicht wählbar beheben; Akzent folgt der bunteren Farbe; Umschalter im Kopf jeder Seite. | Alle 12 Vorgaben + Zufall in beiden Modi geprüft | Claude |
+| 6 | Farben | Fehler „Voll" nicht wählbar beheben; Akzent folgt der bunteren Farbe; Umschalter im Kopf jeder Seite; auch Karten/Felder in Combo-Farben statt Weiß; Knopf „Originalfarben wiederherstellen“. | Alle 12 Vorgaben + Zufall in beiden Modi geprüft | Claude |
 | 7 | Backend-Neustart | Nach Abschluss des laufenden Berichts: Dienst neu starten (DELETE/Export/Pipeline-Fixes live). `progress_percent` = Minimum beider Plattformen. | `curl -X DELETE` liefert 200/404 statt 405 | Claude |
 | 8 | Expertenseiten | Schritt-für-Schritt-Seiten (Graph, Umgebung, Simulation, Bericht, Interview) entschlacken: kein „dringend empfohlen", keine Debug-Protokolle, keine englischen Reste („INFO PLAZA", „TOPIC COMMUNITY", „POST", „ACTS"), Touchziele ≥ 44 px, Kopf einheitlich. | Screenshots jeder Seite mobil | codex (Worktree) |
 | 9 | Bericht | Lesetypografie (max. 70 Zeichen Zeile, Zwischenüberschriften), Teilen/Export, Interview-Dialog mobil. | Screenshot mobil/desktop | Claude |
 | 10 | Zweisprachig | i18n-Zweig (codex, 705 Schlüssel) in main mergen, neue Seiten nachziehen, Umschalter in Einstellungen + Kopf. | DE/EN-Wechsel ohne Reload-Fehler | Claude |
 | 11 | Erststart für Fremde | `README`: ein Befehl bis zur laufenden App (Docker Compose), Einrichtungsassistent wenn kein Modell erreichbar. | Frische Maschine, Docker, Ollama → Startseite „Bereit" | Claude |
+| 13 | Modelle automatisch | Backend fragt den Modellserver (Ollama `/api/tags` + `/api/ps`, OpenAI-kompatibel `/v1/models`) ab; Einstellungen zeigen eine Auswahlliste statt Freitext; Statusanzeige oben zeigt das tatsächlich geladene Modell, nichts fest codiert. | Liste = `ollama list`; Kopf zeigt geladenes Modell | Claude |
+| 14 | Neuerungen aus dem Original | 666ghj/MiroFish seit unserem Stand sichten (≈300 Commits), Fehlerkorrekturen und Sicherheitsupdates übernehmen, die zu unserem lokalen Betrieb passen. | Liste übernommen/verworfen in docs/UPSTREAM.md, Build + Durchlauf grün | Claude |
 | 12 | QA + Veröffentlichung | Jede Seite mobil/desktop, hell + dunkle Combos, Cursor-Review, `git push` public ohne private Daten. | Review-Protokoll in docs/QA.md | Claude + Cursor |
+
+Erledigt (v2, 13.10.): 1 App-Gerüst, 2 Startseite, 3 Verlauf, 4 Einstellungen, 6 Farben, 7 Backend-Neustart, 10 Zweisprachig.
+In Arbeit: 8 Expertenseiten (codex, Zweig `expert`).
 
 Erledigt (v1): Lesbarkeit, Design-Tokens, Durchlauf-API, Löschen/Export-API, Logo, Farbsystem-Grundlage, Startseite v2, Durchlauf-Ansicht.
