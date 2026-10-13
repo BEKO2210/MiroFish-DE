@@ -48,7 +48,8 @@ button {
   font-family: inherit;
 }
 @media (max-width: 768px) {
-  body { padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  /* Fußmenü (~58px) + optional MobileStickyBar (~64px) + Safe-Area */
+  body { padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
   body { background: var(--color-bg-canvas); }
 }
 h1, h2, h3, .main-title { font-family: var(--font-heading, 'Space Grotesk', system-ui, sans-serif); }

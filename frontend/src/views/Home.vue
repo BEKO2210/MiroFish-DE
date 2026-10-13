@@ -6,108 +6,122 @@
       </router-link>
     </AppHeader>
 
-    <!-- Hero: der Schwarm -->
-    <section class="hero">
-      <SwarmCanvas class="hero__swarm" />
-      <div class="hero__inner">
-        <h1 class="hero__title">{{ t('start.title1') }}<br>{{ t('start.title2') }}</h1>
-        <p class="hero__lead">{{ t('start.lead') }}</p>
-      </div>
-    </section>
-
-    <main class="main">
-      <!-- Läuft gerade -->
-      <section v-if="activeRuns.length" class="block">
-        <router-link v-for="run in activeRuns" :key="run.pipeline_id" :to="`/run/${run.pipeline_id}`" class="live">
-          <span class="live__pulse"></span>
-          <span class="live__body">
-            <span class="live__title">{{ run.requirement }}</span>
-            <span class="live__meta">{{ stepLabel(run.current_step) }} · {{ t('start.since', { time: fmtTime(run.created_at) }) }}</span>
-          </span>
-          <span class="live__chev">›</span>
-        </router-link>
-      </section>
-
-      <!-- Formular -->
-      <section class="block" id="start">
-        <form class="form" @submit.prevent="start">
-          <h2 class="form__title">{{ t('start.newForecast') }}</h2>
-
-          <input ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" class="sr-only" @change="onFiles" />
-          <div class="drop" :class="{ 'is-over': over, 'has-files': files.length }" role="button" tabindex="0"
-               @click="pick" @keydown.enter.prevent="pick" @dragover.prevent="over = true" @dragleave.prevent="over = false" @drop.prevent="onDrop">
-            <template v-if="!files.length">
-              <svg class="drop__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14h5M10 17h5"/></svg>
-              <span class="drop__title">{{ t('start.addDocs') }}</span>
-              <span class="drop__hint">{{ t('start.docTypes') }}</span>
-            </template>
-            <ul v-else class="files" @click.stop>
-              <li v-for="(f, i) in files" :key="f.name + i" class="files__item">
-                <span class="files__type">{{ f.name.split('.').pop().toUpperCase() }}</span>
-                <span class="files__name">{{ f.name }}</span>
-                <button type="button" class="files__rm" :aria-label="t('start.remove', { name: f.name })" @click.stop="files.splice(i, 1)">×</button>
-              </li>
-              <li><button type="button" class="files__add" @click.stop="pick">{{ t('start.addMore') }}</button></li>
-            </ul>
+    <div class="home-layout-grid">
+      <div class="home-col--left">
+        <!-- Hero: der Schwarm -->
+        <section class="hero">
+          <SwarmCanvas class="hero__swarm" />
+          <div class="hero__inner">
+            <h1 class="hero__title">{{ t('start.title1') }}<br>{{ t('start.title2') }}</h1>
+            <p class="hero__lead">{{ t('start.lead') }}</p>
           </div>
+        </section>
 
-          <label class="field">
-            <span class="field__label">{{ t('start.question') }}</span>
-            <textarea v-model="question" class="field__input" rows="3" :placeholder="t('start.placeholder')"></textarea>
-          </label>
+        <!-- So funktioniert es -->
+        <section class="block block--how">
+          <h2 class="block__title">{{ t('start.how') }}</h2>
+          <ol class="how">
+            <li class="how__step">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
+              <strong>{{ t('start.how1t') }}</strong><span>{{ t('start.how1') }}</span>
+            </li>
+            <li class="how__step">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <strong>{{ t('start.how2t') }}</strong><span>{{ t('start.how2') }}</span>
+            </li>
+            <li class="how__step">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="18" cy="9" r="2"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="17" r="2"/><path d="M7.5 9.5 10 14M13 7l3.8 1.2M10 15.5l4 1"/></svg>
+              <strong>{{ t('start.how3t') }}</strong><span>{{ t('start.how3') }}</span>
+            </li>
+            <li class="how__step">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+              <strong>{{ t('start.how4t') }}</strong><span>{{ t('start.how4') }}</span>
+            </li>
+          </ol>
+        </section>
+      </div>
 
-          <label class="switch">
-            <input type="checkbox" v-model="autopilot" />
-            <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
-            <span class="switch__text"><strong>{{ t('start.autoTitle') }}</strong><small>{{ t('start.autoHint') }}</small></span>
-          </label>
+      <div class="home-col--right">
+        <main class="main">
+          <!-- Läuft gerade -->
+          <section v-if="activeRuns.length" class="block block--live">
+            <router-link v-for="run in activeRuns" :key="run.pipeline_id" :to="`/run/${run.pipeline_id}`" class="live">
+              <span class="live__pulse"></span>
+              <span class="live__body">
+                <span class="live__title">{{ run.requirement }}</span>
+                <span class="live__meta">{{ stepLabel(run.current_step) }} · {{ t('start.since', { time: fmtTime(run.created_at) }) }}</span>
+              </span>
+              <span class="live__chev">›</span>
+            </router-link>
+          </section>
 
-          <p v-if="error" class="error" role="alert">{{ error }}</p>
-          <button type="submit" class="cta" :disabled="!canSubmit || loading">
-            <span v-if="!loading">{{ autopilot ? t('start.go') : t('start.goManual') }}</span>
-            <span v-else class="cta__busy"><span class="spin"></span>{{ t('start.uploading') }}</span>
-          </button>
-          <p v-if="!status.ready" class="form__foot"><router-link to="/settings">{{ t('start.connectFirst') }}</router-link></p>
-        </form>
-      </section>
+          <!-- Formular -->
+          <section class="block block--form" id="start">
+            <form class="form" @submit.prevent="start">
+              <h2 class="form__title">{{ t('start.newForecast') }}</h2>
 
-      <!-- So funktioniert es -->
-      <section class="block">
-        <h2 class="block__title">{{ t('start.how') }}</h2>
-        <ol class="how">
-          <li class="how__step">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
-            <strong>{{ t('start.how1t') }}</strong><span>{{ t('start.how1') }}</span>
-          </li>
-          <li class="how__step">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <strong>{{ t('start.how2t') }}</strong><span>{{ t('start.how2') }}</span>
-          </li>
-          <li class="how__step">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="8" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="18" cy="9" r="2"/><circle cx="8" cy="16" r="2"/><circle cx="16" cy="17" r="2"/><path d="M7.5 9.5 10 14M13 7l3.8 1.2M10 15.5l4 1"/></svg>
-            <strong>{{ t('start.how3t') }}</strong><span>{{ t('start.how3') }}</span>
-          </li>
-          <li class="how__step">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
-            <strong>{{ t('start.how4t') }}</strong><span>{{ t('start.how4') }}</span>
-          </li>
-        </ol>
-      </section>
+              <label for="doc-upload" class="sr-only">{{ t('start.uploadLabel') }}</label>
+              <input id="doc-upload" ref="fileInput" type="file" multiple accept=".pdf,.md,.txt" class="sr-only" @change="onFiles" />
+              <div class="drop" :class="{ 'is-over': over, 'has-files': files.length }" role="button" tabindex="0"
+                   @click="pick" @keydown.enter.prevent="pick" @dragover.prevent="over = true" @dragleave.prevent="over = false" @drop.prevent="onDrop">
+                <template v-if="!files.length">
+                  <svg class="drop__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 14h5M10 17h5"/></svg>
+                  <span class="drop__title">{{ t('start.addDocs') }}</span>
+                  <span class="drop__hint">{{ t('start.docTypes') }}</span>
+                </template>
+                <ul v-else class="files" @click.stop>
+                  <li v-for="(f, i) in files" :key="f.name + i" class="files__item">
+                    <span class="files__type">{{ f.name.split('.').pop().toUpperCase() }}</span>
+                    <span class="files__name">{{ f.name }}</span>
+                    <button type="button" class="files__rm" :aria-label="t('start.remove', { name: f.name })" @click.stop="files.splice(i, 1)">×</button>
+                  </li>
+                  <li><button type="button" class="files__add" @click.stop="pick">{{ t('start.addMore') }}</button></li>
+                </ul>
+              </div>
 
-      <!-- Zuletzt -->
-      <section v-if="recent.length" class="block">
-        <div class="block__head">
-          <h2 class="block__title">{{ t('start.recent') }}</h2>
-          <router-link to="/history" class="block__link">{{ t('start.showAll') }}</router-link>
-        </div>
-        <router-link v-for="r in recent" :key="r.simulation_id" :to="r.report_id ? `/report/${r.report_id}` : `/simulation/${r.simulation_id}`" class="recent">
-          <span class="recent__title">{{ r.simulation_requirement || r.project_name || t('start.untitled') }}</span>
-          <span class="recent__meta">{{ fmtDate(r.created_at) }}<template v-if="r.report_id"> · {{ t('start.hasReport') }}</template></span>
-        </router-link>
-      </section>
+              <label class="field">
+                <span class="field__label">{{ t('start.question') }}</span>
+                <textarea v-model="question" class="field__input" rows="3" :placeholder="t('start.placeholder')"></textarea>
+              </label>
 
-      <footer class="foot">{{ t('start.footer') }} · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">GitHub</a></footer>
-    </main>
+              <label class="switch">
+                <input type="checkbox" v-model="autopilot" />
+                <span class="switch__track" aria-hidden="true"><span class="switch__thumb"></span></span>
+                <span class="switch__text"><strong>{{ t('start.autoTitle') }}</strong><small>{{ t('start.autoHint') }}</small></span>
+              </label>
+
+              <p v-if="error" class="error" role="alert">{{ error }}</p>
+              <button type="submit" class="cta cta--inline" :disabled="!canSubmit || loading">
+                <span v-if="!loading">{{ autopilot ? t('start.go') : t('start.goManual') }}</span>
+                <span v-else class="cta__busy"><span class="spin"></span>{{ t('start.uploading') }}</span>
+              </button>
+              <p v-if="!status.ready" class="form__foot"><router-link to="/settings">{{ t('start.connectFirst') }}</router-link></p>
+            </form>
+          </section>
+
+          <!-- Zuletzt -->
+          <section v-if="recent.length" class="block block--recent">
+            <div class="block__head">
+              <h2 class="block__title">{{ t('start.recent') }}</h2>
+              <router-link to="/history" class="block__link">{{ t('start.showAll') }}</router-link>
+            </div>
+            <router-link v-for="r in recent" :key="r.simulation_id" :to="r.report_id ? `/report/${r.report_id}` : `/simulation/${r.simulation_id}`" class="recent">
+              <span class="recent__title">{{ r.simulation_requirement || r.project_name || t('start.untitled') }}</span>
+              <span class="recent__meta">{{ fmtDate(r.created_at) }}<template v-if="r.report_id"> · {{ t('start.hasReport') }}</template></span>
+            </router-link>
+          </section>
+
+          <footer class="foot">{{ t('start.footer') }} · <a href="https://github.com/BEKO2210/MiroFish-DE" target="_blank" rel="noopener">GitHub</a></footer>
+        </main>
+      </div>
+    </div>
+
+    <MobileStickyBar
+      :primary-label="autopilot ? t('start.go') : t('start.goManual')"
+      :primary-disabled="!canSubmit"
+      :primary-loading="loading"
+      @primary-click="start"
+    />
   </div>
 </template>
 
@@ -116,6 +130,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
+import MobileStickyBar from '../components/MobileStickyBar.vue'
 import SwarmCanvas from '../components/SwarmCanvas.vue'
 import service from '../api/index'
 import { getSimulationHistory } from '../api/simulation'
@@ -191,6 +206,41 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .home { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
+.home-layout-grid { display: flex; flex-direction: column; gap: 24px; }
+/* Mobil/Tablet: Spalten auflösen → Hero → Live → Formular → How → Zuletzt → Fuß */
+@media (max-width: 1023px) {
+  .home-layout-grid { gap: 0; }
+  .home-col--left,
+  .home-col--right,
+  .main { display: contents; }
+  .hero { order: 1; }
+  .block--live { order: 2; }
+  .block--form { order: 3; }
+  .block--how { order: 4; }
+  .block--recent { order: 5; }
+  .foot { order: 6; }
+  .block--live,
+  .block--form,
+  .block--recent {
+    padding-left: 16px;
+    padding-right: 16px;
+    max-width: 760px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+  .foot {
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-bottom: 32px;
+    max-width: 760px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+  }
+}
 .status { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 13px; font-weight: 500; text-decoration: none; }
 .status__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success-text); }
 .status.warn .status__dot { background: var(--color-warning-text); }
@@ -204,11 +254,12 @@ onUnmounted(() => clearInterval(timer))
 .hero__swarm { position: absolute; inset: 0; }
 .hero__inner { position: relative; padding: 48px 16px 28px; max-width: 760px; margin: 0 auto; width: 100%; pointer-events: none; }
 .hero__title, .hero__lead { text-shadow: 0 0 18px var(--color-bg-canvas), 0 0 6px var(--color-bg-canvas), 0 0 2px var(--color-bg-canvas); }
-.hero__title { font-family: var(--font-heading); font-size: clamp(38px, 10vw, 72px); line-height: .98; letter-spacing: -0.03em; margin: 0 0 14px; font-weight: 700; }
+.hero__title { font-family: var(--font-heading); font-size: clamp(28px, 7vw, 42px); line-height: .98; letter-spacing: -0.03em; margin: 0 0 14px; font-weight: 700; }
 .hero__lead { font-size: 17px; line-height: 1.5; max-width: 34ch; margin: 0; color: var(--color-text-secondary); }
 
 .main { max-width: 760px; margin: 0 auto; padding: 16px 16px 32px; }
 .block { margin-top: 24px; }
+.block--how { padding: 0 16px; max-width: 760px; margin-left: auto; margin-right: auto; }
 .block__head { display: flex; align-items: baseline; justify-content: space-between; }
 .block__title { font-family: var(--font-heading); font-size: 20px; margin: 0 0 12px; letter-spacing: -0.01em; }
 .block__link { font-size: 14px; color: var(--color-brand-primary); text-decoration: none; font-weight: 500; }
@@ -218,8 +269,8 @@ onUnmounted(() => clearInterval(timer))
 @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-brand-primary) 45%, transparent); } 50% { box-shadow: 0 0 0 8px transparent; } }
 .live__body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .live__title { font-weight: 600; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.live__meta { font-size: 12px; color: var(--color-text-muted); }
-.live__chev { font-size: 22px; color: var(--color-text-muted); }
+.live__meta { font-size: 13px; font-weight: 500; color: var(--color-text-secondary) !important; }
+.live__chev { font-size: 22px; color: var(--color-text-secondary); }
 
 .form { background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 20px; padding: 18px; box-shadow: var(--shadow-md); }
 .form__title { font-family: var(--font-heading); font-size: 22px; margin: 0 0 14px; letter-spacing: -0.01em; }
@@ -245,7 +296,7 @@ onUnmounted(() => clearInterval(timer))
 .switch { display: flex; align-items: center; gap: 12px; margin-top: 16px; cursor: pointer; }
 .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
 .switch__track { position: relative; width: 46px; height: 28px; border-radius: 999px; background: var(--color-border-default); transition: background .2s; flex: none; }
-.switch__thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+.switch__thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--color-bg-surface-raised); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
 .switch input:checked + .switch__track { background: var(--color-brand-primary); }
 .switch input:checked + .switch__track .switch__thumb { transform: translateX(18px); }
 .switch input:focus-visible + .switch__track { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 25%, transparent); }
@@ -275,12 +326,88 @@ onUnmounted(() => clearInterval(timer))
 .foot a { color: inherit; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
-@media (min-width: 769px) {
+@media (max-width: 768px) {
+  .foot { padding-bottom: calc(130px + env(safe-area-inset-bottom, 0px)); }
+  .form .cta--inline { display: none; }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
   .hero { min-height: 420px; }
   .hero__inner { padding: 72px 24px 48px; max-width: 880px; }
+  .hero__title { font-size: clamp(38px, 10vw, 72px); }
   .hero__lead { font-size: 19px; }
-  .main { max-width: 880px; padding: 24px 24px 64px; }
+  .block--live,
+  .block--form,
+  .block--recent,
+  .foot {
+    max-width: 880px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+  .foot { padding-bottom: 64px; }
+  .block--how { max-width: 880px; padding: 0 24px; }
   .form { padding: 28px; }
   .how { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .home-layout-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 40px;
+    max-width: 1360px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 32px 64px;
+    align-items: start;
+    box-sizing: border-box;
+  }
+
+  .home-col--left {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    position: sticky;
+    top: 76px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .home-col--right {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+  }
+
+  .hero {
+    min-height: auto;
+    border-bottom: 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .hero__inner {
+    padding: 0;
+    max-width: none;
+  }
+
+  .hero__title { font-size: clamp(38px, 10vw, 72px); }
+  .hero__lead { font-size: 19px; }
+  .form { padding: 28px; }
+
+  .block--how {
+    padding: 0;
+    max-width: none;
+    margin: 0;
+  }
+
+  .how { grid-template-columns: 1fr 1fr; }
+
+  .main {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
 }
 </style>

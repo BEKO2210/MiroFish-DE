@@ -75,7 +75,8 @@
   /* Text & Typografie (Kontraste gegen #FFFFFF) */
   --color-text-primary:      #0F172A; /* Kontrast 16.21:1 -> AAA */
   --color-text-secondary:    #334155; /* Kontrast 11.10:1 -> AAA */
-  --color-text-muted:        #64748B; /* Kontrast  4.62:1 -> AA normal */
+  /* #475569: ≥ 4.5:1 auch auf --color-brand-subtle (#FFF7ED), nicht nur auf Weiß */
+  --color-text-muted:        #475569;
   --color-text-inverse:      #FFFFFF;
 
   /* Rahmen & Trennlinien */
@@ -84,8 +85,9 @@
   --color-border-strong:     #94A3B8; /* Kontrast  3.02:1 -> AA UI-Element */
 
   /* Markenfarbe & Akzente (Warm Terracotta statt grellem Neon-Orange) */
-  --color-brand-primary:     #D8401A; /* Logo-Orange, Kontrast 4.6:1 -> AA normal */
-  --color-brand-hover:       #B23414; /* Kontrast  7.31:1 -> AAA */
+  /* #C2410C: ≥ 4.5:1 auf Weiß und auf --color-brand-subtle (#FFF7ED); #D8401A lag bei 4.49 */
+  --color-brand-primary:     #C2410C;
+  --color-brand-hover:       #9A3412; /* Kontrast ≥ 7:1 -> AAA */
   --color-brand-active:      #7C2D12;
   --color-brand-subtle:      #FFF7ED;
   --color-brand-border:      #F5B59E;
@@ -109,7 +111,7 @@
   --color-info-border:       #BFDBFE;
 
   /* Barrierefreier Tastaturfokus */
-  --color-focus-ring:        #D8401A;
+  --color-focus-ring:        #C2410C;
   --color-focus-offset:      2px;
 
   /* Schatten */
@@ -348,5 +350,13 @@ textarea:focus {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Dauerhafte Puls-/Ripple-Animationen vollständig stilllegen */
+  .live__pulse,
+  .chip__pulse,
+  .orb span,
+  .memory-pulse {
+    animation: none !important;
   }
 }

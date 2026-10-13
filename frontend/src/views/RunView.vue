@@ -92,20 +92,42 @@
         </p>
       </template>
     </main>
+
+    <MobileStickyBar
+      v-if="stickyPrimary"
+      :primary-label="stickyPrimary.label"
+      :secondary-label="stickySecondary ? stickySecondary.label : ''"
+      @primary-click="router.push(stickyPrimary.to)"
+      @secondary-click="stickySecondary && router.push(stickySecondary.to)"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import MobileStickyBar from '../components/MobileStickyBar.vue'
 import { getPipeline, STEP_ORDER } from '../api/pipeline'
 
 const props = defineProps({ pipelineId: { type: String, required: true } })
+const router = useRouter()
 const { t, locale } = useI18n()
 const state = ref(null)
 const loadError = ref('')
 const cleanedUp = ref(false)
 let timer = null
+
+const stickyPrimary = computed(() => {
+  if (!state.value) return null
+  if (state.value.report_id) return { label: t('run.openReport'), to: `/report/${state.value.report_id}` }
+  if (state.value.simulation_id) return { label: t('run.openSim'), to: `/simulation/${state.value.simulation_id}/start` }
+  return null
+})
+const stickySecondary = computed(() => {
+  if (!state.value?.report_id || !state.value?.simulation_id) return null
+  return { label: t('run.openSim'), to: `/simulation/${state.value.simulation_id}/start` }
+})
 
 // Gewichte nach typischer Dauer, Summe 100
 const WEIGHTS = { ontology: 10, graph: 15, create: 2, prepare: 13, simulate: 50, report: 10 }
@@ -226,14 +248,37 @@ onUnmounted(() => clearInterval(timer))
 .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
 .btn { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; text-decoration: none; font-weight: 600; font-size: 15px; }
 .btn--primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }
-.hint { margin: 18px 0 0; font-size: 13px; color: var(--color-text-muted); text-align: center; line-height: 1.5; }
+.hint { margin: 18px 0 0; font-size: 13px; color: var(--color-text-secondary); text-align: center; line-height: 1.5; }
 .error { color: var(--color-error-text); }
 .cleaned { text-align: center; padding: 32px 8px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .cleaned p { margin: 0; font-size: 16px; line-height: 1.5; }
+
+@media (max-width: 768px) {
+  .main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
+  .actions { display: none; }
+}
 
 @media (min-width: 769px) {
   .main { padding: 32px 24px 64px; }
   .actions { flex-direction: row; flex-wrap: wrap; }
   .actions .btn { flex: 1 1 200px; }
+}
+
+@media (min-width: 1024px) {
+  .main {
+    max-width: 860px;
+    padding: 40px 32px 80px;
+  }
+
+  .timeline {
+    margin-top: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orb span,
+  .step__spin,
+  .bar__fill--live,
+  .sk { animation: none !important; }
 }
 </style>

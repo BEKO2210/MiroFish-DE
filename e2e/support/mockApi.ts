@@ -156,14 +156,30 @@ function writeDefaults(method: string, pathname: string, body: unknown): unknown
   if (method === 'DELETE' && pathname.startsWith('/api/simulation/')) {
     return defaultOk({ deleted: true })
   }
+  if (method === 'DELETE' && pathname.match(/^\/api\/pipeline\/[^/]+$/)) {
+    return defaultOk({ deleted: true })
+  }
   return defaultOk({})
 }
 
 /**
  * Leitet alle /api/*-Aufrufe auf Fixtures/Defaults um und protokolliert Schreibaufrufe.
  */
+const FAILED_NOSIM_PIPELINE = {
+  completed_at: null,
+  created_at: '2026-10-12T08:15:00.000000',
+  current_step: 'ontology',
+  error: 'aborted before simulation',
+  pipeline_id: 'run_failed_nosim_e2e',
+  report_id: null,
+  requirement: 'E2E Abbruch ohne Simulation',
+  simulation_id: null,
+  status: 'failed',
+}
+
 export async function installMockApi(page: Page): Promise<MockApi> {
   const calls: ApiCall[] = []
+  const deletedPipelines = new Set<string>()
   const api: MockApi = {
     calls,
     get writes() {
@@ -200,6 +216,26 @@ export async function installMockApi(page: Page): Promise<MockApi> {
     }
 
     if (method === 'GET' || method === 'HEAD') {
+      // Verlauf: abgebrochener Durchlauf ohne simulation_id (für Löschen-via-Pipeline)
+      if (pathname === '/api/pipeline/list') {
+        const base = (loadFixture('pipeline_list') as { success?: boolean; data?: unknown[] } | null) || defaultOk([])
+        const data = Array.isArray((base as { data?: unknown[] }).data)
+          ? [...((base as { data: unknown[] }).data)]
+          : []
+        if (!data.some((p) => (p as { pipeline_id?: string }).pipeline_id === FAILED_NOSIM_PIPELINE.pipeline_id)) {
+          data.push(FAILED_NOSIM_PIPELINE)
+        }
+        const filtered = data.filter(
+          (p) => !deletedPipelines.has((p as { pipeline_id?: string }).pipeline_id || ''),
+        )
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: filtered }),
+        })
+        return
+      }
+
       const fixture = resolveFixture(pathname)
       if (fixture) {
         await route.fulfill({
@@ -225,6 +261,11 @@ export async function installMockApi(page: Page): Promise<MockApi> {
         body: JSON.stringify(defaultOk({})),
       })
       return
+    }
+
+    if (method === 'DELETE' && pathname.match(/^\/api\/pipeline\/[^/]+$/)) {
+      const id = pathname.split('/').pop()
+      if (id) deletedPipelines.add(id)
     }
 
     const response = writeDefaults(method, pathname, body)
