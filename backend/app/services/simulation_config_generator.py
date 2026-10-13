@@ -25,7 +25,7 @@ from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
 
-# Chinesische Tagesrhythmus-Konfiguration (Peking-Zeit)
+# Tagesrhythmus-Konfiguration (Ortszeit der Zielgruppe, Standard Mitteleuropa)
 CHINA_TIMEZONE_CONFIG = {
     # Nächtliche Stunden (fast keine Aktivität)
     "dead_hours": [0, 1, 2, 3, 4, 5],
@@ -82,7 +82,7 @@ class AgentActivityConfig:
 
 @dataclass  
 class TimeSimulationConfig:
-    """Zeitsimulationskonfiguration (basierend auf chinesischen Tagesrhythmusgewohnheiten)"""
+    """Zeitsimulationskonfiguration (basierend auf typischen Tagesrhythmusgewohnheiten)"""
     # Gesamte Simulationsdauer (Simulationsstunden)
     total_simulation_hours: int = 72  # Standardmäßig 72 Stunden (3 Tage)
     
@@ -93,7 +93,7 @@ class TimeSimulationConfig:
     agents_per_hour_min: int = 5
     agents_per_hour_max: int = 20
     
-    # Spitzenstunden (Abend 19-22 Uhr, chinesische Hauptaktivitätszeit)
+    # Spitzenstunden (Abend 19-22 Uhr, Hauptaktivitätszeit)
     peak_hours: List[int] = field(default_factory=lambda: [19, 20, 21, 22])
     peak_activity_multiplier: float = 1.5
     
@@ -589,7 +589,7 @@ Feldbeschreibungen:
 - work_hours (int-Array): Arbeitsstunden
 - reasoning (string): Kurze Erläuterung, warum diese Konfiguration gewählt wurde"""
 
-        system_prompt = "Du bist ein Experte für Social-Media-Simulationen. Gib reines JSON zurück, die Zeitkonfiguration muss den chinesischen Tagesrhythmusgewohnheiten entsprechen."
+        system_prompt = "Du bist ein Experte für Social-Media-Simulationen. Gib reines JSON zurück, die Zeitkonfiguration muss dem Tagesrhythmus der Zielgruppe entsprechen (Standard: Mitteleuropa)."
         
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
@@ -598,7 +598,7 @@ Feldbeschreibungen:
             return self._get_default_time_config(num_entities)
     
     def _get_default_time_config(self, num_entities: int) -> Dict[str, Any]:
-        """Holt Standard-Zeitkonfiguration (chinesischer Tagesrhythmus)"""
+        """Holt Standard-Zeitkonfiguration (typischer Tagesrhythmus)"""
         return {
             "total_simulation_hours": 72,
             "minutes_per_round": 60,  # Pro Runde 1 Stunde, beschleunigt Zeitablauf
@@ -608,7 +608,7 @@ Feldbeschreibungen:
             "off_peak_hours": [0, 1, 2, 3, 4, 5],
             "morning_hours": [6, 7, 8],
             "work_hours": [9, 10, 11, 12, 13, 14, 15, 16, 17, 18],
-            "reasoning": "Verwendet Standardkonfiguration für chinesischen Tagesrhythmus (pro Runde 1 Stunde)"
+            "reasoning": "Verwendet Standardkonfiguration für den typischen Tagesrhythmus (pro Runde 1 Stunde)"
         }
     
     def _parse_time_config(self, result: Dict[str, Any], num_entities: int) -> TimeSimulationConfig:
@@ -844,7 +844,7 @@ Simulationsanforderung: {simulation_requirement}
 
 ## Aufgabe
 Generiere für jede Entität eine Aktivitätskonfiguration, beachte:
-- **Zeit entspricht chinesischem Tagesrhythmus**: 0-5 Uhr früh fast inaktiv, Abend 19-22 Uhr am aktivsten
+- **Zeit entspricht dem Tagesrhythmus der Zielgruppe (Standard Mitteleuropa)**: 0-5 Uhr früh fast inaktiv, Abend 19-22 Uhr am aktivsten
 - **Offizielle Institutionen** (University/GovernmentAgency): Niedrige Aktivität (0.1-0.3), Arbeitszeit (9-17) aktiv, langsame Reaktion (60-240 Minuten), hoher Einfluss (2.5-3.0)
 - **Medien** (MediaOutlet): Mittlere Aktivität (0.4-0.6), den ganzen Tag aktiv (8-23), schnelle Reaktion (5-30 Minuten), hoher Einfluss (2.0-2.5)
 - **Personen** (Student/Person/Alumni): Hohe Aktivität (0.6-0.9), hauptsächlich Abend aktiv (18-23), schnelle Reaktion (1-15 Minuten), niedriger Einfluss (0.8-1.2)
@@ -858,7 +858,7 @@ Rückgabe-JSON-Format (kein Markdown):
             "activity_level": <0.0-1.0>,
             "posts_per_hour": <Posting-Frequenz>,
             "comments_per_hour": <Kommentier-Frequenz>,
-            "active_hours": [<Liste aktiver Stunden, chinesischen Tagesrhythmus berücksichtigen>],
+            "active_hours": [<Liste aktiver Stunden, Tagesrhythmus der Zielgruppe berücksichtigen>],
             "response_delay_min": <Minimale Reaktionsverzögerung in Minuten>,
             "response_delay_max": <Maximale Reaktionsverzögerung in Minuten>,
             "sentiment_bias": <-1.0 bis 1.0>,
@@ -908,7 +908,7 @@ Rückgabe-JSON-Format (kein Markdown):
         return configs
     
     def _generate_agent_config_by_rule(self, entity: EntityNode) -> Dict[str, Any]:
-        """Generiert einzelne Agent-Konfiguration basierend auf Regeln (chinesischer Tagesrhythmus)"""
+        """Generiert einzelne Agent-Konfiguration basierend auf Regeln (typischer Tagesrhythmus)"""
         entity_type = (entity.get_entity_type() or "Unknown").lower()
         
         if entity_type in ["university", "governmentagency", "ngo"]:

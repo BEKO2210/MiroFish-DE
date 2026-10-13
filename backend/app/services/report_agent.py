@@ -653,8 +653,8 @@ Ihre Aufgabe ist:
 
 3. 【Sprachkonsistenz - Zitatinhalte müssen in die Berichtssprache übersetzt werden】
    - Tool-Rückgabeinhalte können englische oder gemischte Ausdrücke enthalten
-   - Wenn Simulationsanforderungen und Materialoriginaltexte auf Chinesisch sind, muss der Bericht vollständig auf Chinesisch verfasst werden
-   - Wenn Sie englische oder gemischte Inhalte aus Tool-Rückgaben zitieren, müssen Sie sie in fließendes Chinesisch übersetzen, bevor Sie sie in den Bericht schreiben
+   - Der Bericht wird vollständig in der Sprache der Simulationsanforderung (der Frage) verfasst – bei einer deutschen Frage also auf Deutsch
+   - Wenn Sie Inhalte in anderen Sprachen aus Tool-Rückgaben zitieren, übersetzen Sie sie in diese Sprache, bevor Sie sie in den Bericht schreiben
    - Behalten Sie die ursprüngliche Bedeutung bei, stellen Sie natürliche Ausdrücke sicher
    - Diese Regel gilt sowohl für den Haupttext als auch für Zitatblöcke (> Format)
 
