@@ -3,6 +3,8 @@ services:
     build: .
     image: mirofish-de:latest
     container_name: mirofish
+    # Als dein Benutzer laufen, damit data/ dir gehört (Linux-Standard 1000:1000; sonst UID/GID setzen)
+    user: "${UID:-1000}:${GID:-1000}"
     # Nur auf diesem Rechner erreichbar: die App hat keine Anmeldung. Für Zugriff von anderen Geräten
     # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN in data/.env setzen.
     ports:
