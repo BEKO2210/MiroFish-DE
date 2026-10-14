@@ -431,4 +431,269 @@ test.describe('Flows', () => {
     })
     expect(afterReset).toBe('#FFFFFF')
   })
+
+  test('Bericht rendert HTML im Abschnitt als Text, nicht als Element', async ({ page }) => {
+    await preparePage(page)
+    const payload = '<img src=x onerror=alert(1)>'
+    const logs = [
+      {
+        action: 'planning_complete',
+        timestamp: '2026-10-13T09:56:30.000000',
+        details: {
+          outline: {
+            title: 'XSS-Prüfung',
+            summary: 'Kurz',
+            sections: [{ title: 'Abschnitt mit Markup' }],
+          },
+        },
+      },
+      {
+        action: 'section_complete',
+        section_index: 1,
+        timestamp: '2026-10-13T09:57:00.000000',
+        details: { content: `Vorher **fett** und ${payload} danach.` },
+      },
+      {
+        action: 'report_complete',
+        timestamp: '2026-10-13T09:58:00.000000',
+      },
+    ]
+    await page.route('**/api/report/report_xss**', async (route) => {
+      const url = new URL(route.request().url())
+      const path = url.pathname
+      if (path.endsWith('/agent-log')) {
+        const from = Number(url.searchParams.get('from_line') || 0)
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            success: true,
+            data: { logs: logs.slice(from), from_line: from, total_lines: logs.length },
+          }),
+        })
+        return
+      }
+      if (path.endsWith('/console-log')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data: { logs: [], from_line: 0, total_lines: 0 } }),
+        })
+        return
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            report_id: 'report_xss',
+            status: 'completed',
+            simulation_id: null,
+            error: null,
+          },
+        }),
+      })
+    })
+
+    await page.goto('/report/report_xss', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    const section = page.locator('.generated-content')
+    await expect(section).toBeVisible()
+    await expect(section).toContainText(payload)
+    await expect(section.locator('strong')).toHaveText('fett')
+    await expect(section.locator('img')).toHaveCount(0)
+    await expect(page.locator('img[src="x"]')).toHaveCount(0)
+    const html = await section.innerHTML()
+    expect(html.includes('<img')).toBe(false)
+  })
+
+  test('Mehrfachlauf: Zusammenfassung nur bei vollständigen Intervallen', async ({ page }) => {
+    await preparePage(page)
+    const arm = (variant: string, outcome: string, low: number | null, high: number | null, role?: string) => ({
+      variant,
+      outcome_id: outcome,
+      diff: -0.2,
+      ci_low: low,
+      ci_high: high,
+      unreliable: false,
+      ...(role ? { role } : {}),
+    })
+    const cases: Record<string, Record<string, unknown>> = {
+      ens_sum_unclear: {
+        comparisons: [
+          arm('isolated', 'o1', -0.5, 0.1, 'confirmatory'),
+          arm('blind_feed', 'o1', -0.2, 0.3, 'confirmatory'),
+          arm('isolated', 'o2', -0.8, -0.2, 'exploratory'),
+        ],
+      },
+      ens_sum_differs: {
+        comparisons: [
+          arm('isolated', 'o1', -0.7, -0.08, 'confirmatory'),
+          arm('blind_feed', 'o1', 0.12, 0.4, 'confirmatory'),
+        ],
+      },
+      ens_sum_mixed: {
+        comparisons: [
+          arm('isolated', 'o1', -0.5, 0.1, 'confirmatory'),
+          arm('blind_feed', 'o1', -0.7, -0.08, 'confirmatory'),
+        ],
+      },
+      ens_sum_incomplete: {
+        comparisons: [
+          arm('isolated', 'o1', -0.7, -0.1, 'confirmatory'),
+          arm('blind_feed', 'o1', -0.4, null, 'confirmatory'),
+        ],
+      },
+      ens_sum_running: {
+        status: 'running',
+        comparisons: [],
+        current: { variant: 'isolated', run: 1, round: 2 },
+      },
+      ens_sum_fallback: {
+        primary_outcome_id: null,
+        comparisons: [arm('isolated', 'o1', -0.6, -0.1)],
+      },
+      ens_sum_norange: {
+        results: {
+          baseline: { o1: { yes: 7, n: 10, rate: 0.7, ci_low: 0.4, ci_high: 0.89 } },
+          isolated: { o1: { yes: 4, n: 10, rate: 0.4 } },
+          blind_feed: { o1: { yes: 5, n: 10, rate: 0.5, ci_low: 0.2, ci_high: 0.8 } },
+        },
+        comparisons: [
+          arm('isolated', 'o1', -0.3, 0.2, 'confirmatory'),
+          arm('blind_feed', 'o1', -0.1, 0.4, 'confirmatory'),
+        ],
+      },
+    }
+
+    await page.route('**/api/ensemble/ens_sum_*', async (route) => {
+      const id = new URL(route.request().url()).pathname.split('/').pop() || ''
+      const extra = cases[id]
+      if (!extra) {
+        await route.fallback()
+        return
+      }
+      const data = {
+        ensemble_id: id,
+        simulation_id: 'sim_2c3b36b2e33f',
+        question: 'Testfrage zur Zusammenfassung',
+        status: 'completed',
+        runs: 10,
+        hours: 24,
+        minutes_per_round: 60,
+        primary_outcome_id: 'o1',
+        variants: [
+          { key: 'baseline', label_de: 'Basis', label_en: 'Baseline', status: 'completed', done: 10, total: 10 },
+          { key: 'isolated', label_de: 'Ohne Vernetzung', label_en: 'No networking', status: 'completed', done: 10, total: 10 },
+          { key: 'blind_feed', label_de: 'Feed ausgeblendet', label_en: 'Blind feed', status: 'completed', done: 10, total: 10 },
+        ],
+        checklist: [
+          { id: 'o1', text_de: 'Hauptfrage', text_en: 'Main question', kind: 'event', source: 'auto' },
+          { id: 'o2', text_de: 'Nebenfrage', text_en: 'Side question', kind: 'event', source: 'auto' },
+        ],
+        results: {
+          baseline: { o1: { yes: 7, n: 10, rate: 0.7, ci_low: 0.4, ci_high: 0.89 } },
+          isolated: { o1: { yes: 5, n: 10, rate: 0.5, ci_low: 0.24, ci_high: 0.76 } },
+          blind_feed: { o1: { yes: 6, n: 10, rate: 0.6, ci_low: 0.31, ci_high: 0.83 } },
+        },
+        reliability: {},
+        current: null,
+        eta_seconds: null,
+        error: null,
+        comparisons: [],
+        ...extra,
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true, data }),
+      })
+    })
+
+    const openCase = async (id: string) => {
+      await page.goto(`/ensemble/${id}`, { waitUntil: 'domcontentloaded' })
+      await settle(page)
+      await expect(page.getByTestId('ensemble-summary')).toBeVisible()
+    }
+    const plain = () => page.getByTestId('ensemble-summary-plain')
+
+    await openCase('ens_sum_unclear')
+    await expect(plain()).toContainText(/kein klarer Unterschied/i)
+
+    await openCase('ens_sum_differs')
+    await expect(plain()).toContainText(/unterscheiden sich/i)
+
+    await openCase('ens_sum_mixed')
+    await expect(plain()).toContainText(/fallen unterschiedlich aus/i)
+
+    await openCase('ens_sum_incomplete')
+    await expect(plain()).toHaveCount(0)
+
+    await openCase('ens_sum_running')
+    await expect(plain()).toHaveCount(0)
+    await expect(page.getByTestId('ensemble-summary')).not.toContainText(/kein klarer Unterschied/i)
+
+    await openCase('ens_sum_fallback')
+    await expect(plain()).toContainText(/unterscheiden sich/i)
+
+    await openCase('ens_sum_norange')
+    const summary = page.getByTestId('ensemble-summary')
+    await expect(summary.getByText('Spanne —')).toBeVisible()
+    await expect(summary.getByText(/0–0\s*%/)).toHaveCount(0)
+    await summary.getByRole('button', { name: /Einzelheiten zur Hauptfrage/i }).click()
+    await expect(summary.locator('.stat__text').filter({ hasText: 'Schwankung: —' })).toBeVisible()
+    await expect(summary.locator('.stat__text').filter({ hasText: /0–0\s*%/ })).toHaveCount(0)
+
+    await page.addInitScript(() => localStorage.setItem('lang', 'en'))
+    await page.goto('/ensemble/ens_sum_mixed', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await expect(plain()).toContainText(/do not all agree/i)
+  })
+
+  test('Inhaltsverzeichnis-Sheet: Fokus, Escape, Rückgabe, ARIA', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('#report-section-0, .methodology-card', { timeout: 15000 })
+
+    const sectionBtn = /Agentenverhalten|Adoptionsgruppen/i
+    const desktop = page.getByTestId('report-toc-desktop')
+    const mobile = page.getByTestId('report-toc-mobile')
+    if (await desktop.isVisible()) {
+      await desktop.getByRole('button', { name: sectionBtn }).click()
+    } else if (await mobile.isVisible()) {
+      await mobile.evaluate((el: HTMLDetailsElement) => {
+        el.open = true
+      })
+      await mobile.getByRole('button', { name: sectionBtn }).click()
+    }
+    await expect(page.locator('.toc-link[aria-current="location"]').first()).toBeAttached()
+
+    const leading = page.locator('.mobile-sticky-bar .sticky-btn--leading')
+    if (!(await leading.isVisible())) return
+
+    await expect(leading).toHaveAttribute('aria-haspopup', 'dialog')
+    await expect(leading).toHaveAttribute('aria-expanded', 'false')
+    await leading.click()
+
+    const sheet = page.getByTestId('report-toc-sheet')
+    await expect(sheet).toBeVisible()
+    await expect(leading).toHaveAttribute('aria-expanded', 'true')
+    await expect(sheet.getByRole('dialog')).toBeVisible()
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const root = document.querySelector('[data-testid="report-toc-sheet"]')
+          return !!root && root.contains(document.activeElement)
+        }),
+      )
+      .toBe(true)
+    await expect(sheet.locator('.toc-link[aria-current="location"]')).not.toHaveCount(0)
+
+    await page.keyboard.press('Escape')
+    await expect(sheet).toHaveCount(0)
+    await expect(leading).toBeFocused()
+    await expect(leading).toHaveAttribute('aria-expanded', 'false')
+  })
 })

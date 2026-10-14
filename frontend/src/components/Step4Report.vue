@@ -13,6 +13,7 @@
                   type="button"
                   class="toc-link"
                   :class="{ 'is-current': activeTocId === entry.id }"
+                  :aria-current="activeTocId === entry.id ? 'location' : undefined"
                   @click="scrollToSection(entry.id)"
                 >
                   <span class="toc-num">{{ entry.num }}</span>
@@ -31,6 +32,7 @@
                   type="button"
                   class="toc-link"
                   :class="{ 'is-current': activeTocId === entry.id }"
+                  :aria-current="activeTocId === entry.id ? 'location' : undefined"
                   @click="scrollToSection(entry.id)"
                 >
                   <span class="toc-num">{{ entry.num }}</span>
@@ -516,9 +518,11 @@
     <MobileStickyBar
       v-if="isComplete"
       :leading-label="$t('step4.contents')"
+      leading-popup="dialog"
+      :leading-expanded="tocSheetOpen"
       :primary-label="$t('step4.zurTiefeninteraktion')"
       :secondary-label="simulationId ? $t('ensemble.startShort') : ''"
-      @leading-click="tocSheetOpen = true"
+      @leading-click="openTocSheet"
       @primary-click="goToInteraction"
       @secondary-click="openEnsembleSheet"
     />
@@ -528,9 +532,11 @@
         v-if="tocSheetOpen"
         class="toc-sheet-backdrop"
         data-testid="report-toc-sheet"
-        @click.self="tocSheetOpen = false"
+        @click.self="closeTocSheet"
+        @keydown="onTocSheetKeydown"
       >
         <section
+          ref="tocSheetRef"
           class="toc-sheet"
           role="dialog"
           aria-modal="true"
@@ -539,10 +545,11 @@
           <header class="toc-sheet__head">
             <h2 class="toc-sheet__title">{{ $t('step4.contents') }}</h2>
             <button
+              ref="tocCloseRef"
               type="button"
               class="toc-sheet__close"
               :aria-label="$t('common.close')"
-              @click="tocSheetOpen = false"
+              @click="closeTocSheet"
             >{{ $t('common.close') }}</button>
           </header>
           <ol class="toc-list">
@@ -551,6 +558,7 @@
                 type="button"
                 class="toc-link"
                 :class="{ 'is-current': activeTocId === entry.id }"
+                :aria-current="activeTocId === entry.id ? 'location' : undefined"
                 @click="scrollToSection(entry.id)"
               >
                 <span class="toc-num">{{ entry.num }}</span>
@@ -898,11 +906,66 @@ const tocEntries = computed(() => {
   return entries
 })
 
+const tocSheetRef = ref(null)
+const tocCloseRef = ref(null)
+let tocReturnEl = null
+
+function openTocSheet(event) {
+  const opener = event?.currentTarget
+  tocReturnEl = opener instanceof HTMLElement ? opener : null
+  tocSheetOpen.value = true
+}
+
+function restoreTocFocus() {
+  const el = tocReturnEl
+  nextTick(() => el?.focus())
+}
+
+function closeTocSheet() {
+  if (!tocSheetOpen.value) return
+  const el = tocReturnEl
+  tocSheetOpen.value = false
+  // Synchron, solange das Tastaturereignis gilt (WebKit verwirft Fokus aus nextTick).
+  el?.focus()
+  nextTick(() => el?.focus())
+}
+
+function onTocSheetKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeTocSheet()
+    return
+  }
+  if (event.key !== 'Tab' || !tocSheetRef.value) return
+  const items = [...tocSheetRef.value.querySelectorAll('button, a, [href], input, select, textarea')]
+    .filter((el) => !el.disabled && el.tabIndex !== -1)
+  if (!items.length) return
+  const first = items[0]
+  const last = items[items.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+function onTocWindowKeydown(event) {
+  if (!tocSheetOpen.value || event.key !== 'Escape') return
+  event.preventDefault()
+  closeTocSheet()
+}
+
 const scrollToSection = (id) => {
   activeTocId.value = id
+  const fromSheet = tocSheetOpen.value
   tocSheetOpen.value = false
   const el = document.getElementById(id)
-  if (!el) return
+  if (!el) {
+    if (fromSheet) restoreTocFocus()
+    return
+  }
   // Eingeklappten Abschnitt aufklappen, falls nötig
   const match = /^report-section-(\d+)$/.exec(id)
   if (match) {
@@ -911,6 +974,11 @@ const scrollToSection = (id) => {
   }
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+  if (fromSheet) {
+    const heading = el.querySelector('h1, h2') || el
+    if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1')
+    nextTick(() => heading.focus())
+  }
 }
 
 const teardownTocObserver = () => {
@@ -2056,11 +2124,7 @@ const InterviewDisplay = {
                   ]),
                   h('div', {
                     class: ['qa-text', 'answer-text', { 'placeholder-text': isPlaceholder }],
-                    innerHTML: isPlaceholder
-                      ? answerText
-                      : formatAnswer(answerText, isExpanded)
-                          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                          .replace(/\n/g, '<br>')
+                    innerHTML: renderAnswerHtml(isPlaceholder ? answerText : formatAnswer(answerText, isExpanded))
                   }),
                   // Ein-/Ausklappen-Schaltfläche (bei Platzhaltertext nicht anzeigen)
                   !isPlaceholder && answerText.length > 400 && h('button', {
@@ -2395,10 +2459,26 @@ const truncateText = (text, maxLen) => {
   return text.substring(0, maxLen) + '...'
 }
 
-const renderMarkdown = (content) => {
-  if (!content) return ''
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
 
-  let processedContent = content.replace(/^##\s+.+\n+/, '')
+function renderAnswerHtml(text) {
+  if (!text) return ''
+  return escapeHtml(text)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>')
+}
+
+const renderMarkdown = (content) => {
+  if (content == null || content === '') return ''
+
+  let processedContent = escapeHtml(String(content).replace(/^##\s+.+\n+/, ''))
   let html = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
   html = html.replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
@@ -2669,7 +2749,17 @@ const stopPolling = () => {
 }
 
 // Lifecycle
+watch(tocSheetOpen, async (open) => {
+  if (!open) return
+  await nextTick()
+  await nextTick()
+  const target = tocCloseRef.value
+    || document.querySelector('[data-testid="report-toc-sheet"] .toc-sheet__close')
+  target?.focus()
+})
+
 onMounted(() => {
+  window.addEventListener('keydown', onTocWindowKeydown)
   if (props.reportId) {
     addLog(t('step4.reportAgentInitialized', { id: props.reportId }))
     startPolling()
@@ -2678,6 +2768,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', onTocWindowKeydown)
   stopPolling()
   teardownTocObserver()
 })

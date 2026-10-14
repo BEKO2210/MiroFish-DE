@@ -9,7 +9,9 @@
           type="button"
           class="sticky-btn sticky-btn--leading"
           :disabled="primaryLoading"
-          @click="$emit('leading-click')"
+          :aria-expanded="leadingPopup ? leadingExpanded : undefined"
+          :aria-haspopup="leadingPopup || undefined"
+          @click="$emit('leading-click', $event)"
         >
           <span>{{ leadingLabel }}</span>
         </button>
@@ -48,6 +50,9 @@ defineProps({
   primaryNeutral: { type: Boolean, default: false },
   /** Optionaler Knopf links (z. B. Inhaltsverzeichnis) */
   leadingLabel: { type: String, default: '' },
+  /** z. B. "dialog", wenn der linke Knopf ein Popup öffnet */
+  leadingPopup: { type: String, default: '' },
+  leadingExpanded: { type: Boolean, default: false },
   secondaryLabel: { type: String, default: '' },
   secondaryDisabled: { type: Boolean, default: false },
   ariaLabel: { type: String, default: '' }
