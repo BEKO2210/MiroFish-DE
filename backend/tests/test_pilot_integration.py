@@ -14,10 +14,11 @@ from urllib.parse import urlsplit
 
 import pytest
 
-import app.services.ensemble as ensemble_module
 from app.config import Config
 from app.services.ensemble import EnsembleService
 from app.services.report_validation import resolve_project_dir, resolve_simulation_dir
+from scripts.export_rater_prompts import export_prompts
+from scripts.import_second_rater import import_second_rater
 from scripts import validate_case as vc
 
 
@@ -231,6 +232,31 @@ def _wait_for_threads():
     assert not EnsembleService._threads
 
 
+def _write_second_rater_answers(prompts_dir: Path, *, omit_ids_once=()) -> None:
+    """Spiegelt den Hauptbewerter; ein Stapel kann absichtlich IDs auslassen."""
+    omitted = False
+    for prompt_path in sorted(prompts_dir.glob("*/run_*/batch_*.json")):
+        prompt = json.loads(prompt_path.read_text(encoding="utf-8"))
+        is_baseline = prompt_path.relative_to(prompts_dir).parts[0] == "baseline"
+        skipped = set(omit_ids_once) if omit_ids_once and not omitted and is_baseline else set()
+        results = []
+        for outcome_id in prompt["expected_ids"]:
+            if outcome_id in skipped:
+                continue
+            item = {"outcome_id": outcome_id, "yes": is_baseline}
+            if is_baseline:
+                item.update({
+                    "post_ids": ["twitter:1"],
+                    "snippet": "veröffentlicht eine deutliche Stellungnahme",
+                })
+            results.append(item)
+        prompt_path.with_suffix(".answer.txt").write_text(
+            json.dumps({"results": results}), encoding="utf-8",
+        )
+        omitted = omitted or bool(skipped)
+    assert omitted is bool(omit_ids_once)
+
+
 @pytest.fixture
 def pilot_stack(tmp_path, monkeypatch):
     upload_root = tmp_path / "uploads"
@@ -246,16 +272,6 @@ def pilot_stack(tmp_path, monkeypatch):
 
     recorder = LLMRecorder()
     tag_checks = []
-    combined_results = []
-    original_combine = ensemble_module.combine_rater_results
-
-    def recording_combine(*args, **kwargs):
-        result = original_combine(*args, **kwargs)
-        combined_results.append(result)
-        return result
-
-    monkeypatch.setattr(ensemble_module, "combine_rater_results", recording_combine)
-
     def ollama_tags():
         tag_checks.append(True)
         return ["gemma4:e4b-it-qat-16k", "gemma4:12b-it-qat-16k", "qwen3.5:9b-agent32k"]
@@ -281,12 +297,12 @@ def pilot_stack(tmp_path, monkeypatch):
         "http://flask.test", session=FlaskSession(app.test_client()),
         sleep=lambda _: None, retry_seconds=0,
     )
-    yield upload_root, recorder, tag_checks, combined_results, api, app.test_client(), service
+    yield upload_root, recorder, tag_checks, api, app.test_client(), service
     _wait_for_threads()
 
 
 def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
-    upload_root, recorder, tag_checks, combined_results, api, _client, service = pilot_stack
+    upload_root, recorder, tag_checks, api, _client, service = pilot_stack
     cold_prompts = []
 
     def cold_check(_model, prompt):
@@ -320,13 +336,13 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
         )
         completed.append((case_dir, frame, results_dir, result))
 
-    assert tag_checks, "Der strenge Zweitbewerter muss gegen Ollama /api/tags geprüft werden"
+    assert tag_checks, "Der strenge Hauptbewerter muss gegen Ollama /api/tags geprüft werden"
     probe_state = service._load(completed[0][3]["ensemble_id"])
     assert recorder.failed_batches == 3
-    failed_judgment = next(
-        result for result in combined_results
-        if result and all(item.get("unclassified") for item in result.values())
-    )
+    probe_root = upload_root / "ensembles" / probe_state["ensemble_id"]
+    failed_runs = list((probe_root / "baseline").glob("run_1.failed-*/classification.json"))
+    assert len(failed_runs) == 1
+    failed_judgment = json.loads(failed_runs[0].read_text(encoding="utf-8"))["result"]
     assert all(item["yes"] is False for item in failed_judgment.values())
     assert all(item["unclassified"] is True for item in failed_judgment.values())
     assert probe_state["seed_attempts"]["baseline:1"] == 2
@@ -341,6 +357,12 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
         assert state["minutes_per_round"] == frame["minutes_per_round"]
         assert [item["key"] for item in state["variants"]] == frame["arms"]
         assert state["strict_second_rater"] is True
+        assert state["second_rater"] == "deferred"
+        assert state["second_rater_status"] == "ausstehend"
+        assert state["results_preliminary"] is True
+        assert state["models"]["classification_secondary"] is None
+        assert state["reliability"] == {}
+        assert state["comparisons"] == []
         assert state["min_classified"] == frame["min_classified_per_arm"]
         assert state["min_posts"] == 3
         assert state["models"]["agents"] == agent_model
@@ -362,12 +384,58 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
             ).read_text(encoding="utf-8"))
             assert manifest["model"] == agent_model
 
+    preliminary_probe = json.loads((tmp_path / "probe-results" / "GESAMT.json").read_text())
+    preliminary_pilot = json.loads((tmp_path / "pilot-results" / "GESAMT.json").read_text())
+    assert preliminary_probe["clean"]["preregistered_criterion"]["status"] == vc.PROBE_STATUS
+    assert preliminary_probe["clean"]["preregistered_criterion"]["waiting_cases"] == ["probe"]
+    assert preliminary_pilot["clean"]["preregistered_criterion"]["status"] == vc.WAITING_SECOND_RATER
+    assert preliminary_pilot["clean"]["preregistered_criterion"]["waiting_cases"] == list(PILOT_CASES)
+    for case_dir, _frame, results_dir, _result in completed:
+        case_result = json.loads((results_dir / f"{case_dir.name}.json").read_text())
+        assert case_result["second_rater_status"] == "ausstehend"
+        assert not any(row["measurable"] for row in case_result["rows"])
+
+    for case_dir, _frame, _results_dir, result in completed:
+        ensemble_root = upload_root / "ensembles" / result["ensemble_id"]
+        prompts_dir = tmp_path / "second-rater" / case_dir.name
+        exported = export_prompts(ensemble_root, prompts_dir)
+        assert exported == result["runs"] * len(result["arms"])
+        # Der Probelauf enthält genau einen unvollständigen Offline-Stapel. Fehlende IDs
+        # dürfen weder als Nein gelten noch den Import der übrigen Ergebnisse verhindern.
+        omitted = ("c1", "c2") if case_dir == vc.PROBE_DIR else ()
+        _write_second_rater_answers(prompts_dir, omit_ids_once=omitted)
+        imported = import_second_rater(ensemble_root, prompts_dir, "offline-second-rater")
+        assert imported["second_rater_status"] == "vollständig"
+        assert imported["results_preliminary"] is False
+        assert imported["models"]["classification_secondary"] == "offline-second-rater"
+
+    imported_probe = service._load(completed[0][3]["ensemble_id"])
+    missing_ids = json.loads((
+        probe_root / "baseline" / "run_1" / "classification.json"
+    ).read_text(encoding="utf-8"))["result"]
+    assert all(missing_ids[outcome_id]["unclassified"] is True for outcome_id in ("c1", "c2"))
+    assert all(missing_ids[outcome_id]["yes"] is False for outcome_id in ("c1", "c2"))
+    assert imported_probe["results"]["baseline"]["c1"]["n"] == 1
+    assert imported_probe["results"]["baseline"]["c1"]["unclassified"] == 1
+    assert imported_probe["reliability"]["c1"] == {
+        "agreement": 1.0, "kappa": 1.0, "n_pairs": 5, "label": "messbar",
+    }
+
+    vc.refresh_deferred_results(
+        tmp_path / "probe-results", upload_root / "ensembles", vc.load_rahmen("probe-v5"),
+    )
+    vc.refresh_deferred_results(
+        tmp_path / "pilot-results", upload_root / "ensembles", vc.load_rahmen("pilot-v5"),
+    )
     probe_summary = json.loads((tmp_path / "probe-results" / "GESAMT.json").read_text())
     pilot_summary = json.loads((tmp_path / "pilot-results" / "GESAMT.json").read_text())
     assert probe_summary["clean"]["preregistered_criterion"]["status"] == vc.PROBE_STATUS
+    assert probe_summary["probe"]["cases"][0]["kappa"] == 1.0
     # Zwei von sieben Rahmenfällen dürfen nach der präregistrierten Regel nicht als
     # bestanden oder nicht bestanden umgedeutet werden.
     assert pilot_summary["clean"]["preregistered_criterion"]["status"] == vc.NOT_TESTABLE
+    assert pilot_summary["clean"]["minimum_kappa"] == 1.0
+    assert pilot_summary["clean"]["preregistered_criterion"]["checks"]["kappa_at_least_0_6"] is True
     assert "2 statt 7 gewertete Fälle" in " ".join(pilot_summary["clean"]["frame_issues"])
 
     all_prompts = "\n".join(cold_prompts + recorder.prompts)
@@ -392,7 +460,7 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
 
 
 def test_start_contract_rejects_unknown_and_deviating_values(pilot_stack, tmp_path):
-    upload_root, _recorder, _tags, _combined, _api, client, _service = pilot_stack
+    upload_root, _recorder, _tags, _api, client, _service = pilot_stack
     simulation_id = "sim_ffffffffffff"
     _write_prepared_simulation(upload_root, simulation_id, vc.PROBE_DIR)
     base = {
