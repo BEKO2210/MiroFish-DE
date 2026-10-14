@@ -138,8 +138,13 @@ test.describe('Flows', () => {
   async function openMehrfachlaufSheet(page: Page) {
     await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
     await settle(page)
-    await page.waitForSelector('.methodology-card, .report-actions', { timeout: 15000 })
-    await page.getByRole('button', { name: /Mehrfachlauf starten/i }).first().click()
+    await page.waitForSelector('.methodology-card, .mobile-sticky-bar, .report-actions', { timeout: 15000 })
+    const sticky = page.locator('.mobile-sticky-bar .sticky-btn--secondary')
+    if (await sticky.isVisible()) {
+      await sticky.click()
+    } else {
+      await page.getByRole('button', { name: /Mehrfachlauf starten/i }).first().click()
+    }
     const sheet = page.locator('[role="alertdialog"]')
     await expect(sheet).toBeVisible()
     return sheet

@@ -15,7 +15,7 @@
         :aria-selected="step === currentStep"
         :disabled="step > maxUnlockedStep"
         @click="$emit('select-step', step)"
-        :title="`${stepNames[step - 1]}`"
+        :title="stepNames[step - 1]"
       >
         <span class="step-dot__circle"></span>
         <span class="sr-only">{{ stepNames[step - 1] }}</span>
@@ -39,7 +39,7 @@ defineEmits(['select-step'])
 .step-nav-bar__badge { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--color-text-secondary); letter-spacing: 0.04em; }
 .step-nav-bar__title { font-family: var(--font-heading); font-size: 14px; font-weight: 700; color: var(--color-text-primary); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .step-nav-bar__dots { display: flex; align-items: center; gap: 6px; }
-.step-dot { min-width: 32px; min-height: 36px; padding: 0; background: transparent; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.step-dot { min-width: 44px; min-height: 44px; padding: 0; background: transparent; border: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .step-dot:disabled { cursor: not-allowed; opacity: 0.35; }
 .step-dot__circle { width: 8px; height: 8px; border-radius: 999px; background: var(--color-border-strong); transition: all var(--transition-fast); }
 .step-dot.is-active .step-dot__circle { width: 22px; background: var(--color-brand-primary); }
