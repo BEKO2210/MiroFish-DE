@@ -1,0 +1,31 @@
+[
+  {
+    "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
+    "polarity": "presence",
+    "eingetreten": true,
+    "primaer": true,
+    "kaltfrage_ort": "Musterbach 2099",
+    "quelle": "fiktiv (verlauf.md, erster Punkt)"
+  },
+  {
+    "text_de": "Innerhalb von 14 Tagen hebt der Gemeinderat den Beschluss auf oder ändert ihn.",
+    "polarity": "presence",
+    "eingetreten": false,
+    "primaer": false,
+    "quelle": "fiktiv (verlauf.md, dritter Punkt)"
+  },
+  {
+    "text_de": "Innerhalb von 14 Tagen beginnt eine Unterschriftensammlung gegen die Schließung.",
+    "polarity": "presence",
+    "eingetreten": true,
+    "primaer": false,
+    "quelle": "fiktiv (verlauf.md, zweiter Punkt)"
+  },
+  {
+    "text_de": "Innerhalb von 14 Tagen benennt die Verwaltung eine konkrete Ersatzfläche für die Skateanlage.",
+    "polarity": "presence",
+    "eingetreten": false,
+    "primaer": false,
+    "quelle": "fiktiv (verlauf.md, vierter Punkt, erst nach drei Wochen)"
+  }
+]

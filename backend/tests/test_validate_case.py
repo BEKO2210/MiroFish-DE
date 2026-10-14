@@ -9,6 +9,8 @@ import pytest
 from scripts.validate_case import (
     ApiError,
     CALIBRATION_PILOT_NOTE,
+    DECISION_RULE_CONFIRMATORY,
+    DECISION_RULE_PILOT,
     DEFAULT_ARMS,
     ENSEMBLE_RESUME_ATTEMPTS,
     QUESTION,
@@ -100,9 +102,9 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
     case, output, api = _case(tmp_path), tmp_path / "results", FakeApi()
     probes = []
 
-    def checker(identity, prompt):
-        probes.append((identity, prompt))
-        return {"kennt": False, "begruendung": "unbekannt"}
+    def checker(model, prompt):
+        probes.append((model, prompt))
+        return "Ich kenne diesen Fall nicht."
 
     result = validate_case(case, runs=10, hours=336, arms=DEFAULT_ARMS, base="http://test",
                            results_dir=output, client=api, contamination_checker=checker,
@@ -116,8 +118,10 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
     }
     serialized = json.dumps(api.posts, default=str, ensure_ascii=False)
     assert "eingetreten" not in serialized and "Der echte Verlauf" not in serialized
-    assert probes[0][0] == {"kaltfrage_ort": "Beispielstadt 2024"}
     assert "Fall: Beispielstadt 2024" in probes[0][1]
+    assert "Thema der Maßnahme: Schulschließung" in probes[0][1]
+    assert "Was geschah nach diesem Beschluss" in probes[0][1]
+    assert "Ereignis A" not in probes[0][1] and "eingetreten" not in probes[0][1]
     assert "fall-a" not in probes[0][1] and "fall-a" not in probes[1][1]
     assert "# Schulschließung" not in probes[0][1]
     assert "# Schulschließung" in probes[1][1]
@@ -127,6 +131,10 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
     assert "fall-a" not in json.dumps(ontology["data"])
     assert all("Der echte Verlauf" not in prompt for _, prompt in probes)
     assert result["contaminated"] is False
+    saved_probes = result["contamination_check"]["probes"]
+    assert [item["kind"] for item in saved_probes] == ["identity", "material"]
+    assert saved_probes[0]["prompt"] == probes[0][1]
+    assert saved_probes[0]["answer"] == "Ich kenne diesen Fall nicht."
     assert result["primary_outcome_id"] == "c1"
     assert result["primary_metrics"]["baseline"]["brier"] == pytest.approx(.04)
     assert result["metrics_citable"] is False
@@ -144,13 +152,16 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
 
 def test_known_cold_question_aborts_before_prepare(tmp_path):
     case, output, api = _case(tmp_path), tmp_path / "results", FakeApi()
+    outcomes = json.loads((case / "ergebnisse.json").read_text(encoding="utf-8"))
+    outcomes[0]["quelle"] = "Beleg vom 07.05.2024 (DLRG)"
+    (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
     probes = []
 
-    def checker(identity, prompt):
+    def checker(model, prompt):
         probes.append(prompt)
         if "Bogen" in prompt:
-            return {"kennt": True, "begruendung": "Bogen erkannt"}
-        return {"kennt": False, "begruendung": "Ort unbekannt"}
+            return "Das war am 07.05.2024, die DLRG lehnte ab."
+        return "Ich kenne den Ort nicht."
 
     with pytest.raises(ValueError, match="kontaminiert"):
         validate_case(case, runs=1, hours=336, arms=DEFAULT_ARMS, base="http://test",
@@ -234,13 +245,34 @@ def _summary_case(name, actual, rates, *, contaminated=False, exploratory_rate=N
     return {"case": name, "arms": list(rates), "rows": rows, "contaminated": contaminated}
 
 
+def _frame(names, **extra):
+    return {"id": "test-frame", "status": "test", "cases": len(names),
+            "arms": ["baseline", "null_document", "null_personas"], "seeds": 5,
+            "minutes_per_round": 240, "hours": 336, "case_ids": list(names),
+            "min_classified_per_arm": 4, **extra}
+
+
+def _framed(cases, frame=None):
+    """Fälle dem Rahmen zuordnen, damit die Aggregation sie zulässt."""
+    names = [item["case"] for item in cases if not item.get("contaminated")]
+    frame = frame or _frame(names)
+    for item in cases:
+        item.update({"rahmen": frame, "runs": 5, "hours": 336, "minutes_per_round": 240})
+    return cases, frame
+
+
+def _summarize(cases, frame=None):
+    cases, frame = _framed(cases, frame)
+    return build_summary(cases, frame)
+
+
 def test_skill_and_bootstrap_use_cases_not_questions():
     cases = [
         _summary_case("a", 1, {"baseline": 1, "null_document": .5, "null_personas": .75}, exploratory_rate=0),
         _summary_case("b", 0, {"baseline": .5, "null_document": .5, "null_personas": .25}, exploratory_rate=1),
         _summary_case("known", 1, {"baseline": 0, "null_document": 1, "null_personas": 0}, contaminated=True),
     ]
-    summary = build_summary(cases)
+    summary = _summarize(cases)
     clean = summary["clean"]
     assert summary["bootstrap_unit"] == "case"
     assert clean["scored_primary_cases"] == 2
@@ -331,9 +363,10 @@ def test_s_vs_p_mean_distance_bootstraps_cases():
     assert "0.1000" in summary_markdown(summary)
 
 
-def _skill_case(name, actual, baseline, null):
+def _skill_case(name, actual, baseline, null, personas=None):
     return _summary_case(name, actual, {
-        "baseline": baseline, "null_document": null, "null_personas": baseline,
+        "baseline": baseline, "null_document": null,
+        "null_personas": null if personas is None else personas,
     })
 
 
@@ -348,16 +381,17 @@ def _with_distance(item, distance=.2):
 
 def test_pilot_status_follows_skill_not_slope():
     above = [_with_distance(_skill_case(f"a{i}", 1, 1, .5)) for i in range(2)]
-    passed = build_summary(above)["clean"]
+    passed = _summarize(above)["clean"]
     assert passed["calibration"]["baseline"]["slope"] is None
     assert passed["calibration"]["baseline"]["note"] == CALIBRATION_PILOT_NOTE
     assert passed["preregistered_criterion"]["checks"]["skill_interval_above_zero"] is True
     assert "calibration_slope_0_5_to_1_5" not in passed["preregistered_criterion"]["checks"]
-    assert passed["preregistered_criterion"]["checks"]["s_vs_p_interval_excludes_zero"] is True
+    assert passed["preregistered_criterion"]["checks"]["skill_s_vs_p_interval_above_zero"] is True
+    assert "s_vs_p_interval_excludes_zero" not in passed["preregistered_criterion"]["checks"]
     assert passed["preregistered_criterion"]["status"] == "bestanden"
 
     below = [_skill_case(f"b{i}", 1, 0, .5) for i in range(2)]
-    failed = build_summary(below)["clean"]
+    failed = _summarize(below)["clean"]
     assert failed["calibration"]["baseline"]["slope"] is None
     assert failed["skill"]["baseline_vs_null_document"]["ci_95"]["high"] < 0
     assert failed["preregistered_criterion"]["status"] == "nicht bestanden"
@@ -368,7 +402,7 @@ def test_pilot_status_follows_skill_not_slope():
         + [_with_distance(_skill_case(f"n{i}", 0, .35, 1)) for i in range(3)]
         + [_with_distance(_skill_case("flip1", 1, .35, 0))]
     )
-    steep = build_summary(mixed)["clean"]
+    steep = _summarize(mixed)["clean"]
     assert steep["scored_primary_cases"] == 8
     assert steep["calibration"]["baseline"]["slope"] == pytest.approx(1.774706, abs=1e-4)
     assert steep["calibration"]["baseline"]["slope"] > 1.5
@@ -506,8 +540,8 @@ def test_source_gap_stays_in_primary_and_drops_from_sensitivity(tmp_path):
     outcomes[0]["quellenluecke"] = True
     (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
 
-    def checker(identity, prompt):
-        return {"kennt": False, "begruendung": "unbekannt"}
+    def checker(model, prompt):
+        return "unbekannt"
 
     result = validate_case(case, runs=10, hours=336, minutes_per_round=120, arms=DEFAULT_ARMS,
                            base="http://test", results_dir=output, client=api,
@@ -543,9 +577,9 @@ def test_low_primary_kappa_is_counted_and_fails_the_instrument():
     bad = _summary_case("leak", 1, {"baseline": 1, "null_document": .5, "null_personas": .4})
     bad["rows"][0]["measurable"] = False
     bad["rows"][0]["reliability"] = {"kappa": .4}
-    alone = build_summary([good])["clean"]["preregistered_criterion"]["status"]
+    alone = _summarize([good])["clean"]["preregistered_criterion"]["status"]
     assert alone == "bestanden"
-    summary = build_summary([good, bad])
+    summary = _summarize([good, bad])
     clean = summary["clean"]
     assert clean["kappa_excluded_primary_count"] == 1
     assert clean["kappa_excluded_primary_share"] > 0
@@ -560,20 +594,58 @@ def test_low_primary_kappa_is_counted_and_fails_the_instrument():
     missing = _summary_case("leer", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
     missing["rows"][0]["measurable"] = False
     missing["rows"][0]["reliability"] = {"kappa": None}
-    gap = build_summary([missing])["clean"]
-    assert gap["kappa_excluded_primary"] == [{"case": "leer", "kappa": None}]
-    assert gap["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+    gap = _summarize([missing])["clean"]
+    assert gap["kappa_excluded_primary"] == []
+    assert gap["preregistered_criterion"]["status"] == "nicht prüfbar"
 
 
-def test_s_vs_p_interval_covering_zero_is_not_passed():
-    cases = [
-        _with_distance(_skill_case("hoch", 1, 1, .5), .2),
-        _with_distance(_skill_case("tief", 1, 1, .5), -.2),
-    ]
-    clean = build_summary(cases)["clean"]
-    assert clean["preregistered_criterion"]["checks"]["skill_interval_above_zero"] is True
-    assert clean["preregistered_criterion"]["checks"]["s_vs_p_interval_excludes_zero"] is False
+def test_directed_rule_requires_s_better_than_p():
+    worse_than_p = [_skill_case(f"w{i}", 1, .8, .5, personas=.9) for i in range(2)]
+    clean = _summarize(worse_than_p)["clean"]
+    checks = clean["preregistered_criterion"]["checks"]
+    assert checks["skill_interval_above_zero"] is True
+    assert clean["skill"]["baseline_vs_null_personas"]["ci_95"]["high"] < 0
+    assert checks["skill_s_vs_p_interval_above_zero"] is False
     assert clean["preregistered_criterion"]["status"] == "nicht bestanden"
+
+    better = [_skill_case(f"b{i}", 1, .9, .5, personas=.7) for i in range(2)]
+    ok = _summarize(better)["clean"]
+    assert ok["skill"]["baseline_vs_null_personas"]["ci_95"]["low"] > 0
+    assert ok["preregistered_criterion"]["status"] == "bestanden"
+
+
+def test_exact_case_set_or_not_testable():
+    names = [f"c{i}" for i in range(7)]
+    full = [_skill_case(name, 1, .9, .5, personas=.7) for name in names]
+    assert _summarize(full)["clean"]["preregistered_criterion"]["status"] == "bestanden"
+
+    six = [_skill_case(name, 1, .9, .5, personas=.7) for name in names[:6]]
+    summary = _summarize(six, _frame(names))
+    assert summary["clean"]["preregistered_criterion"]["status"] == "nicht prüfbar"
+    assert "6 statt 7" in summary["clean"]["frame_issues"][0]
+    assert "c6" in summary["clean"]["frame_issues"][0]
+
+    foreign = full + [_skill_case("fremd", 0, 0, 1)]
+    cases, frame = _framed(foreign, _frame(names))
+    summary = build_summary(cases, frame)
+    assert [row["case"] for row in summary["rejected"]] == ["fremd"]
+    assert summary["clean"]["case_count"] == 7
+    assert summary["clean"]["preregistered_criterion"]["status"] == "nicht prüfbar"
+    assert "fremd" in summary_markdown(summary)
+
+    other_arms = [_skill_case(name, 1, .9, .5, personas=.7) for name in names]
+    cases, frame = _framed(other_arms, _frame(names))
+    cases[0]["arms"] = ["baseline", "null_document"]
+    assert build_summary(cases, frame)["rejected"][0]["grund"] == "Arme weichen ab"
+
+    assert build_summary(full)["clean"]["preregistered_criterion"]["status"] == "nicht prüfbar"
+
+
+def test_decision_rule_wording_matches_protocol():
+    protocol = (CASES.parent / "PROTOKOLL-V5.md").read_text(encoding="utf-8")
+    for line in DECISION_RULE_PILOT.split("\n"):
+        assert line in protocol.splitlines()
+    assert DECISION_RULE_CONFIRMATORY in protocol.splitlines()
 
 
 def test_rahmen_pilot_sets_values_and_rejects_deviation():
@@ -613,15 +685,14 @@ def test_cold_question_refuses_folder_slug(tmp_path):
     labelled = _case(nested)
     seen = []
 
-    def checker(identity, prompt):
-        seen.append((identity, prompt))
-        return {"kennt": False, "begruendung": "unbekannt"}
+    def checker(model, prompt):
+        seen.append((model, prompt))
+        return "unbekannt"
 
     validate_case(labelled, runs=1, hours=24, minutes_per_round=60, arms=["baseline"],
                   base="http://test", results_dir=tmp_path / "labelled", client=FakeApi(),
                   contamination_checker=checker, location="Kehl", year="2017",
                   sleep=lambda _: None, poll_interval=0)
-    assert seen[0][0] == {"kaltfrage_ort": "Kehl 2017"}
     assert "Fall: Kehl 2017" in seen[0][1]
     assert "fall-a" not in seen[0][1]
     assert "Beispielstadt 2024" not in seen[0][1]
@@ -648,18 +719,19 @@ def test_sensitivity_uses_field_not_folder_name():
     kept = _summary_case("karlsfeld-hallenbad-2023", 1, rates)
     known = _summary_case("freiburg-bewohnerparken-2021", 1, rates, contaminated=True)
     known["kontaminiert"] = {"quelle": "externe Kaltprüfung", "datum": "2026-10-14"}
+    frame = _frame([gap["case"], same_name["case"], kept["case"]])
+    cases, frame = _framed([gap, same_name, kept, known], frame)
     known["minutes_per_round"] = 60
-    kept["minutes_per_round"] = 240
-    summary = build_summary([gap, same_name, kept, known])
+    summary = build_summary(cases, frame)
     assert summary["clean"]["scored_primary_cases"] == 3
     assert summary["sensitivity_no_source_gap"]["scored_primary_cases"] == 2
     assert summary["source_gap_cases"] == ["kehl-tram-baumfaellungen-2017"]
     assert "wanzleben-grundschule-2025" not in summary["source_gap_cases"]
     assert summary["contaminated_cases"] == ["freiburg-bewohnerparken-2021"]
     assert summary["sensitivity_no_source_gap"]["replaces_primary"] is False
-    assert summary["minutes_per_round"]["values"] == [60, 240]
+    assert summary["minutes_per_round"]["values"] == [240]
     text = summary_markdown(summary)
-    assert "Rundentakt je Fall:" in text
+    assert "Rundentakt: 240 Minuten je Runde." in text
     assert "Diese Auswertung ersetzt das Vorab-Kriterium der Primäranalyse nicht." in text
     assert "Vorab-Kriterium" in text
     primary_at = text.index("## Vorab-Kriterium")
