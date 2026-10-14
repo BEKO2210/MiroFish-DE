@@ -922,6 +922,8 @@ def export_simulation(simulation_id: str):
         for root, _, files in os.walk(sim_dir):
             for f in files:
                 full = os.path.join(root, f)
+                if os.path.islink(full) or not os.path.realpath(full).startswith(sim_dir + os.sep):
+                    continue
                 z.write(full, os.path.join(simulation_id, os.path.relpath(full, sim_dir)))
         # Wissensgraph des Projekts (eigener Ordner unter simulations/<graph_id>/vault)
         try:
@@ -932,6 +934,8 @@ def export_simulation(simulation_id: str):
                 for root, _, files in os.walk(vault):
                     for f in files:
                         full = os.path.join(root, f)
+                        if os.path.islink(full) or not os.path.realpath(full).startswith(vault + os.sep):
+                            continue
                         z.write(full, os.path.join(simulation_id, 'wissensgraph', os.path.relpath(full, vault)))
         except (OSError, ValueError):
             pass
@@ -947,7 +951,7 @@ def export_simulation(simulation_id: str):
                             continue
                     for f in os.listdir(os.path.join(reports_dir, name)):
                         full = os.path.join(reports_dir, name, f)
-                        if os.path.isfile(full):
+                        if os.path.isfile(full) and not os.path.islink(full):
                             z.write(full, os.path.join(simulation_id, 'berichte', name, f))
                 except (OSError, ValueError):
                     continue

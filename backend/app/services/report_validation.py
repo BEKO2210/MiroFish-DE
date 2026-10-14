@@ -367,11 +367,15 @@ def _load_json(path: str) -> Dict[str, Any]:
 
 
 def resolve_simulation_dir(simulation_id: str) -> str:
-    return os.path.join(Config.UPLOAD_FOLDER, "simulations", simulation_id)
+    from ..utils.security import safe_child, validate_identifier
+    validate_identifier("simulation_id", simulation_id)
+    return str(safe_child(os.path.join(Config.UPLOAD_FOLDER, "simulations"), simulation_id))
 
 
 def resolve_project_dir(project_id: str) -> str:
-    return os.path.join(Config.UPLOAD_FOLDER, "projects", project_id)
+    from ..utils.security import safe_child, validate_identifier
+    validate_identifier("project_id", project_id)
+    return str(safe_child(os.path.join(Config.UPLOAD_FOLDER, "projects"), project_id))
 
 
 def load_simulation_context(simulation_id: str) -> Dict[str, Any]:
