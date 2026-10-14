@@ -159,6 +159,9 @@ Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dab
   Seed eine Verlaufserzählung. Die Checkliste wird gegen diese Erzählung mit derselben Spannenregel klassifiziert.
   Der Arm zeigt, welche Ergebnisse bereits ein einzelner Erzähler ohne Agenten produziert. Pro Lauf liegt
   `manifest.json` mit Prompt-Hash, Modell, Temperatur, Seed und Tokenobergrenze im Laufordner.
+  `null_document` erhält den Startstimulus (Startbeiträge der Plattform) bewusst nicht: Der Arm kennt nur Dokument,
+  Frage und Zeitraum. In den Simulationsarmen steht `seen` im `stimulus_log.json` nur dann auf `true`, wenn
+  `update_memory` für den Agenten erfolgreich war; sonst `false` mit `error`.
 - `null_model`: Alias von `null_document`. Der gespeicherte Schlüssel bleibt, damit ältere Starts weiter funktionieren.
 - `null_personas`: Ebenfalls eine Erzählung ohne Schwarm, zusätzlich mit denselben Personas und Startbeiträgen. Die
   Ausgabelänge zielt auf den Median der Zeichen der Basis-Transkripte (Startbeiträge nicht mitgezählt; bei gerader
@@ -168,7 +171,9 @@ Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dab
 
 Startbeiträge: Nach Runde 0 werden die in der Plattform-DB liegenden Öffnungsposts jedem Agenten einmal als gelesener
 Stimulus in die Agenten-Erinnerung geschrieben und unter `twitter/stimulus_log.json` bzw. `reddit/stimulus_log.json`
-(Einzelplattform: `stimulus_log.json`) protokolliert. Ohne diesen Nachweis gilt der Arm nicht als „gleiche Information“.
+(Einzelplattform: `stimulus_log.json`) protokolliert. Das gilt für alle Simulationsarme einschließlich `blind_feed`: gleiche Ausgangsinformation, `blind_feed`
+sperrt nur die laufende Beobachtung fremder Beiträge. `seen` steht nur auf `true`, wenn das Eintragen gelang. Ohne diesen
+Nachweis gilt der Arm nicht als „gleiche Information“.
 
 Je Lauf speichert das Ensemble unter `run_stats` Beitragszahl, Zeichenzahl und Stapelzahl; der Markdown-Abschnitt
 „Mehrfachlauf“ zeigt sie als Zusatztabelle „Textmengen je Lauf“, damit Textmengen-Effekte sichtbar bleiben.

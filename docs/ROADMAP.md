@@ -1,6 +1,6 @@
 # Roadmap v2 – „so gut, dass es jeder gern benutzt"
 
-Stand 13.10.2026. Reihenfolge = Priorität. Jeder Punkt gilt erst als erledigt, wenn er auf dem Handy (412 px)
+Stand 14.10.2026. Reihenfolge = Priorität. Jeder Punkt gilt erst als erledigt, wenn er auf dem Handy (412 px)
 und auf dem Desktop per Screenshot geprüft ist, der Build grün ist und die Konsole leer bleibt.
 
 | # | Thema | Inhalt | Prüfung | Wer |
@@ -41,7 +41,7 @@ Bericht beschreibt Woche 1–4, simuliert wurden 24 Stunden in einem einzigen La
 Rechenbudget auf pop-os (RTX 3070): ein 24-Stunden-Lauf mit ~14 Agenten ≈ 10–20 Min ohne Bericht (Vorbereitung wird
 im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über Nacht; 100 Läufe ≈ 1–2 Tage pro Szenario.
 
-### Stand Validierung 13.10.2026 abends
+### Stand Validierung 13.10.2026 abends (historisch)
 - V1 + V2 erledigt und live (Methodik und Grenzen, Vorgabe-Abgleich, Szenario-Titel, Seeds, Manifest, events.jsonl).
 - V3/V4 Maschine und Oberfläche live; erster echter Mehrfachlauf `ens_9c4647555d4b` (neutrales Hallenbad-Szenario,
   10 × 24 h, Basis / ohne Vernetzung / Nullmodell) läuft über Nacht.
@@ -60,3 +60,21 @@ im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über 
   verschiedene Raten (z. B. 1/10 → 6/10). Neu: jede Klassifikation zweifach (zweiter Seed bzw. zweites Modell, z. B.
   qwen3.5:9b), Übereinstimmung und Cohens Kappa je Ergebnis; Ergebnisse mit Kappa < 0,6 gelten als „nicht messbar“ und
   werden im Bericht nicht interpretiert. Zusätzlich Stichprobe von Belegen zur menschlichen Prüfung in der Oberfläche.
+
+### Stand Validierung 14.10.2026 (aktuell)
+
+**Erledigt**
+- Ablation `blind_feed` (Feed ohne Suche/Trend/Fremdinteraktion; Nutzung je Lauf in `run_stats` gemessen).
+- Rundentakt wählbar (`minutes_per_round` 60/120/240, Teilbarkeitsregel gegen abgeschnittene Stunden).
+- Ehrliche Statistik-Ansicht: gepaarter exakter McNemar-Test, Holm-Korrektur nur für explorative Vergleiche, ein
+  Primärergebnis als konfirmatorisch, Newcombe-Intervall als Sensitivität, Kappa je Ergebnis.
+- Docker-Fremdtest (Erststart auf fremder Maschine).
+- V5-Vorregistrierung: 7 Fälle primär; Freiburg gilt vorab als kontaminiert und wird nicht primär gewertet
+  (Protokoll: `docs/validation/PROTOKOLL-V5.md`).
+- KI-Zweitkodierung (zweiter Bewerter je Klassifikation, konservatives Endurteil, Dissens = „strittig“).
+
+**Offen**
+- V5-GPU-Pilot: Rahmen noch festzulegen; Schätzung ca. 48 GPU-Stunden bei 4-h-Takt und 5 Seeds.
+- Menschliche Zweitkodierung (Stichprobe der Belege durch Menschen, Übereinstimmung mit der KI-Kodierung).
+- Mindestens 25 Fälle für eine konfirmatorische Aussage (bisher 7 primär, also Pilotcharakter).
+- Weiter offen aus früheren Stufen: V4b Sensitivität (Eingriffsstärke als Variable).

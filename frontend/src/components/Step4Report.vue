@@ -515,10 +515,26 @@
           <input v-model.number="ensembleHours" type="number" min="1" max="168" class="ens-input" />
         </label>
         <fieldset class="ens-field">
+          <legend>{{ t('ensemble.roundPaceLabel') }}</legend>
+          <p class="ens-custom__hint">{{ t('ensemble.roundPaceHint') }}</p>
+          <div class="ens-pills">
+            <button
+              v-for="opt in roundPaceOptions"
+              :key="opt.minutes"
+              type="button"
+              class="ens-pill"
+              :class="{ 'is-on': ensembleMinutesPerRound === opt.minutes }"
+              @click="ensembleMinutesPerRound = opt.minutes"
+            >{{ t(opt.labelKey) }}</button>
+          </div>
+        </fieldset>
+        <fieldset class="ens-field">
           <legend>{{ t('ensemble.variantsLabel') }}</legend>
           <label class="ens-check"><input type="checkbox" checked disabled /> {{ t('ensemble.variantBaseline') }}</label>
           <label class="ens-check"><input v-model="ensembleIsolated" type="checkbox" /> {{ t('ensemble.variantIsolated') }}</label>
-          <label class="ens-check"><input v-model="ensembleNull" type="checkbox" /> {{ t('ensemble.variantNull') }}</label>
+          <label class="ens-check"><input v-model="ensembleBlindFeed" type="checkbox" /> {{ t('ensemble.variantBlindFeed') }}</label>
+          <label class="ens-check"><input v-model="ensembleNullDocument" type="checkbox" /> {{ t('ensemble.variantNullDocument') }}</label>
+          <label class="ens-check"><input v-model="ensembleNullPersonas" type="checkbox" /> {{ t('ensemble.variantNullPersonas') }}</label>
           <label v-for="at in agentTypeOptions" :key="at" class="ens-check">
             <input v-model="ensembleWithout" type="checkbox" :value="'without:' + at" />
             {{ t('ensemble.variantWithout', { type: at }) }}
@@ -611,12 +627,44 @@ const ensembleSheetOpen = ref(false)
 const ensembleStarting = ref(false)
 const ensembleRuns = ref(10)
 const ensembleHours = ref(24)
+const ensembleMinutesPerRound = ref(60)
 const ensembleIsolated = ref(true)
-const ensembleNull = ref(true)
+const ensembleBlindFeed = ref(false)
+const ensembleNullDocument = ref(true)
+const ensembleNullPersonas = ref(false)
 const ensembleWithout = ref([])
 const ensembleList = ref([])
 const customOutcomes = ref([])
 const customOutcomesError = ref('')
+
+const roundPaceOptions = [
+  { minutes: 60, labelKey: 'ensemble.roundPace1h' },
+  { minutes: 120, labelKey: 'ensemble.roundPace2h' },
+  { minutes: 240, labelKey: 'ensemble.roundPace4h' },
+]
+
+/** Optional sim arms (cost scales with rounds); null arms are cheaper in the estimate. */
+const SIM_VARIANT_TOGGLES = [
+  { key: 'isolated', on: ensembleIsolated },
+  { key: 'blind_feed', on: ensembleBlindFeed },
+]
+const NULL_VARIANT_TOGGLES = [
+  { key: 'null_document', on: ensembleNullDocument },
+  { key: 'null_personas', on: ensembleNullPersonas },
+]
+
+function enabledVariantKeys(toggles) {
+  return toggles.filter((x) => x.on.value).map((x) => x.key)
+}
+
+function selectedEnsembleVariants() {
+  return [
+    'baseline',
+    ...enabledVariantKeys(SIM_VARIANT_TOGGLES),
+    ...enabledVariantKeys(NULL_VARIANT_TOGGLES),
+    ...ensembleWithout.value,
+  ]
+}
 
 const addCustomOutcome = () => {
   if (customOutcomes.value.length >= 6) return
@@ -641,9 +689,14 @@ const agentTypeOptions = computed(() => {
 })
 
 const estimateSeconds = computed(() => {
-  const variants = 1 + (ensembleIsolated.value ? 1 : 0) + (ensembleNull.value ? 1 : 0) + ensembleWithout.value.length
+  const runs = ensembleRuns.value
+  const hours = ensembleHours.value
+  const minutes = ensembleMinutesPerRound.value || 60
+  const rounds = Math.max(1, Math.floor((hours * 60) / minutes))
+  const simVariants = 1 + enabledVariantKeys(SIM_VARIANT_TOGGLES).length + ensembleWithout.value.length
+  const nullVariants = enabledVariantKeys(NULL_VARIANT_TOGGLES).length
   // Rough client-side preview; server returns authoritative estimate_seconds
-  return Math.max(60, Math.round(ensembleRuns.value * ensembleHours.value * variants * 12))
+  return Math.max(60, Math.round(40 * (rounds * runs * simVariants + runs * nullVariants)))
 })
 
 const estimateLabel = computed(() => {
@@ -671,15 +724,12 @@ const startEnsembleRun = async () => {
   customOutcomesError.value = ''
   ensembleStarting.value = true
   try {
-    const variants = ['baseline']
-    if (ensembleIsolated.value) variants.push('isolated')
-    if (ensembleNull.value) variants.push('null_model')
-    variants.push(...ensembleWithout.value)
     const payload = {
       simulation_id: props.simulationId,
       runs: ensembleRuns.value,
       hours: ensembleHours.value,
-      variants,
+      minutes_per_round: ensembleMinutesPerRound.value,
+      variants: selectedEnsembleVariants(),
     }
     if (rows.length) payload.custom_outcomes = rows
     const res = await startEnsemble(payload)

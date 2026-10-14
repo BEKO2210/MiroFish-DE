@@ -8,6 +8,7 @@
         <p class="meta">
           <span class="chip" :class="`chip--${data.status}`">{{ statusLabel }}</span>
           <span v-if="data.runs">{{ t('ensemble.runsHours', { runs: data.runs, hours: data.hours }) }}</span>
+          <span v-if="data.minutes_per_round">{{ t('ensemble.minutesPerRound', { minutes: data.minutes_per_round }) }}</span>
           <span v-if="etaLabel">{{ etaLabel }}</span>
         </p>
         <p v-if="data.current" class="current">
@@ -32,6 +33,49 @@
             <div class="prog__fill" :class="{ 'prog__fill--pulse': v.status === 'running' }" :style="{ width: pct(v) + '%' }"></div>
           </div>
         </div>
+      </section>
+
+      <section v-if="runStatsGroups.length" class="run-stats" :aria-label="t('ensemble.runStatsAria')">
+        <h2 class="section-title">{{ t('ensemble.runStatsTitle') }}</h2>
+        <div class="run-stats--table">
+          <table class="grid run-stats__grid">
+            <thead>
+              <tr>
+                <th scope="col">{{ t('ensemble.runStatsVariant') }}</th>
+                <th scope="col">{{ t('ensemble.runStatsRun') }}</th>
+                <th scope="col">{{ t('ensemble.runStatsPosts') }}</th>
+                <th scope="col">{{ t('ensemble.runStatsChars') }}</th>
+                <th scope="col">{{ t('ensemble.runStatsBatches') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template v-for="g in runStatsGroups" :key="'rst-' + g.key">
+                <tr v-for="row in g.rows" :key="'rst-' + g.key + '-' + row.run">
+                  <th scope="row">{{ g.label }}</th>
+                  <td class="mono">{{ row.run }}</td>
+                  <td class="mono">{{ row.post_count }}</td>
+                  <td class="mono">{{ row.character_count }}</td>
+                  <td class="mono">{{ row.batch_count }}</td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+        <ul class="run-stats--list">
+          <li v-for="g in runStatsGroups" :key="'rsl-' + g.key" class="run-stats__group">
+            <h3 class="run-stats__variant">{{ g.label }}</h3>
+            <ul class="run-stats__runs">
+              <li v-for="row in g.rows" :key="'rsl-' + g.key + '-' + row.run" class="run-stats__run">
+                <span class="run-stats__run-label">{{ t('ensemble.runStatsRun') }} {{ row.run }}</span>
+                <dl class="run-stats__dl">
+                  <div><dt>{{ t('ensemble.runStatsPosts') }}</dt><dd class="mono">{{ row.post_count }}</dd></div>
+                  <div><dt>{{ t('ensemble.runStatsChars') }}</dt><dd class="mono">{{ row.character_count }}</dd></div>
+                  <div><dt>{{ t('ensemble.runStatsBatches') }}</dt><dd class="mono">{{ row.batch_count }}</dd></div>
+                </dl>
+              </li>
+            </ul>
+          </li>
+        </ul>
       </section>
 
       <!-- Desktop table -->
@@ -219,6 +263,13 @@ const confirmDelete = ref(false)
 const confirmCancel = ref(false)
 let timer = null
 
+const VARIANT_I18N = {
+  blind_feed: 'ensemble.variantLabelBlindFeed',
+  null_document: 'ensemble.variantLabelNullDocument',
+  null_personas: 'ensemble.variantLabelNullPersonas',
+  null_model: 'ensemble.variantLabelNullDocument',
+}
+
 const variants = computed(() => data.value?.variants || [])
 const checklist = computed(() => data.value?.checklist || [])
 const comparisons = computed(() => data.value?.comparisons || [])
@@ -228,26 +279,48 @@ const canGoReport = computed(() => canDelete.value && !!data.value?.simulation_i
 const statusLabel = computed(() => t(`ensemble.status.${data.value?.status || 'queued'}`))
 const currentVariantLabel = computed(() => {
   const key = data.value?.current?.variant
-  const v = variants.value.find((x) => x.key === key)
-  return v ? variantLabel(v) : key || '—'
+  if (!key) return '—'
+  return variantLabel(variants.value.find((x) => x.key === key) || { key })
 })
 const etaLabel = computed(() => {
   const s = data.value?.eta_seconds
   if (s == null) return ''
   return t('ensemble.eta', { time: formatDuration(s) })
 })
+const runStatsGroups = computed(() => {
+  const stats = data.value?.run_stats
+  if (!stats || typeof stats !== 'object') return []
+  return variants.value.flatMap((v) => {
+    const raw = stats[v.key]
+    if (!Array.isArray(raw) || !raw.length) return []
+    return [{
+      key: v.key,
+      label: variantLabel(v),
+      rows: raw.map((row, i) => ({
+        run: row.run ?? i + 1,
+        post_count: Number(row.post_count) || 0,
+        character_count: Number(row.character_count) || 0,
+        batch_count: Number(row.batch_count) || 0,
+      })),
+    }]
+  })
+})
 
+function pickLocale(de, en, fallback) {
+  return locale.value === 'en' ? (en || de || fallback) : (de || en || fallback)
+}
 function variantLabel(v) {
   if (!v) return '—'
-  return locale.value === 'en' ? (v.label_en || v.label_de || v.key) : (v.label_de || v.label_en || v.key)
+  const i18nKey = VARIANT_I18N[v.key]
+  if (i18nKey) return t(i18nKey)
+  return pickLocale(v.label_de, v.label_en, v.key)
 }
 function compareVariantLabel(key) {
-  const v = variants.value.find((x) => x.key === key)
-  return v ? variantLabel(v) : key
+  return variantLabel(variants.value.find((x) => x.key === key) || { key })
 }
 function outcomeLabel(item) {
   if (!item) return '—'
-  return locale.value === 'en' ? (item.text_en || item.text_de || item.id) : (item.text_de || item.text_en || item.id)
+  return pickLocale(item.text_de, item.text_en, item.id)
 }
 function outcomeText(id) {
   const item = checklist.value.find((x) => x.id === id)
@@ -624,6 +697,24 @@ onUnmounted(clearTimer)
 .mechanism-blocked { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); }
 .mechanism-blocked__text { margin: 0; font-size: 12px; line-height: 1.4; }
 
+.run-stats { margin: 0 0 1.75rem; }
+.run-stats--table { display: none; }
+.run-stats--list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.run-stats__group {
+  padding: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface-raised);
+}
+.run-stats__variant { margin: 0 0 8px; font-family: var(--font-heading); font-size: 1rem; }
+.run-stats__runs { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.run-stats__run { padding: 10px 0; border-top: 1px solid var(--color-border-subtle); }
+.run-stats__run-label { display: block; font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin-bottom: 6px; }
+.run-stats__dl { margin: 0; display: grid; gap: 6px; }
+.run-stats__dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.run-stats__dl dt { margin: 0; color: var(--color-text-secondary); }
+.run-stats__dl dd { margin: 0; }
+
 .results--cards { display: grid; gap: 12px; }
 .card { padding: 14px; border: 1px solid var(--color-border-default); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); }
 .card--material { border-color: color-mix(in srgb, var(--color-warning-text) 45%, var(--color-border-default)); }
@@ -644,6 +735,8 @@ onUnmounted(clearTimer)
 @media (min-width: 769px) {
   .results--table { display: block; }
   .results--cards { display: none; }
+  .run-stats--table { display: block; }
+  .run-stats--list { display: none; }
   .main { padding: 28px 24px 80px; }
   .foot__desk { display: inline-flex; align-items: center; justify-content: center; }
 }

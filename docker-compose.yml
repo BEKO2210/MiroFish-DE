@@ -2,16 +2,28 @@ services:
   mirofish:
     build: .
     image: mirofish-de:latest
-    container_name: mirofish
     # Als dein Benutzer laufen, damit data/ dir gehört (Linux-Standard 1000:1000; sonst Werte in .env setzen)
     user: "${MIROFISH_UID:-1000}:${MIROFISH_GID:-1000}"
     # Nur auf diesem Rechner erreichbar: die App hat keine Anmeldung. Für Zugriff von anderen Geräten
-    # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN in .env setzen.
+    # einen geschützten Weg nutzen (z. B. Tailscale) und/oder API_TOKEN setzen (vor dem Erststart in .env,
+    # danach in data/.env bzw. unter Einstellungen; anschließend `docker compose restart`).
     ports:
       - "127.0.0.1:${MIROFISH_PORT:-5001}:5001"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/app/data
-      - ./.env:/app/.env.initial:ro
+      # Mit create_host_path: false legt Docker fehlende Pfade nicht (als root-eigenes Verzeichnis) an,
+      # sondern bricht ab. Start über scripts/start.sh, das .env und data/ vorher als dein Benutzer anlegt.
+      - type: bind
+        source: ./data
+        target: /app/data
+        bind:
+          create_host_path: false
+      # Nur Vorlage für den Erststart: nach dem Kopieren nach data/.env gilt ausschließlich data/.env.
+      - type: bind
+        source: ./.env
+        target: /app/.env.initial
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped

@@ -43,6 +43,11 @@ Anonymisierung: In `ausgangslage.md` sind Eigennamen, Ortsnamen und einmalige Za
 
 Vor jedem Lauf wird das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge kalt gefragt, ob es den Fall anhand von Ort, Jahr und Thema kennt; der Ausgang wird nicht genannt. Anfrage, Modell, Zeitpunkt und vollständige Antwort werden protokolliert. Bejaht das Modell die Kenntnis, erhält der Fall `contaminated: true`. Kontaminierte Fälle werden nicht mit der Hauptstichprobe vermischt, sondern in `GESAMT.json` und `GESAMT.md` getrennt ausgewiesen.
 
+Externe Kaltprüfung vor dem Start (14.10.2026, Gemini 3.8 Flash, ohne Websuche, nur Bogentext): Freiburg wurde auch nach
+zweiter Anonymisierung erkannt (95 %, Ausgang bekannt), weil Konfliktstruktur und Gebührenmodell selbst der
+Fingerabdruck sind. Freiburg gilt deshalb vorab als kontaminiert und zählt nicht zur Primäranalyse. Karlsfeld wurde nach
+der zweiten Anonymisierung nicht mehr erkannt. Die Primäranalyse umfasst damit 7 Fälle (4 Ja, 3 Nein).
+
 ## Kodierbuch, Zweitkodierung und Verblindung
 
 Die Erstkodierung der realen Akte erfolgte durch die Autoren, die die Ausgänge kannten. Das Kodierbuch (unten) wurde vor dem ersten Simulationslauf festgeschrieben.
@@ -83,7 +88,7 @@ Kodierbuch-Vorlage:
 
 Die frühere Primärfrage „Beschluss binnen 14 Tagen aufgehoben oder geändert“ war in den fünf zuerst erfassten Fällen (Karlsfeld, Neuwied, Niederkassel, Unterschleißheim, Wanzleben) durchgehend „Nein“ und taugt ohne Streuung nicht als Messgröße; sie bleibt als explorative Frage `beschluss_aufgehoben` (ohne `primaer`) erhalten.
 
-**Basisrate:** Das Primärergebnis ist in 5 von 8 Fällen „Ja“ (62,5 %; Freiburg, Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ein Skill-Vergleich muss diese Basisrate schlagen (Brier-Skill gegenüber der konstanten Vorhersage 0,625). Bei nur 8 Fällen ist die Basisrate extrem ungenau (Wilson-95-%-Intervall etwa 31–86 %). Die drei „Nein“-Kodierungen (Kehl, Niederkassel, Wanzleben) beruhen auf Quellenlücken, nicht auf belegter Abwesenheit, und können zu konservativ sein; Medienverzerrung begünstigt laute Reaktionen.
+**Basisrate:** Das Primärergebnis ist in 5 von 8 Fällen „Ja“ (62,5 %; Freiburg, Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ein Skill-Vergleich muss diese Basisrate schlagen (Brier-Skill gegenüber der konstanten Vorhersage 0,625). Bei nur 8 Fällen ist die Basisrate extrem ungenau (Wilson-95-%-Intervall etwa 31–86 %). Die drei „Nein“-Kodierungen (Kehl, Niederkassel, Wanzleben) beruhen auf Quellenlücken, nicht auf belegter Abwesenheit, und können zu konservativ sein; Medienverzerrung begünstigt laute Reaktionen. In der Primäranalyse ohne Freiburg: 4 von 7 „Ja“ (57 %).
 
 ## Arme
 
@@ -103,9 +108,9 @@ Rundentakt und Seedzahl: siehe Abschnitt Rahmen, wird vor Start festgelegt. Der 
 
 ## Auswertung
 
-**Primär:** alle 8 Fälle.
+**Primär:** 7 Fälle (alle außer dem vorab als kontaminiert eingestuften Freiburg).
 
-**Vorab fixierte Sensitivitätsanalyse:** nur die 5 Fälle ohne Quellenlücke (Freiburg, Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ausgeschlossen werden Kehl, Niederkassel und Wanzleben, deren „Nein“ auf Quellenlücken beruht. Weitere Sensitivitätsanalysen (z. B. ohne kontaminierte Fälle) werden getrennt ausgewiesen; nachträgliche Analysen gelten als explorativ.
+**Vorab fixierte Sensitivitätsanalyse:** nur die 4 nicht kontaminierten Fälle ohne Quellenlücke (Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ausgeschlossen werden Kehl, Niederkassel und Wanzleben, deren „Nein“ auf Quellenlücken beruht. Weitere Sensitivitätsanalysen (z. B. ohne kontaminierte Fälle) werden getrennt ausgewiesen; nachträgliche Analysen gelten als explorativ.
 
 Primäre Zielgröße ist der Brier-Score der Fallhäufigkeiten gegen die adjudizierte reale Kodierung. Berichtet werden der Brier-Score je Arm sowie `Skill(S,D) = 1 − BS_S / BS_D` und `Skill(P,D) = 1 − BS_P / BS_D`. Das 95-%-Intervall entsteht durch 10.000 Bootstrap-Ziehungen ganzer Fälle mit Zurücklegen. Weder Fragen noch Seeds werden als unabhängige Einheiten resampelt.
 
@@ -123,7 +128,7 @@ Wegen des Pilotcharakters kann auch ein „bestanden“ keine Kalibrierung beleg
 
 ## Falsifikationskriterien
 
-Bereits der Pilot widerspricht der Nutzenbehauptung, wenn der Skill klar negativ ist, S von P praktisch nicht unterscheidbar ist und damit über Rollenzerlegung hinaus kein Schwarmbeitrag sichtbar wird, oder Kappa unter 0,6 liegt. Ein nicht bestandenes oder nicht prüfbares Vorab-Kriterium darf nicht als Bestätigung umgedeutet werden. Kontaminierte Fälle und nachträglich ergänzte Ergebnisse werden nur als Sensitivitätsanalyse berichtet. Die Ergebnisse der Sensitivitätsanalyse über 5 Fälle dürfen das Urteil der Primäranalyse über 8 Fälle nicht ersetzen.
+Bereits der Pilot widerspricht der Nutzenbehauptung, wenn der Skill klar negativ ist, S von P praktisch nicht unterscheidbar ist und damit über Rollenzerlegung hinaus kein Schwarmbeitrag sichtbar wird, oder Kappa unter 0,6 liegt. Ein nicht bestandenes oder nicht prüfbares Vorab-Kriterium darf nicht als Bestätigung umgedeutet werden. Kontaminierte Fälle und nachträglich ergänzte Ergebnisse werden nur als Sensitivitätsanalyse berichtet. Die Ergebnisse der Sensitivitätsanalysen dürfen das Urteil der Primäranalyse über 7 Fälle nicht ersetzen.
 
 ## Rechenaufwand
 

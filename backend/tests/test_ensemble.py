@@ -37,6 +37,7 @@ from app.services.ensemble import (
     infer_kind,
     load_simulation_posts,
     mark_checklist_material,
+    measure_blind_feed_usage,
     median_character_count,
     newcombe_difference_interval,
     paired_difference_interval,
@@ -782,6 +783,9 @@ def test_resume_records_run_stats_and_minutes_per_round(tmp_path, monkeypatch):
         "post_count": 1,
         "character_count": len(stored_text),
         "batch_count": 1,
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
     }
     assert rows[1]["post_count"] == 1
     assert rows[1]["character_count"] == len("Ein neuer Aufruf wird veröffentlicht.")
@@ -1538,7 +1542,15 @@ def test_blind_feed_clears_rec_and_refresh_returns_own_only():
 
         def _add_comments_to_posts(self, results):
             return [
-                {"post_id": row[0], "user_id": row[1], "content": row[3]}
+                {
+                    "post_id": row[0],
+                    "user_id": row[1],
+                    "content": row[3],
+                    "comments": [
+                        {"user_id": row[1], "content": "eigener Kommentar"},
+                        {"user_id": 99, "content": "fremder Kommentar"},
+                    ],
+                }
                 for row in results
             ]
 
@@ -1573,6 +1585,20 @@ def test_blind_feed_clears_rec_and_refresh_returns_own_only():
         assert seen["success"] is True
         assert [p["user_id"] for p in seen["posts"]] == [0]
         assert all(p["content"] == "eigen" for p in seen["posts"])
+        assert seen["posts"][0]["comments"] == [
+            {"user_id": 0, "content": "eigener Kommentar"}
+        ]
+        empty = await platform.refresh(7)
+        assert empty == {"success": True, "posts": []}
+
+        # Wie oasis Platform.running(): agent_id nur bei mindestens zwei Parametern.
+        action_function = getattr(platform, "refresh")
+        code = action_function.__code__
+        params = {}
+        if len(code.co_varnames[:code.co_argcount]) >= 2:
+            params["agent_id"] = 0
+        dispatched = await action_function(**params)
+        assert [p["user_id"] for p in dispatched["posts"]] == [0]
 
     asyncio.run(exercise())
 
@@ -1598,12 +1624,82 @@ def test_opening_stimulus_logged_once_per_agent(tmp_path):
     assert len(document["agents"]) == 2
 
 
+def test_blind_feed_opening_stimulus_is_own_only(tmp_path):
+    class FakeAgent:
+        def __init__(self):
+            self.memory = []
+
+        def update_memory(self, message, role):
+            self.memory.append(message.content)
+
+    agents = {0: FakeAgent(), 1: FakeAgent()}
+
+    class FakeGraph:
+        def get_agents(self):
+            return list(agents.items())
+
+    posts = [
+        {"post_id": 9, "user_id": 0, "content": "nur null"},
+        {"post_id": 10, "user_id": 1, "content": "nur eins"},
+    ]
+    document = deliver_opening_stimulus(
+        FakeGraph(), posts, tmp_path / "stimulus.json", "reddit", own_only=True
+    )
+    assert document["own_only"] is True
+    assert document["agents"][0]["seen_post_ids"] == [9]
+    assert document["agents"][1]["seen_post_ids"] == [10]
+    assert "nur eins" not in agents[0].memory[0]
+    assert "nur null" not in agents[1].memory[0]
+
+
+def test_measure_blind_feed_usage_from_oasis_trace(tmp_path):
+    db_path = tmp_path / "reddit_simulation.db"
+    connection = sqlite3.connect(db_path)
+    connection.executescript("""
+        CREATE TABLE post (post_id INTEGER PRIMARY KEY, user_id INTEGER);
+        CREATE TABLE comment (
+            comment_id INTEGER PRIMARY KEY, post_id INTEGER, user_id INTEGER
+        );
+        CREATE TABLE trace (user_id INTEGER, action TEXT, info TEXT);
+        INSERT INTO post VALUES (10, 1), (11, 2), (12, 1);
+        INSERT INTO comment VALUES (20, 11, 1), (21, 10, 1);
+    """)
+    rows = [
+        (1, "search_posts", {"query": "x"}),
+        (1, "trend", {"posts": []}),
+        (1, "like_post", {"post_id": 11}),
+        (1, "repost", {"reposted_id": 12}),
+        (1, "quote_post", {"quoted_id": 11}),
+        (1, "create_comment", {"comment_id": 20}),
+        (1, "create_comment", {"comment_id": 21}),
+    ]
+    connection.executemany(
+        "INSERT INTO trace VALUES (?, ?, ?)",
+        [(user_id, action, json.dumps(info)) for user_id, action, info in rows],
+    )
+    connection.commit()
+    connection.close()
+
+    assert measure_blind_feed_usage(tmp_path) == {
+        "search_action_count": 1,
+        "trend_action_count": 1,
+        "foreign_interaction_count": 3,
+    }
+
+
 def test_run_stats_and_markdown_table():
     stats = compute_run_stats(
         [{"text": "abcd"}, {"text": "ef"}],
         audit={"raters": {"a": {"batches": [{}, {}]}}},
     )
-    assert stats == {"post_count": 2, "character_count": 6, "batch_count": 2}
+    assert stats == {
+        "post_count": 2,
+        "character_count": 6,
+        "batch_count": 2,
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
     null_stats = compute_run_stats(
         narrative="hello",
         audit={"batches": [{}]},
@@ -1643,7 +1739,8 @@ def test_run_stats_and_markdown_table():
     }
     md = ensemble_markdown(state)
     assert "### Textmengen je Lauf" in md
-    assert "| Basislauf | 1 | 3 | 40 | 1 |" in md
+    assert "| Basislauf | 1 | 3 | 40 | 1 | 0 | 0 | 0 |" in md
+    assert "Fremdinteraktionen" in md
     assert "blind_feed" in md.lower() or "Blinder Feed" in md
 
 

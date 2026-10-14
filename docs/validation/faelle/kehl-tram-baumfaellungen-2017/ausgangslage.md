@@ -1,23 +1,23 @@
 # Ausgangslage: Baumfällungen für eine Straßenbahntrasse
 
-Stand: Morgen des Beginns der Baumarbeiten.
+Stand: Morgen des Beginns der Baumarbeiten (Ende Winter).
 
 ## Projekt
 
-Eine baden-württembergische Stadt verlängert eine Straßenbahnlinie. Für die Trasse müssen in einem
-innerstädtischen Abschnitt insgesamt 86 Bäume (rund 35 Jahre alt, Spitzahorn) ihren bisherigen Standort verlassen.
+Eine Stadt verlängert eine Straßenbahnlinie. Für die Trasse müssen in einem innerstädtischen Abschnitt rund 80
+Straßenbäume (mittleres Alter, einheitliche Art) ihren bisherigen Standort verlassen.
 
 ## Baumarbeiten
 
-- 73 Bäume sollen innerhalb von drei Tagen gefällt werden.
-- 13 Bäume sollen nicht gefällt, sondern verpflanzt und an drei öffentlichen Orten der Stadt wieder eingesetzt werden.
+- Die meisten dieser Bäume sollen innerhalb weniger Tage gefällt werden.
+- Einige wenige Bäume sollen nicht gefällt, sondern verpflanzt und an öffentlichen Orten der Stadt wieder eingesetzt
+  werden.
 - Nach Angaben der Stadt reicht der Straßenquerschnitt nicht aus, um Trasse und gesamten Baumbestand gleichzeitig zu
   erhalten.
-- Vorgesehen sind Neupflanzungen in zweistelliger Zahl an mehreren Standorten (zusammen rund 80).
-- Ein Teil des Stammholzes soll für Bänke oder Spielgeräte genutzt werden.
+- Vorgesehen sind Neupflanzungen an mehreren Standorten, etwa in der Größenordnung der Fällungen.
 
 ## Beteiligte
 
-- Stadtverwaltung und Gemeinderat.
+- Stadtverwaltung und Stadtrat.
 - Beauftragte Bau- und Spezialunternehmen.
 - Anliegerinnen und Anlieger sowie Nutzerinnen und Nutzer des Baustellenbereichs.

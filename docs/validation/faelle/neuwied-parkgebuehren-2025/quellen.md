@@ -74,6 +74,9 @@ als schwacher Fall.
 
 Regel: Jede Tatsache in `ausgangslage.md` stammt aus einer Quelle mit Veröffentlichung ≤ T0 oder ist der Beschluss selbst samt den
 in der Sitzung genannten Gründen (Ereignis an T0; Berichte [1] und [2] erschienen am 14.11.2025 – dokumentierte Ausnahme).
+Zweiter Anonymisierungsdurchgang: `ausgangslage.md` nennt Datum, „Verdopplung“, Höchstparkdauer, Jahreszahlen, Samstage und
+„Ortsbeirat“ nur vergröbert („deutlich anheben“, „seit langer Zeit“, „einzelne Tage“, „Stadtteilgremium“); die Tabelle nennt
+die Originalwerte.
 
 | Tatsache in ausgangslage.md | Quelle | Veröffentlicht |
 |---|---|---|

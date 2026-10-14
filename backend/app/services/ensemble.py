@@ -694,7 +694,7 @@ def prepare_run_directory(
     variant: str,
     hours: int,
     start_hour: int = 7,
-    minutes_per_round: int = 60,
+    minutes_per_round: Optional[int] = 60,
 ) -> Dict[str, Any]:
     """Vorbereitete Profile/Config kopieren und nur die Variante anwenden."""
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -712,8 +712,9 @@ def prepare_run_directory(
     time_config = config.setdefault("time_config", {})
     time_config["total_simulation_hours"] = hours
     time_config["start_hour"] = start_hour
-    # Ensemble-Override: LLM-Wert ersetzen, alle Arme identisch.
-    time_config["minutes_per_round"] = minutes_per_round
+    # Ensemble-Override: LLM-Wert ersetzen, alle Arme identisch. None (Altstand): Config-Wert bleibt.
+    if minutes_per_round is not None:
+        time_config["minutes_per_round"] = minutes_per_round
     config["ensemble_variant"] = variant
     config["simulation_id"] = run_dir.name
 
@@ -1003,8 +1004,9 @@ def compute_run_stats(
     *,
     narrative: str = "",
     audit: Optional[Dict[str, Any]] = None,
+    run_dir: Optional[Path] = None,
 ) -> Dict[str, int]:
-    """Beitragszahl, Zeichenzahl und Stapelzahl eines Laufs."""
+    """Textmengen, Klassifikationsstapel und beobachtbare Feed-Lecks je Lauf."""
     texts = [str(post.get("text") or "") for post in posts]
     if narrative:
         character_count = len(narrative)
@@ -1017,11 +1019,91 @@ def compute_run_stats(
         batches = (document.get("raters") or {}).get("a", {}).get("batches") or []
     else:
         batches = document.get("batches") or []
+    leak_stats = measure_blind_feed_usage(run_dir) if run_dir else {
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
     return {
         "post_count": int(post_count),
         "character_count": int(character_count),
         "batch_count": int(len(batches)),
+        **leak_stats,
     }
+
+
+def measure_blind_feed_usage(run_dir: Path) -> Dict[str, int]:
+    """Search/Trend und Interaktionen mit fremden Beiträgen aus OASIS-Traces."""
+    counts = {
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
+    target_fields = {
+        "like_post": "post_id",
+        "repost": "reposted_id",
+        "quote_post": "quoted_id",
+    }
+    for platform in ("twitter", "reddit"):
+        db_path = Path(run_dir) / f"{platform}_simulation.db"
+        if not db_path.is_file():
+            continue
+        connection = sqlite3.connect(str(db_path))
+        connection.row_factory = sqlite3.Row
+        try:
+            trace_columns = _table_columns(connection, "trace")
+            post_columns = _table_columns(connection, "post")
+            if not {"user_id", "action", "info"}.issubset(trace_columns):
+                continue
+            if not {"post_id", "user_id"}.issubset(post_columns):
+                continue
+            post_authors = {
+                int(row["post_id"]): int(row["user_id"])
+                for row in connection.execute("SELECT post_id, user_id FROM post")
+            }
+            comment_posts: Dict[int, int] = {}
+            if {"comment_id", "post_id"}.issubset(_table_columns(connection, "comment")):
+                comment_posts = {
+                    int(row["comment_id"]): int(row["post_id"])
+                    for row in connection.execute("SELECT comment_id, post_id FROM comment")
+                }
+            for row in connection.execute("SELECT user_id, action, info FROM trace"):
+                action = str(row["action"] or "").lower()
+                if action == "search_posts":
+                    counts["search_action_count"] += 1
+                    continue
+                if action == "trend":
+                    counts["trend_action_count"] += 1
+                    continue
+                if action not in {*target_fields, "create_comment"}:
+                    continue
+                try:
+                    info = json.loads(row["info"] or "{}")
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if not isinstance(info, dict):
+                    continue
+                if action == "create_comment":
+                    target_post_id = info.get("post_id")
+                    if target_post_id is None:
+                        try:
+                            target_post_id = comment_posts.get(int(info.get("comment_id")))
+                        except (TypeError, ValueError):
+                            target_post_id = None
+                else:
+                    target_post_id = info.get(target_fields[action])
+                try:
+                    author_id = post_authors.get(int(target_post_id))
+                    actor_id = int(row["user_id"])
+                except (TypeError, ValueError):
+                    continue
+                if author_id is not None and actor_id != author_id:
+                    counts["foreign_interaction_count"] += 1
+        except sqlite3.Error:
+            logger.warning("Leak-Statistik konnte nicht aus %s gelesen werden", db_path)
+        finally:
+            connection.close()
+    return counts
 
 
 def build_null_arm_prompt(
@@ -1335,6 +1417,11 @@ class EnsembleService:
             or minutes_per_round not in ALLOWED_MINUTES_PER_ROUND
         ):
             raise ValueError("minutes_per_round muss 60, 120 oder 240 sein")
+        if (hours * 60) % minutes_per_round:
+            raise ValueError(
+                f"hours ({hours}) muss durch minutes_per_round/60 "
+                f"({minutes_per_round // 60}) teilbar sein; sonst würden Stunden abgeschnitten"
+            )
         variants = validate_variants(variants)
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
         if primary_outcome_id is not None:
@@ -2370,7 +2457,9 @@ class EnsembleService:
                                 key,
                             )
                             audit = _read_json(run_dir / "classification.json")
-                            stats = compute_run_stats(narrative=narrative, audit=audit)
+                            stats = compute_run_stats(
+                                narrative=narrative, audit=audit, run_dir=run_dir
+                            )
                         else:
                             config = _read_json(run_dir / "simulation_config.json")
                             initial = (config.get("event_config") or {}).get("initial_posts") or []
@@ -2379,7 +2468,7 @@ class EnsembleService:
                                 state, posts, seed, run_number, run_dir
                             )
                             audit = _read_json(run_dir / "classification.json")
-                            stats = compute_run_stats(posts, audit=audit)
+                            stats = compute_run_stats(posts, audit=audit, run_dir=run_dir)
                         run_stats[key].append({"run": run_number, **stats})
                         per_run[key].append(classified)
                         variant["done"] = run_number
@@ -2435,12 +2524,14 @@ class EnsembleService:
                 narrative_path.read_text(encoding="utf-8")
                 if narrative_path.is_file() else ""
             )
-            return compute_run_stats(narrative=narrative, audit=audit)
+            return compute_run_stats(narrative=narrative, audit=audit, run_dir=run_dir)
         initial: List[Dict[str, Any]] = []
         config = _read_json(run_dir / "simulation_config.json")
         if config:
             initial = (config.get("event_config") or {}).get("initial_posts") or []
-        return compute_run_stats(load_simulation_posts(run_dir, initial), audit=audit)
+        return compute_run_stats(
+            load_simulation_posts(run_dir, initial), audit=audit, run_dir=run_dir
+        )
 
     def _execute_seed(
         self,
@@ -2473,7 +2564,7 @@ class EnsembleService:
             key,
             state["hours"],
             state.get("start_hour", 7),
-            state.get("minutes_per_round", 60),
+            state.get("minutes_per_round"),
         )
         runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
         state["current_runner_id"] = runner_id
@@ -2655,8 +2746,12 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
     lines = [
         "## Mehrfachlauf",
         "",
-        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden "
-        f"(Rundentakt {state.get('minutes_per_round', 60)} Minuten). "
+        f"Ausgewertet wurden {state['runs']} Läufe je Variante über jeweils {state['hours']} Stunden"
+        + (
+            f" (Rundentakt {state['minutes_per_round']} Minuten). "
+            if state.get("minutes_per_round")
+            else ". "
+        ) +
         "Die Anteile sind Anteile der Seeds dieses Aufbaus.",
         f"Primärergebnis (konfirmatorisch): {primary_text}.",
         "",
@@ -2687,8 +2782,8 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             "",
             "### Textmengen je Lauf",
             "",
-            "| Variante | Lauf | Beiträge | Zeichen | Stapel |",
-            "|---|---:|---:|---:|---:|",
+            "| Variante | Lauf | Beiträge | Zeichen | Stapel | Search | Trend | Fremdinteraktionen |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|",
         ])
         for variant in state["variants"]:
             key = variant["key"]
@@ -2696,7 +2791,10 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
                 lines.append(
                     f"| {labels[key]} | {row.get('run', '—')} | "
                     f"{row.get('post_count', 0)} | {row.get('character_count', 0)} | "
-                    f"{row.get('batch_count', 0)} |"
+                    f"{row.get('batch_count', 0)} | "
+                    f"{row.get('search_action_count', 0)} | "
+                    f"{row.get('trend_action_count', 0)} | "
+                    f"{row.get('foreign_interaction_count', 0)} |"
                 )
     if state.get("reliability"):
         lines.extend([
