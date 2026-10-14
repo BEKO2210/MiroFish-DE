@@ -43,7 +43,7 @@ const selectLanguage = (language) => {
 .language-button {
   padding: 2px 3px;
   border: 0;
-  color: #777;
+  color: #666;
   background: transparent;
   cursor: pointer;
   font: inherit;
