@@ -5,20 +5,11 @@ import { isLiveMode } from '../support/mockApi'
 
 const A11Y_ROUTES = ['/', '/history', '/settings', '/report/report_6587bcd7e3fa'] as const
 
-/** Routes mit bekannten serious/critical – siehe BEFUNDE.md (Report: anderer Agent) */
-const KNOWN_A11Y_FAIL = new Set([
-  'desktop:/report/report_6587bcd7e3fa',
-])
-
 test.describe('Barrierefreiheit (axe)', () => {
   test.skip(() => isLiveMode(), 'a11y im Mock-Modus gegen stabile Fixtures')
 
   for (const route of A11Y_ROUTES) {
-    test(`keine serious/critical auf ${route}`, async ({ page }, testInfo) => {
-      const key = `${testInfo.project.name}:${route}`
-      // bekannter Fehler, siehe BEFUNDE.md
-      test.fail(KNOWN_A11Y_FAIL.has(key), 'bekannter Fehler, siehe BEFUNDE.md')
-
+    test(`keine serious/critical auf ${route}`, async ({ page }) => {
       await preparePage(page)
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await settle(page)
@@ -31,7 +22,7 @@ test.describe('Barrierefreiheit (axe)', () => {
       expect(
         bad.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.length })),
         JSON.stringify(
-          bad.map((v) => ({ id: v.id, impact: v.impact, help: v.help })),
+          bad.map((v) => ({ id: v.id, impact: v.impact, help: v.help, nodes: v.nodes.map((n) => ({ target: n.target, summary: n.failureSummary })) })),
           null,
           2,
         ),

@@ -16,9 +16,9 @@ Behoben mit `MobileStickyBar` und Safe-Area-Abstand (UX Teil A + B).
 
 | Test | Gerät | Route | Verstöße | Artefakt |
 |------|-------|-------|----------|----------|
-| `a11y.spec.ts` | desktop | `/report/report_6587bcd7e3fa` | `color-contrast` (u. a.) | `test-results/a11y-…-report-…` |
+| – | – | – | Keine offenen Befunde. | – |
 
-Hinweis: `/`, `/history`, `/settings` (Kontrast Marken-/Meta-Text, Labels/Selects, Datei-Input) sind behoben. Auf **handy** war `/report/...` bereits ohne serious/critical grün.
+Hinweis: `/`, `/history`, `/settings` (Kontrast Marken-/Meta-Text, Labels/Selects, Datei-Input) sind behoben. `/report/...`: Sprachumschalter (`.language-button`, #777 auf Weiß = 4,47:1) auf #666 angehoben; `test.fail`-Markierung entfernt.
 
 ## 3. iPhone (WebKit): seitliche Scrollleiste
 
