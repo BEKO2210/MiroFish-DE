@@ -59,6 +59,9 @@
           :buildProgress="buildProgress"
           :graphData="graphData"
           :systemLogs="systemLogs"
+          :activity-poll-at="activityPollAt"
+          :activity-updated-at="activityUpdatedAt"
+          :activity-error="error || ''"
           @next-step="handleNextStep"
         />
         <!-- Step 2: Umgebung aufbauen -->
@@ -87,6 +90,7 @@ import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import StepHeaderCompact from '../components/StepHeaderCompact.vue'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
+import { useLiveness } from '../composables/useLiveness'
 
 const { t } = useI18n()
 
@@ -117,6 +121,7 @@ const currentPhase = ref(-1) // -1: Upload, 0: Ontology, 1: Build, 2: Complete
 const ontologyProgress = ref(null)
 const buildProgress = ref(null)
 const systemLogs = ref([])
+const { lastPollAt: activityPollAt, serverUpdatedAt: activityUpdatedAt, notePoll } = useLiveness()
 
 // Polling timers
 let pollTimer = null
@@ -215,6 +220,7 @@ const handleNewProject = async () => {
     loading.value = true
     currentPhase.value = 0
     ontologyProgress.value = { message: t('main.dokumenteWerdenHochgeladenUndAnalysiert') }
+    notePoll(new Date().toISOString())
     addLog(t('main.ontologieGenerierungStartenDateienWerdenHochgeladen'))
     
     const formData = new FormData()
@@ -340,6 +346,7 @@ const pollTaskStatus = async (taskId) => {
     const res = await getTaskStatus(taskId)
     if (res.success) {
       const task = res.data
+      notePoll(task.updated_at || null, `${task.status}|${task.progress}|${task.message || ''}`)
       
       // Fortschrittsnachricht protokollieren, wenn sie sich geändert hat
       if (task.message && task.message !== buildProgress.value?.message) {

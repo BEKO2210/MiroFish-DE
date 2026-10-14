@@ -1022,6 +1022,14 @@
     "notInstalled": "not installed",
     "loadedNow": "loaded"
   },
+  "activity": {
+    "lastUpdated": "Last updated {n} s ago",
+    "staleHint": "This is taking longer – still running",
+    "elapsed": "Elapsed {t}",
+    "progressOf": "{current} of {total}",
+    "remaining": "About {t} left",
+    "errorNext": "Next: Find the run in History, or start again from Home."
+  },
   "run": {
     "back": "‹ Home",
     "backAria": "Back to home",

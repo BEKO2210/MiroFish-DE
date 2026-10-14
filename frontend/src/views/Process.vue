@@ -255,12 +255,17 @@
               </div>
               
               <!-- Ontologie-Generierungsfortschritt -->
-              <div class="detail-section" v-if="ontologyProgress && currentPhase === 0">
+              <div class="detail-section" v-if="(ontologyProgress || activityPollAt) && currentPhase === 0">
                 <div class="detail-label">{{ $t('process.generationProgress') }}</div>
-                <div class="ontology-progress">
-                  <div class="progress-spinner"></div>
-                  <span class="progress-text">{{ ontologyProgress.message }}</span>
-                </div>
+                <StepActivity
+                  :active="true"
+                  :label="$t('process.ontologyGeneration')"
+                  :detail="ontologyProgress?.message || $t('process.waitingForOntologyEllipsis')"
+                  :last-poll-at="activityPollAt"
+                  :server-updated-at="activityUpdatedAt"
+                  :error="error || ''"
+                  :next-hint="error ? $t('activity.errorNext') : ''"
+                />
               </div>
               
               <!-- Generierte Ontologie-Informationen -->
@@ -331,12 +336,21 @@
               </div>
               
               <!-- Aufbaufortschritt -->
-              <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
+              <div class="detail-section" v-if="(buildProgress || activityPollAt) && currentPhase === 1">
                 <div class="detail-label">{{ $t('process.buildProgress') }}</div>
-                <div class="progress-bar">
+                <StepActivity
+                  :active="true"
+                  :label="$t('process.graphBuild')"
+                  :detail="buildActivityDetail"
+                  :last-poll-at="activityPollAt"
+                  :server-updated-at="activityUpdatedAt"
+                  :error="error || ''"
+                  :next-hint="error ? $t('activity.errorNext') : ''"
+                />
+                <div v-if="buildProgress" class="progress-bar">
                   <div class="progress-fill" :style="{ width: buildProgress.progress + '%' }"></div>
                 </div>
-                <div class="progress-info">
+                <div v-if="buildProgress" class="progress-info">
                   <span class="progress-message">{{ buildProgress.message }}</span>
                   <span class="progress-percent">{{ buildProgress.progress }}%</span>
                 </div>
@@ -426,6 +440,8 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import LanguageSwitcher from '../components/LanguageSwitcher.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
+import StepActivity from '../components/StepActivity.vue'
+import { useLiveness } from '../composables/useLiveness'
 import { generateOntology, getProject, buildGraph, getTaskStatus, getGraphData } from '../api/graph'
 import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 import * as d3 from 'd3'
@@ -449,6 +465,13 @@ const ontologyProgress = ref(null) // Ontologie-Generierungsfortschritt
 const currentPhase = ref(-1) // -1: Hochladen, 0: Ontologie-Generierung, 1: Graph-Aufbau, 2: Abgeschlossen
 const selectedItem = ref(null) // Ausgewählter Knoten oder Kante
 const isFullScreen = ref(false)
+const { lastPollAt: activityPollAt, serverUpdatedAt: activityUpdatedAt, notePoll } = useLiveness()
+const buildActivityDetail = computed(() => {
+  const msg = buildProgress.value?.message || t('common.processingEllipsis')
+  const pct = buildProgress.value?.progress
+  if (pct == null) return msg
+  return `${msg} (${Math.round(pct)} %)`
+})
 
 // DOM-Referenzen
 const graphContainer = ref(null)
@@ -592,6 +615,7 @@ const handleNewProject = async () => {
     loading.value = true
     currentPhase.value = 0 // Ontologie-Generierungsphase
     ontologyProgress.value = { message: t('process.dateienWerdenHochgeladenUndDokumenteAnalysiert') }
+    notePoll(new Date().toISOString())
     
     // FormData erstellen
     const formDataObj = new FormData()
@@ -801,6 +825,7 @@ const pollTaskStatus = async (taskId) => {
     
     if (response.success) {
       const task = response.data
+      notePoll(task.updated_at || null, `${task.status}|${task.progress}|${task.message || ''}`)
       
       // Fortschrittsanzeige aktualisieren
       buildProgress.value = {

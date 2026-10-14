@@ -150,7 +150,15 @@ function resolveFixture(pathname: string): unknown | null {
 
   const pipeline = pathname.match(/^\/api\/pipeline\/([^/]+)$/)
   if (pipeline && pipeline[1] !== 'list' && pipeline[1] !== 'start') {
-    return loadFixture(`pipeline_${pipeline[1]}`)
+    const id = pipeline[1]
+    if (id === 'run_e2e_mock_001') {
+      return runningPipelineFixture(id, '2026-10-13T11:59:30+02:00')
+    }
+    if (id === 'run_e2e_stale') {
+      // FIXED_NOW ist 12:00+02 → updated_at vor >2 Min → „dauert länger“
+      return runningPipelineFixture(id, '2026-10-13T11:50:00+02:00')
+    }
+    return loadFixture(`pipeline_${id}`)
   }
 
   const graphData = pathname.match(/^\/api\/graph\/data\/([^/]+)$/)
@@ -412,6 +420,61 @@ const FAILED_NOSIM_PIPELINE = {
   requirement: 'E2E Abbruch ohne Simulation',
   simulation_id: null,
   status: 'failed',
+}
+
+/** Laufender Pipeline-Zustand für Lebenszeichen / Stale-Hinweis (Uhr: FIXED_NOW). */
+function runningPipelineFixture(pipelineId: string, updatedAt: string) {
+  return defaultOk({
+    pipeline_id: pipelineId,
+    status: 'running',
+    created_at: '2026-10-13T11:30:00+02:00',
+    updated_at: updatedAt,
+    current_step: 'prepare',
+    requirement: 'Wie entwickelt sich die Diskussion über MiroFish?',
+    files: ['test_data.txt'],
+    project_id: 'proj_e2e_running',
+    simulation_id: null,
+    report_id: null,
+    error: null,
+    steps: {
+      ontology: {
+        label: 'Dokumente lesen',
+        status: 'done',
+        detail: '10 Entitätstypen',
+        progress: 100,
+      },
+      graph: {
+        label: 'Wissensgraph aufbauen',
+        status: 'done',
+        detail: '12 Knoten',
+        progress: 100,
+      },
+      create: {
+        label: 'Simulation anlegen',
+        status: 'done',
+        detail: 'sim_pending',
+        progress: 100,
+      },
+      prepare: {
+        label: 'Agenten vorbereiten',
+        status: 'running',
+        detail: 'Agent 3 von 12 bekommt eine Persönlichkeit',
+        progress: 25,
+      },
+      simulate: {
+        label: 'Simulation läuft',
+        status: 'pending',
+        detail: '',
+        progress: 0,
+      },
+      report: {
+        label: 'Bericht schreiben',
+        status: 'pending',
+        detail: '',
+        progress: 0,
+      },
+    },
+  })
 }
 
 export async function installMockApi(page: Page): Promise<MockApi> {
