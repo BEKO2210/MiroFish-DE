@@ -701,4 +701,27 @@ test.describe('Flows', () => {
     await expect(leading).toBeFocused()
     await expect(leading).toHaveAttribute('aria-expanded', 'false')
   })
+
+  test('RunView: Lebenszeichen bei laufendem Schritt', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/run/run_e2e_mock_001', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    const activity = page.getByTestId('step-activity')
+    await expect(activity).toBeVisible()
+    await expect(page.getByTestId('step-activity-pulse')).toBeVisible()
+    await expect(page.getByTestId('step-activity-updated')).toContainText(/Zuletzt aktualisiert vor \d+ s/)
+    await expect(activity).toContainText(/Agenten vorbereiten|Persönlichkeit/)
+    await expect(page.getByTestId('step-activity-stale')).toHaveCount(0)
+  })
+
+  test('RunView: Hinweis „dauert länger“ bei veraltetem Zeitstempel', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/run/run_e2e_stale', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    await expect(page.getByTestId('step-activity')).toBeVisible()
+    await expect(page.getByTestId('step-activity-stale')).toContainText(/Das dauert gerade länger/)
+    await expect(page.getByTestId('step-activity-updated')).toContainText(/Zuletzt aktualisiert vor \d+ s/)
+  })
 })

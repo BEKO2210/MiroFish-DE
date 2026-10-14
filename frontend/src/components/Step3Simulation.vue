@@ -1,5 +1,20 @@
 <template>
   <div class="simulation-panel">
+    <StepActivity
+      v-if="isActivityVisible"
+      class="step-activity-slot"
+      :active="isSimRunning"
+      :label="$t('steps.simulate')"
+      :detail="simActivityDetail"
+      :current="simRoundCurrent"
+      :total="simRoundTotal"
+      :started-at="runStatus.started_at || null"
+      :remaining-seconds="simRemaining"
+      :last-poll-at="lastPollAt"
+      :server-updated-at="serverUpdatedAt"
+      :error="simError"
+      :next-hint="simError ? $t('activity.errorNext') : ''"
+    />
     <!-- Obere Steuerleiste -->
     <div class="control-bar">
       <div class="status-group">
@@ -310,6 +325,8 @@ import {
 } from '../api/simulation'
 import { generateReport } from '../api/report'
 import MobileStickyBar from './MobileStickyBar.vue'
+import StepActivity from './StepActivity.vue'
+import { useLiveness } from '../composables/useLiveness'
 import { formatRichText } from '../utils/formatRichText.js'
 
 const { t } = useI18n()
@@ -329,6 +346,8 @@ const props = defineProps({
 const emit = defineEmits(['go-back', 'next-step', 'add-log', 'update-status'])
 
 const router = useRouter()
+const { lastPollAt, serverUpdatedAt, notePoll } = useLiveness()
+const simError = ref('')
 
 // Zustand
 const isGeneratingReport = ref(false)
@@ -373,6 +392,36 @@ const twitterElapsedTime = computed(() => {
 // Simulierte vergangene Zeit der Reddit-Plattform
 const redditElapsedTime = computed(() => {
   return formatElapsedTime(runStatus.value.reddit_current_round || 0)
+})
+
+const isSimRunning = computed(() =>
+  ['running', 'starting'].includes(runStatus.value.runner_status) || phase.value === 1,
+)
+const isActivityVisible = computed(() => isSimRunning.value || !!simError.value)
+const simRoundCurrent = computed(() => {
+  const tw = runStatus.value.twitter_current_round || 0
+  const rd = runStatus.value.reddit_current_round || 0
+  const cur = runStatus.value.current_round
+  const n = cur != null ? cur : Math.max(tw, rd)
+  return n > 0 ? n : null
+})
+const simRoundTotal = computed(() => {
+  const total = runStatus.value.total_rounds || props.maxRounds
+  return total > 0 ? total : null
+})
+const simActivityDetail = computed(() => {
+  if (simError.value) return ''
+  if (runStatus.value.runner_status === 'starting') return t('common.initializing')
+  if (simRoundCurrent.value != null && simRoundTotal.value != null) {
+    return t('step3.round') + ` ${simRoundCurrent.value}/${simRoundTotal.value}`
+  }
+  return t('steps.hSimulate')
+})
+const simRemaining = computed(() => {
+  if (!isSimRunning.value) return null
+  const s = runStatus.value.eta_seconds ?? runStatus.value.remaining_seconds
+  if (s == null || !Number.isFinite(Number(s))) return null
+  return Number(s)
 })
 
 // Methods
@@ -512,6 +561,10 @@ const fetchRunStatus = async () => {
     
     if (res.success && res.data) {
       const data = res.data
+      notePoll(
+        data.updated_at || null,
+        `${data.runner_status}|${data.current_round}|${data.twitter_current_round}|${data.reddit_current_round}|${data.twitter_actions_count}|${data.reddit_actions_count}`,
+      )
       
       runStatus.value = data
       
@@ -535,6 +588,7 @@ const fetchRunStatus = async () => {
       const platformsCompleted = checkPlatformsCompleted(data)
       
       if (isFailed) {
+        simError.value = data.error || t('step3.simulationFehlgeschlagen')
         addLog(t('step3.simulationFehlgeschlagen') + (data.error ? ': ' + data.error : ''))
         phase.value = 2
         stopPolling()
@@ -750,6 +804,10 @@ onUnmounted(() => {
   background: var(--color-bg-surface-raised);
   font-family: var(--font-body);
   overflow: hidden;
+}
+.step-activity-slot {
+  margin: 10px 12px 0;
+  flex: none;
 }
 
 /* --- Control Bar --- */

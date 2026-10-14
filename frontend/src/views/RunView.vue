@@ -26,24 +26,19 @@
           <p class="eyebrow">{{ fmtDate(state.created_at) }} · {{ t('run.files', { n: (state.files || []).length }) }}</p>
           <h1 class="title">{{ state.requirement }}</h1>
 
-          <!-- Gesamtstatus -->
-          <div class="status" :class="`status--${state.status}`">
-            <template v-if="state.status === 'running'">
-              <span class="orb" aria-hidden="true"><span></span><span></span><span></span></span>
-              <div>
-                <strong>{{ currentLabel }}</strong>
-                <small>{{ currentDetail || t('run.preparing') }}</small>
-              </div>
-            </template>
-            <template v-else-if="state.status === 'completed'">
-              <span class="check" aria-hidden="true">✓</span>
-              <div><strong>{{ t('run.done') }}</strong><small>{{ t('run.duration', { d: fmtDuration(state.created_at, state.completed_at) }) }}</small></div>
-            </template>
-            <template v-else>
-              <span class="cross" aria-hidden="true">!</span>
-              <div><strong>{{ t('run.stopped') }}</strong><small>{{ t('hist.sFailed') }}</small></div>
-            </template>
-          </div>
+          <StepActivity
+            :active="state.status === 'running'"
+            :label="activityLabel"
+            :detail="activityDetail"
+            :current="stepIndex"
+            :total="STEP_ORDER.length"
+            :started-at="state.created_at"
+            :remaining-seconds="serverRemaining"
+            :last-poll-at="lastPollAt"
+            :server-updated-at="state.updated_at || null"
+            :error="activityError"
+            :next-hint="activityError ? t('activity.errorNext') : ''"
+          />
 
           <!-- Gesamtfortschritt -->
           <div class="bar" role="progressbar" :aria-valuenow="overall" aria-valuemin="0" aria-valuemax="100">
@@ -51,7 +46,6 @@
           </div>
           <p class="bar__meta">
             <span>{{ overall }} %</span>
-            <span v-if="state.status === 'running'">{{ etaText }}</span>
           </p>
         </section>
 
@@ -107,9 +101,10 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { formatNumber } from '../utils/formatNumber'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
+import StepActivity from '../components/StepActivity.vue'
 import { getPipeline, STEP_ORDER } from '../api/pipeline'
+import { useLiveness } from '../composables/useLiveness'
 
 const props = defineProps({ pipelineId: { type: String, required: true } })
 const router = useRouter()
@@ -118,6 +113,7 @@ const state = ref(null)
 const loadError = ref('')
 const cleanedUp = ref(false)
 let timer = null
+const { lastPollAt, notePoll } = useLiveness()
 
 const stickyPrimary = computed(() => {
   if (!state.value) return null
@@ -145,17 +141,45 @@ const overall = computed(() => {
   }
   return Math.round(sum)
 })
-const currentLabel = computed(() => (state.value?.current_step ? t(`steps.${state.value.current_step}`) : t('run.starting')))
-const currentDetail = computed(() => state.value?.steps?.[state.value.current_step]?.detail || '')
 
-// Grobe Restzeit: bisher verbrauchte Zeit hochgerechnet auf den Gesamtfortschritt
-const etaText = computed(() => {
-  if (!state.value || overall.value < 5) return t('run.eta')
-  const elapsed = (Date.now() - new Date(state.value.created_at).getTime()) / 1000
-  const remaining = elapsed * (100 - overall.value) / overall.value
-  if (remaining < 90) return t('run.etaSoon')
-  if (remaining < 3600) return t('run.etaMin', { n: Math.round(remaining / 60) })
-  return t('run.etaH', { n: formatNumber(remaining / 3600, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
+const stepIndex = computed(() => {
+  if (!state.value?.current_step) return null
+  const i = STEP_ORDER.indexOf(state.value.current_step)
+  return i >= 0 ? i + 1 : null
+})
+
+const activityLabel = computed(() => {
+  if (!state.value) return ''
+  if (state.value.status === 'completed') return t('run.done')
+  if (state.value.status === 'failed') return t('run.stopped')
+  return state.value.current_step ? t(`steps.${state.value.current_step}`) : t('run.starting')
+})
+
+const activityDetail = computed(() => {
+  if (!state.value) return ''
+  if (state.value.status === 'completed') {
+    return t('run.duration', { d: fmtDuration(state.value.created_at, state.value.completed_at) })
+  }
+  if (state.value.status === 'failed') {
+    return state.value.error || t('hist.sFailed')
+  }
+  const step = state.value.steps?.[state.value.current_step]
+  if (step?.detail) return step.detail
+  if (state.value.current_step && HINTS[state.value.current_step]) return t(HINTS[state.value.current_step])
+  return t('run.preparing')
+})
+
+const activityError = computed(() => {
+  if (state.value?.status !== 'failed') return ''
+  return state.value.error || t('hist.sFailed')
+})
+
+/** Restzeit nur bei Serverwert und laufendem Status. */
+const serverRemaining = computed(() => {
+  const run = state.value
+  if (run?.status !== 'running') return null
+  const n = Number(run.eta_seconds ?? run.remaining_seconds)
+  return Number.isFinite(n) ? n : null
 })
 
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
@@ -171,6 +195,7 @@ const load = async () => {
     state.value = res.data
     loadError.value = ''
     cleanedUp.value = false
+    notePoll(res.data?.updated_at)
     if (state.value.status !== 'running') { clearInterval(timer); timer = null }
   } catch (err) {
     if (err.response?.status === 404) {
@@ -207,19 +232,7 @@ onUnmounted(() => clearInterval(timer))
 .eyebrow { font-size: 13px; color: var(--color-text-muted); margin: 0 0 6px; }
 .title { font-family: var(--font-heading); font-size: clamp(20px, 5vw, 28px); line-height: 1.25; margin: 0 0 16px; letter-spacing: -0.01em; }
 
-.status { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; background: var(--color-bg-surface); border: 1px solid var(--color-border-subtle); }
-.status div { display: flex; flex-direction: column; min-width: 0; }
-.status strong { font-size: 16px; }
-.status small { font-size: 13px; color: var(--color-text-muted); }
-.status--completed { background: var(--color-success-bg); border-color: var(--color-success-border); }
-.status--failed { background: var(--color-error-bg); border-color: var(--color-error-border); }
-.orb { position: relative; width: 36px; height: 36px; flex: none; }
-.orb span { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--color-brand-primary); opacity: 0; animation: ripple 2.1s ease-out infinite; }
-.orb span:nth-child(2) { animation-delay: .7s; } .orb span:nth-child(3) { animation-delay: 1.4s; }
-.orb::after { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: var(--color-brand-primary); }
-@keyframes ripple { 0% { transform: scale(.35); opacity: .9; } 100% { transform: scale(1.1); opacity: 0; } }
-.check, .cross { width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; flex: none; }
-.check { background: var(--color-success-text); color: var(--color-brand-on-primary); } .cross { background: var(--color-error-text); color: var(--color-brand-on-primary); }
+.head :deep(.step-activity) { margin-bottom: 14px; }
 
 .bar { height: 10px; border-radius: 999px; background: var(--color-border-subtle); overflow: hidden; margin-top: 14px; }
 .bar__fill { height: 100%; background: var(--color-brand-primary); border-radius: 999px; transition: width .6s ease; }
@@ -277,7 +290,6 @@ onUnmounted(() => clearInterval(timer))
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .orb span,
   .step__spin,
   .bar__fill--live,
   .sk { animation: none !important; }

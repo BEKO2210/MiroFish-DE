@@ -62,6 +62,20 @@
             {{ $t('step2.kontextKombinierenAutomatischToolsAufrufenUmEntitaten') }}
           </p>
 
+          <StepActivity
+            v-if="phase === 1"
+            class="step-activity-slot"
+            :active="true"
+            :label="$t('step2.agentCharakterGenerieren')"
+            :detail="prepareActivityDetail"
+            :current="prepareCurrent"
+            :total="prepareTotal"
+            :last-poll-at="lastPollAt"
+            :server-updated-at="serverUpdatedAt"
+            :error="prepareError"
+            :next-hint="prepareError ? $t('activity.errorNext') : ''"
+          />
+
           <!-- Profiles Stats -->
           <div v-if="profiles.length > 0" class="stats-grid">
             <div class="stat-card">
@@ -639,6 +653,8 @@ import { useI18n } from 'vue-i18n'
 import { formatNumber } from '../utils/formatNumber'
 const one = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
 import MobileStickyBar from './MobileStickyBar.vue'
+import StepActivity from './StepActivity.vue'
+import { useLiveness } from '../composables/useLiveness'
 import { 
   prepareSimulation, 
   getPrepareStatus, 
@@ -658,18 +674,41 @@ const props = defineProps({
 
 const emit = defineEmits(['go-back', 'next-step', 'add-log', 'update-status'])
 
+const { lastPollAt, serverUpdatedAt, notePoll } = useLiveness()
+
 // State
 const phase = ref(0) // 0: Initialisierung, 1: Charakter generieren, 2: Konfiguration generieren, 3: Abgeschlossen
 const taskId = ref(null)
 const prepareProgress = ref(0)
 const currentStage = ref('')
 const progressMessage = ref('')
+const prepareDetail = ref(null)
+const prepareError = ref('')
 const profiles = ref([])
 const entityTypes = ref([])
 const expectedTotal = ref(null)
 const simulationConfig = ref(null)
 const selectedProfile = ref(null)
 const showProfilesDetail = ref(true)
+
+const prepareCurrent = computed(() => {
+  const d = prepareDetail.value
+  if (d?.total_items > 0 && d.current_item != null) return d.current_item
+  if (profiles.value.length && expectedTotal.value) return profiles.value.length
+  return null
+})
+const prepareTotal = computed(() => {
+  const d = prepareDetail.value
+  if (d?.total_items > 0) return d.total_items
+  if (expectedTotal.value) return expectedTotal.value
+  return null
+})
+const prepareActivityDetail = computed(() => {
+  if (prepareDetail.value?.item_description) return prepareDetail.value.item_description
+  if (currentStage.value) return currentStage.value
+  if (progressMessage.value) return progressMessage.value
+  return t('common.processingEllipsis')
+})
 
 // Protokoll-Deduplizierung: Letzte ausgegebene Schlüsselinformationen aufzeichnen
 let lastLoggedMessage = ''
@@ -855,7 +894,8 @@ const handlePrepareFailure = (message) => {
   stopPolling()
   stopProfilesPolling()
   stopConfigPolling()
-  addLog(t('step2.vorbereitungFehlgeschlagen2', { p0: message || t('common.unknownError') }))
+  prepareError.value = message || t('common.unknownError')
+  addLog(t('step2.vorbereitungFehlgeschlagen2', { p0: prepareError.value }))
   emit('update-status', 'error')
 }
 
@@ -870,6 +910,10 @@ const pollPrepareStatus = async () => {
     
     if (res.success && res.data) {
       const data = res.data
+      const fp = data.progress_detail
+        ? `${data.progress}|${data.progress_detail.current_item}|${data.progress_detail.total_items}|${data.message || ''}`
+        : `${data.progress}|${data.message || ''}|${data.status || ''}`
+      notePoll(data.updated_at || null, fp)
       
       // Fortschritt aktualisieren
       prepareProgress.value = data.progress || 0
@@ -878,6 +922,7 @@ const pollPrepareStatus = async () => {
       // Phaseninformationen analysieren und detailliertes Protokoll ausgeben
       if (data.progress_detail) {
         currentStage.value = data.progress_detail.current_stage_name || ''
+        prepareDetail.value = data.progress_detail
         
         // Detailliertes Fortschrittsprotokoll ausgeben (Duplikate vermeiden)
         const detail = data.progress_detail
@@ -1180,6 +1225,9 @@ onUnmounted(() => {
 .badge.pending { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); }
 .badge.accent { background: var(--color-info-bg); color: var(--color-info-text); }
 
+.step-activity-slot {
+  margin: 10px 0 14px;
+}
 .card-content {
   /* No extra padding - uses step-card's padding */
 }

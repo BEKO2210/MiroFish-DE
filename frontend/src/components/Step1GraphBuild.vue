@@ -21,10 +21,17 @@
           </p>
 
           <!-- Loading / Progress -->
-          <div v-if="currentPhase === 0 && ontologyProgress" class="progress-section">
-            <div class="spinner-sm"></div>
-            <span>{{ ontologyProgress.message || $t('step1.dokumentWirdAnalysiert') }}</span>
-          </div>
+          <StepActivity
+            v-if="currentPhase === 0 && (ontologyProgress || activityPollAt)"
+            class="step-activity-slot"
+            :active="true"
+            :label="$t('step1.ontologieGenerierung')"
+            :detail="ontologyProgress?.message || $t('step1.dokumentWirdAnalysiert')"
+            :last-poll-at="activityPollAt"
+            :server-updated-at="activityUpdatedAt"
+            :error="activityError"
+            :next-hint="activityError ? $t('activity.errorNext') : ''"
+          />
 
           <!-- Detail Overlay -->
           <div v-if="selectedOntologyItem" class="ontology-detail-overlay">
@@ -123,6 +130,18 @@
             {{ $t('step1.basierendAufDerGeneriertenOntologieWerdenDokumente') }}
           </p>
           
+          <StepActivity
+            v-if="currentPhase === 1"
+            class="step-activity-slot"
+            :active="true"
+            :label="$t('step1.graphragAufbau')"
+            :detail="graphActivityDetail"
+            :last-poll-at="activityPollAt"
+            :server-updated-at="activityUpdatedAt"
+            :error="activityError"
+            :next-hint="activityError ? $t('activity.errorNext') : ''"
+          />
+
           <!-- Stats Cards -->
           <div class="stats-grid">
             <div class="stat-card">
@@ -192,6 +211,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { createSimulation } from '../api/simulation'
 import MobileStickyBar from './MobileStickyBar.vue'
+import StepActivity from './StepActivity.vue'
 import { formatLabel } from '../utils/labels.js'
 
 const { t } = useI18n()
@@ -204,7 +224,10 @@ const props = defineProps({
   ontologyProgress: Object,
   buildProgress: Object,
   graphData: Object,
-  systemLogs: { type: Array, default: () => [] }
+  systemLogs: { type: Array, default: () => [] },
+  activityPollAt: { type: Number, default: 0 },
+  activityUpdatedAt: { type: String, default: null },
+  activityError: { type: String, default: '' },
 })
 
 defineEmits(['next-step'])
@@ -251,6 +274,13 @@ const handleEnterEnvSetup = async () => {
 const selectOntologyItem = (item, type) => {
   selectedOntologyItem.value = { ...item, itemType: type }
 }
+
+const graphActivityDetail = computed(() => {
+  const msg = props.buildProgress?.message || t('common.processingEllipsis')
+  const pct = props.buildProgress?.progress
+  if (pct == null) return msg
+  return `${msg} (${Math.round(pct)} %)`
+})
 
 const graphStats = computed(() => {
   const nodes = props.graphData?.node_count || props.graphData?.nodes?.length || 0
@@ -626,6 +656,9 @@ watch(() => props.systemLogs.length, () => {
   cursor: not-allowed;
 }
 
+.step-activity-slot {
+  margin-bottom: 12px;
+}
 .progress-section {
   display: flex;
   align-items: center;

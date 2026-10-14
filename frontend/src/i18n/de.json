@@ -1025,6 +1025,14 @@
     "notInstalled": "nicht installiert",
     "loadedNow": "geladen"
   },
+  "activity": {
+    "lastUpdated": "Zuletzt aktualisiert vor {n} s",
+    "staleHint": "Das dauert gerade länger – läuft noch",
+    "elapsed": "Bisher {t}",
+    "progressOf": "{current} von {total}",
+    "remaining": "Noch etwa {t}",
+    "errorNext": "Als Nächstes: Im Verlauf findest du den Durchlauf, oder starte neu von der Startseite."
+  },
   "run": {
     "back": "‹ Start",
     "backAria": "Zur Startseite",
