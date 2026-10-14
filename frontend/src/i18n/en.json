@@ -1094,5 +1094,13 @@
   },
   "confirm": {
     "cancel": "Cancel"
+  },
+  "privacy": {
+    "local": "Local – texts stay on your devices",
+    "localShort": "Local",
+    "cloud": "Cloud: {provider} – texts are sent over the internet",
+    "cloudShort": "Cloud: {provider}",
+    "unknownProvider": "external provider",
+    "hint": "You also see this at the top of every page as a lock or cloud icon."
   }
 }

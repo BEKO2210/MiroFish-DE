@@ -94,6 +94,36 @@ test.describe('Flows', () => {
     ).toHaveCount(0)
   })
 
+  test('Datenschutz-Anzeige: lokal und Cloud', async ({ page }) => {
+    test.skip(isLiveMode(), 'nur Mock')
+    await preparePage(page)
+    await page.goto('/settings', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    const badge = page.getByTestId('privacy-badge')
+    await expect(badge).toHaveAttribute('title', 'Lokal – Texte bleiben auf deinen Geräten')
+    await expect(page.getByTestId('privacy-card')).toContainText('Lokal – Texte bleiben auf deinen Geräten')
+
+    const cloud = {
+      success: true,
+      data: {
+        config: { llm_provider: 'openai', llm_base_url: 'https://api.openai.com/v1', llm_api_key: 'sk-geheim' },
+        llm_provider: 'openai', llm_base_url: 'https://api.openai.com/v1', llm_model: 'gpt-4o-mini',
+        loaded_models: [], memory_provider: 'obsidian', model_installed: true, reachable: true,
+      },
+    }
+    await page.route('**/api/graph/system/status', (r) =>
+      r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(cloud) }))
+    await page.goto('/settings', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await expect(badge).toHaveAttribute('title', 'Cloud: OpenAI – Texte werden übertragen')
+    await expect(page.getByTestId('privacy-card')).toContainText('Cloud: OpenAI – Texte werden übertragen')
+    await expect(page.locator('body')).not.toContainText('sk-geheim')
+    await expect(page.locator('body')).not.toContainText('api.openai.com')
+    const box = await badge.boundingBox()
+    expect(box!.width).toBeGreaterThanOrEqual(44)
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  })
+
   test('Einstellungen: Modelle, Speichern, Sprache', async ({ page }) => {
     const { api } = await preparePage(page)
     await page.goto('/settings', { waitUntil: 'domcontentloaded' })

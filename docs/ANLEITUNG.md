@@ -41,7 +41,7 @@ Die Simulation ist nur so gut wie das, was du hochlädst. Die App liest PDF-, Ma
 
 **Keine vertraulichen Daten.** Lade keine Vorlagen oder Protokolle aus nicht-öffentlichen Sitzungen, keine Namen von Privatpersonen, keine Adresslisten und keine Mitgliederdaten hoch. Prüfe vorher, ob du das Dokument auch öffentlich zeigen würdest. Das ist eine praktische Faustregel und **keine Rechtsberatung**; im Zweifel frag die Verwaltung oder die Datenschutzbeauftragte.
 
-**Lokal oder Cloud – so erkennst du es.** Öffne **Einstellungen**. Dort steht beim Anbieter zum Beispiel **Ollama (auf diesem Rechner)**, **LM Studio (auf diesem Rechner)**, **OpenAI** oder **Anderer OpenAI-kompatibler Server**. Oben auf der Seite siehst du außerdem den Namen des aktuellen Modells.
+**Lokal oder Cloud – so erkennst du es.** Öffne **Einstellungen**. Dort steht beim Anbieter zum Beispiel **Ollama (auf diesem Rechner)**, **LM Studio (auf diesem Rechner)**, **OpenAI** oder **Anderer OpenAI-kompatibler Server**. Oben auf der Seite siehst du außerdem den Namen des aktuellen Modells. Daneben zeigt ein Schloss **„Lokal – Texte bleiben auf deinen Geräten“**; bei einem Cloud-Anbieter erscheint stattdessen eine Wolke mit **„Cloud: <Anbieter> – Texte werden übertragen“**. Auf dem Handy ist es ein kleines Symbol im Kopf, antippen öffnet die Einstellungen.
 
 - **„… (auf diesem Rechner)“ = lokal:** Deine Texte bleiben auf deinem Rechner.
 - **OpenAI = Cloud:** Die Texte werden an den Anbieter gesendet und verlassen deinen Rechner. Auch bei „Anderer OpenAI-kompatibler Server“ prüfe die eingetragene Adresse: Zeigt sie nicht auf deinen eigenen Rechner, ist es ebenfalls Cloud. Dann gilt die Regel „nur öffentliche Texte“ erst recht.

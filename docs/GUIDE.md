@@ -41,7 +41,7 @@ The simulation is only as good as what you upload. The app reads PDF, Markdown a
 
 **No confidential data.** Do not upload drafts or minutes from non-public sessions, names of private persons, address lists or member data. Ask yourself whether you would be comfortable showing the document publicly. This is a practical rule of thumb and **not legal advice**; if in doubt, ask your administration or data protection officer.
 
-**Local or cloud – how to tell.** Open **Settings**. The provider there reads, for example, **Ollama (this computer)**, **LM Studio (this computer)**, **OpenAI** or **Other OpenAI-compatible server**. The top of the page also shows the name of the current model.
+**Local or cloud – how to tell.** Open **Settings**. The provider there reads, for example, **Ollama (this computer)**, **LM Studio (this computer)**, **OpenAI** or **Other OpenAI-compatible server**. The top of the page also shows the name of the current model. Next to it, a lock reads **"Local – texts stay on your devices"**; with a cloud provider a cloud reads **"Cloud: <provider> – texts are sent over the internet"** instead. On a phone it is a small icon in the header; tapping it opens Settings.
 
 - **"… (this computer)" = local:** your texts stay on your computer.
 - **OpenAI = cloud:** the texts are sent to the provider and leave your computer. For "Other OpenAI-compatible server", check the address entered: if it does not point to your own computer, it is cloud as well. Then the "public texts only" rule applies all the more.

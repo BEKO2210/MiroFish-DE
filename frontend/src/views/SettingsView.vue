@@ -4,6 +4,11 @@
     <main class="main">
       <h1 class="page__title">{{ t('settings.title') }}</h1>
 
+      <section class="card card--privacy" :class="isLocal ? 'local' : 'cloud'" data-testid="privacy-card">
+        <strong>{{ isLocal ? t('privacy.local') : t('privacy.cloud', { provider: provider || t('privacy.unknownProvider') }) }}</strong>
+        <small>{{ t('privacy.hint') }}</small>
+      </section>
+
       <!-- Zustand -->
       <section class="card card--status" :class="status.ready ? 'ok' : 'warn'">
         <span class="dot"></span>
@@ -142,9 +147,11 @@ import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
+import { useLlmLocality, setLlmStatus } from '../composables/useLlmLocality'
 import { formatNumber } from '../utils/formatNumber'
 
 const { t, locale } = useI18n()
+const { isLocal, provider } = useLlmLocality()
 
 function setLang(lang) {
   locale.value = lang
@@ -228,6 +235,7 @@ async function load() {
     const res = await service.get('/api/graph/system/status')
     if (!res?.success) return
     const d = res.data
+    setLlmStatus(d)
     status.value = {
       ready: d.reachable && d.model_installed,
       llm_model: d.llm_model,
@@ -299,6 +307,9 @@ onMounted(async () => {
 .card { background: var(--color-bg-surface-raised); border: 1px solid var(--color-border-subtle); border-radius: 16px; padding: 18px; margin-bottom: 12px; }
 .card__title { font-family: var(--font-heading); font-size: 17px; margin: 0; }
 .card__sub { margin: 4px 0 10px; font-size: 13px; color: var(--color-text-muted); }
+.card--privacy { display: flex; flex-direction: column; gap: 2px; border-left: 4px solid var(--color-success-text); }
+.card--privacy.cloud { background: var(--color-warning-bg); border-color: var(--color-warning-border); border-left-color: var(--color-warning-text); color: var(--color-warning-text); }
+.card--privacy small { color: var(--color-text-muted); font-size: 13px; }
 .card--status { display: flex; align-items: center; gap: 12px; }
 .card--status .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--color-success-text); box-shadow: 0 0 0 4px var(--color-success-bg); flex: none; }
 .card--status.warn .dot { background: var(--color-warning-text); box-shadow: 0 0 0 4px var(--color-warning-bg); }
