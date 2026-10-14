@@ -178,7 +178,7 @@ test.describe('Flows', () => {
 
     await sheet.getByRole('button', { name: /2 h je Runde/i }).click()
     await sheet.getByText('Feed ausgeblendet', { exact: true }).click()
-    await sheet.getByText('Nullmodell mit Rollen', { exact: true }).click()
+    await sheet.getByText('Einzelnes Sprachmodell: mit Rollenprofilen', { exact: true }).click()
 
     api!.reset()
     await sheet.getByRole('button', { name: /^Starten$/i }).click()
@@ -214,9 +214,9 @@ test.describe('Flows', () => {
     )
     await expect(page.getByText(/Rundentakt:\s*60 Min/i)).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Textmengen je Lauf' })).toBeVisible()
-    await expect(page.getByText('Feed ausgeblendet (blinder Feed)', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('Nur Dokument (Nullmodell Dokument)', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('Mit Rollen (Nullmodell Personas)', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Feed ausgeblendet', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Einzelnes Sprachmodell: nur Dokumente', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText('Einzelnes Sprachmodell: mit Rollenprofilen', { exact: false }).first()).toBeVisible()
     await expect(page.locator('.run-stats--list:visible .run-stats__run, .run-stats--table:visible tbody tr').first()).toBeVisible()
   })
 
