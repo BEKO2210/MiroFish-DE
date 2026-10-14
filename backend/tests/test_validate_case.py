@@ -599,6 +599,22 @@ def test_low_primary_kappa_is_counted_and_fails_the_instrument():
     assert gap["preregistered_criterion"]["status"] == "nicht prüfbar"
 
 
+def test_undefined_kappa_is_not_testable_defined_zero_fails_instrument():
+    undefined = _summary_case("leer", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
+    undefined["rows"][0]["measurable"] = False
+    undefined["rows"][0]["reliability"] = {"kappa": None, "n_pairs": 0}
+    gap = _summarize([undefined])["clean"]
+    assert gap["kappa_excluded_primary"] == []
+    assert gap["preregistered_criterion"]["status"] == "nicht prüfbar"
+
+    zero = _summary_case("null", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
+    zero["rows"][0]["measurable"] = False
+    zero["rows"][0]["reliability"] = {"kappa": 0.0, "n_pairs": 0}
+    failed = _summarize([zero])["clean"]
+    assert failed["kappa_excluded_primary"] == [{"case": "null", "kappa": 0.0}]
+    assert failed["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+
+
 def test_directed_rule_requires_s_better_than_p():
     worse_than_p = [_skill_case(f"w{i}", 1, .8, .5, personas=.9) for i in range(2)]
     clean = _summarize(worse_than_p)["clean"]

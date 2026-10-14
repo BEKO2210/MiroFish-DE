@@ -922,6 +922,8 @@ def export_simulation(simulation_id: str):
         for root, _, files in os.walk(sim_dir):
             for f in files:
                 full = os.path.join(root, f)
+                if os.path.islink(full) or not os.path.realpath(full).startswith(sim_dir + os.sep):
+                    continue
                 z.write(full, os.path.join(simulation_id, os.path.relpath(full, sim_dir)))
         # Wissensgraph des Projekts (eigener Ordner unter simulations/<graph_id>/vault)
         try:
@@ -932,6 +934,8 @@ def export_simulation(simulation_id: str):
                 for root, _, files in os.walk(vault):
                     for f in files:
                         full = os.path.join(root, f)
+                        if os.path.islink(full) or not os.path.realpath(full).startswith(vault + os.sep):
+                            continue
                         z.write(full, os.path.join(simulation_id, 'wissensgraph', os.path.relpath(full, vault)))
         except (OSError, ValueError):
             pass
@@ -947,7 +951,7 @@ def export_simulation(simulation_id: str):
                             continue
                     for f in os.listdir(os.path.join(reports_dir, name)):
                         full = os.path.join(reports_dir, name, f)
-                        if os.path.isfile(full):
+                        if os.path.isfile(full) and not os.path.islink(full):
                             z.write(full, os.path.join(simulation_id, 'berichte', name, f))
                 except (OSError, ValueError):
                     continue
@@ -1001,9 +1005,7 @@ def _get_report_id_for_simulation(simulation_id: str) -> str:
     import json
     from datetime import datetime
     
-    # Reports-Verzeichnispfad: backend/uploads/reports
-    # __file__ ist app/api/simulation.py, zwei Ebenen hoch zu backend/
-    reports_dir = os.path.join(os.path.dirname(__file__), '../../uploads/reports')
+    reports_dir = os.path.join(Config.UPLOAD_FOLDER, 'reports')
     if not os.path.exists(reports_dir):
         return None
     
@@ -2204,10 +2206,7 @@ def get_simulation_posts(simulation_id: str):
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = os.path.join(Config.UPLOAD_FOLDER, 'simulations', simulation_id)
         
         db_file = f"{platform}_simulation.db"
         db_path = os.path.join(sim_dir, db_file)
@@ -2285,10 +2284,7 @@ def get_simulation_comments(simulation_id: str):
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
         
-        sim_dir = os.path.join(
-            os.path.dirname(__file__),
-            f'../../uploads/simulations/{simulation_id}'
-        )
+        sim_dir = os.path.join(Config.UPLOAD_FOLDER, 'simulations', simulation_id)
         
         db_path = os.path.join(sim_dir, f"{platform}_simulation.db")
         

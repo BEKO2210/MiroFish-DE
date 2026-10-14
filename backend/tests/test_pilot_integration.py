@@ -74,11 +74,20 @@ class SyntheticRunner:
         )
         connection.execute("INSERT INTO user VALUES (1, 1, 'Verein', 'verein')")
         connection.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
-        connection.execute(
-            "INSERT INTO post VALUES (1, 1, 'Der Verein veröffentlicht eine deutliche Stellungnahme.')"
-        )
+        for post_id, text in enumerate((
+            "Der Verein veröffentlicht eine deutliche Stellungnahme.",
+            "Der Verein bekräftigt seine Stellungnahme erneut.",
+            "Der Verein ruft zu einer Aussprache auf.",
+        ), start=1):
+            connection.execute("INSERT INTO post VALUES (?, 1, ?)", (post_id, text))
         connection.commit()
         connection.close()
+        actions = run_dir / "twitter" / "actions.jsonl"
+        actions.parent.mkdir(parents=True, exist_ok=True)
+        actions.write_text(
+            json.dumps({"action_type": "create_post", "success": True}) + "\n",
+            encoding="utf-8",
+        )
         state = SimpleNamespace(runner_status="completed", current_round=1, error=None)
         cls.states[simulation_id] = state
         return state
@@ -329,6 +338,7 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
         assert [item["key"] for item in state["variants"]] == frame["arms"]
         assert state["strict_second_rater"] is True
         assert state["min_classified"] == frame["min_classified_per_arm"]
+        assert state["min_posts"] == 3
         assert state["models"]["agents"] == agent_model
         assert state["models"]["null_arms"] == agent_model
         assert set(state["arm_models"].values()) == {agent_model}
@@ -361,6 +371,9 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
     for case_dir, *_ in completed:
         verlauf = (case_dir / "verlauf.md").read_text(encoding="utf-8").strip()
         assert verlauf not in all_prompts
+        quellen_path = case_dir / "quellen.md"
+        if quellen_path.is_file():
+            assert quellen_path.read_text(encoding="utf-8").strip() not in all_prompts
         visible = (
             (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
             + (case_dir / "ergebnisse.json").read_text(encoding="utf-8")

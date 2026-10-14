@@ -4,6 +4,7 @@ Konfiguration einheitlich aus der .env-Datei im Projektwurzelverzeichnis laden
 """
 
 import os
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 
 # .env-Datei des Projektwurzelverzeichnisses laden
@@ -14,11 +15,14 @@ project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 _PROCESS_WINS = ('FLASK_HOST', 'FLASK_PORT')
 _process_values = {k: os.environ[k] for k in _PROCESS_WINS if k in os.environ}
 
-if os.path.exists(project_root_env):
-    load_dotenv(project_root_env, override=True)
-else:
-    # Wenn keine .env im Wurzelverzeichnis, Umgebungsvariablen laden (für Produktionsumgebung)
-    load_dotenv(override=True)
+# Tests setzen MIROFISH_SKIP_DOTENV=1, bevor dieses Modul geladen wird.
+_SKIP_DOTENV = os.environ.get('MIROFISH_SKIP_DOTENV', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+if not _SKIP_DOTENV:
+    if os.path.exists(project_root_env):
+        load_dotenv(project_root_env, override=True)
+    else:
+        # Wenn keine .env im Wurzelverzeichnis, Umgebungsvariablen laden (für Produktionsumgebung)
+        load_dotenv(override=True)
 os.environ.update(_process_values)
 
 
@@ -28,7 +32,9 @@ class Config:
     # Flask-Konfiguration
     SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
     # Standard aus: Der Werkzeug-Debugger erlaubt bei 0.0.0.0 beliebigen Python-Code im Browser
-    DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    # In dieser verteilten Anwendung nie den interaktiven Werkzeug-Debugger aktivieren.
+    DEBUG = False
+    PROPAGATE_EXCEPTIONS = False
     
     # JSON-Konfiguration - ASCII-Escaping deaktivieren, Unicode direkt anzeigen (statt \uXXXX-Format)
     JSON_AS_ASCII = False
@@ -75,6 +81,11 @@ class Config:
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50MB
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), '../uploads')
     ALLOWED_EXTENSIONS = {'pdf', 'md', 'txt', 'markdown'}
+    # Standardmaessig same-origin. Nur explizit genannte Entwicklungs-Urspruenge zulassen.
+    CORS_ORIGINS = tuple(
+        origin.strip() for origin in os.environ.get('CORS_ORIGINS', '').split(',')
+        if origin.strip() and origin.strip() != '*'
+    )
     
     # Textverarbeitungskonfiguration
     DEFAULT_CHUNK_SIZE = 500  # Standard-Chunk-Größe
@@ -131,6 +142,27 @@ class Config:
     @classmethod
     def save(cls, config_data: dict):
         """Konfiguration in .env-Datei speichern und aktuelle Klasse aktualisieren"""
+        if not isinstance(config_data, dict):
+            raise ValueError("Konfiguration muss ein Objekt sein")
+        allowed_values = {
+            'llm_provider': {'openai', 'lmstudio', 'ollama', 'local'},
+            'memory_provider': {'zep', 'obsidian', 'hybrid'},
+        }
+        for key, value in config_data.items():
+            if key not in {
+                'llm_provider', 'llm_api_key', 'llm_base_url', 'llm_model_name',
+                'local_llm_base_url', 'local_llm_model_name', 'local_llm_api_key',
+                'zep_api_key', 'memory_provider',
+            }:
+                continue
+            if not isinstance(value, str) or '\r' in value or '\n' in value:
+                raise ValueError(f"Ungueltiger Konfigurationswert: {key}")
+            if key in allowed_values and value.lower() not in allowed_values[key]:
+                raise ValueError(f"Ungueltiger Konfigurationswert: {key}")
+            if key in {'llm_base_url', 'local_llm_base_url'}:
+                parsed = urlparse(value)
+                if parsed.scheme not in {'http', 'https'} or not parsed.hostname:
+                    raise ValueError(f"Ungueltige URL: {key}")
         # Aktuelle .env laden oder neue erstellen
         env_path = project_root_env
         

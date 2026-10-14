@@ -47,7 +47,8 @@
         data-testid="ensemble-summary"
         aria-labelledby="summary-h"
       >
-        <p class="summary__eyebrow">{{ t('ensemble.summaryEyebrow') }}</p>
+        <p class="summary__eyebrow">{{ hasPrimaryQuestion ? t('ensemble.summaryEyebrow') : t('ensemble.summaryEyebrowFirst') }}</p>
+        <p v-if="!hasPrimaryQuestion" class="summary__nohint" data-testid="ensemble-summary-noprimary">{{ t('ensemble.summaryNoPrimary') }}</p>
         <div class="summary__head">
           <h2 id="summary-h" class="summary__title">{{ outcomeLabel(primaryItem) }}</h2>
           <span v-if="primaryItem.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
@@ -93,7 +94,7 @@
             :aria-controls="'primary-details'"
             @click="primaryOpen = !primaryOpen"
           >
-            {{ t('ensemble.summaryDetails') }}
+            {{ hasPrimaryQuestion ? t('ensemble.summaryDetails') : t('ensemble.summaryDetailsFirst') }}
             <span class="fold__chev" aria-hidden="true" />
           </button>
           <div
@@ -481,6 +482,9 @@ const runStatsGroups = computed(() => {
   })
 })
 
+const hasPrimaryQuestion = computed(() =>
+  !!data.value?.primary_outcome_id || comparisons.value.some((c) => c?.role === 'confirmatory')
+)
 const primaryItem = computed(() => {
   const id = data.value?.primary_outcome_id
   if (!id) return checklist.value[0] || null
@@ -492,6 +496,7 @@ const exploratoryItems = computed(() => {
 })
 const plainLanguageDiff = computed(() => {
   // Satz nur, wenn jeder konfirmatorische Vergleich ein vollständiges Intervall hat.
+  if (!hasPrimaryQuestion.value) return ''
   const rows = comparisons.value.filter((c) => isConfirmatory(c) && !isComparisonBlocked(c))
   if (!rows.length) return ''
   const intervals = rows.map(comparisonInterval)
@@ -538,7 +543,7 @@ function isComparisonBlocked(c) {
 }
 function isConfirmatory(c) {
   if (c?.role) return c.role === 'confirmatory'
-  const primaryId = data.value?.primary_outcome_id || checklist.value[0]?.id
+  const primaryId = data.value?.primary_outcome_id
   return !!primaryId && c?.outcome_id === primaryId
 }
 function comparisonInterval(c) {
@@ -864,6 +869,7 @@ onUnmounted(clearTimer)
   border-radius: var(--radius-md, 8px);
   background: var(--color-bg-surface-raised);
 }
+.summary__nohint { margin: 0 0 0.5rem; font-size: 12px; color: var(--color-text-secondary); }
 .summary__eyebrow {
   margin: 0 0 4px;
   font-size: 12px;

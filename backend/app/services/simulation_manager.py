@@ -13,6 +13,7 @@ from datetime import datetime
 from enum import Enum
 
 from ..config import Config
+from ..utils.security import safe_child, validate_identifier
 from ..utils.logger import get_logger
 from .zep_entity_reader import ZepEntityReader, FilteredEntities
 from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
@@ -135,10 +136,7 @@ class SimulationManager:
     """
     
     # Speicherverzeichnis für Simulationsdaten
-    SIMULATION_DATA_DIR = os.path.join(
-        os.path.dirname(__file__), 
-        '../../uploads/simulations'
-    )
+    SIMULATION_DATA_DIR = os.path.join(Config.UPLOAD_FOLDER, 'simulations')
     
     def __init__(self):
         # Sicherstellen, dass Verzeichnis existiert
@@ -149,7 +147,8 @@ class SimulationManager:
     
     def _get_simulation_dir(self, simulation_id: str) -> str:
         """Simulationsdatenverzeichnis abrufen"""
-        sim_dir = os.path.join(self.SIMULATION_DATA_DIR, simulation_id)
+        validate_identifier("simulation_id", simulation_id)
+        sim_dir = str(safe_child(self.SIMULATION_DATA_DIR, simulation_id))
         os.makedirs(sim_dir, exist_ok=True)
         return sim_dir
     
@@ -489,6 +488,10 @@ class SimulationManager:
                 # Versteckte Dateien (wie .DS_Store) und Nicht-Verzeichnis-Dateien überspringen
                 sim_path = os.path.join(self.SIMULATION_DATA_DIR, sim_id)
                 if sim_id.startswith('.') or not os.path.isdir(sim_path):
+                    continue
+                try:
+                    validate_identifier("simulation_id", sim_id)
+                except ValueError:
                     continue
                 
                 state = self._load_simulation_state(sim_id)

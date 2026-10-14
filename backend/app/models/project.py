@@ -12,6 +12,7 @@ from typing import Dict, Any, List, Optional
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from ..config import Config
+from ..utils.security import safe_child, validate_identifier
 
 
 class ProjectStatus(str, Enum):
@@ -112,7 +113,8 @@ class ProjectManager:
     @classmethod
     def _get_project_dir(cls, project_id: str) -> str:
         """Gibt den Pfad zum Projektverzeichnis zurück"""
-        return os.path.join(cls.PROJECTS_DIR, project_id)
+        validate_identifier("project_id", project_id)
+        return str(safe_child(cls.PROJECTS_DIR, project_id))
     
     @classmethod
     def _get_project_meta_path(cls, project_id: str) -> str:
@@ -209,6 +211,10 @@ class ProjectManager:
         
         projects = []
         for project_id in os.listdir(cls.PROJECTS_DIR):
+            try:
+                validate_identifier("project_id", project_id)
+            except ValueError:
+                continue
             project = cls.get_project(project_id)
             if project:
                 projects.append(project)
@@ -254,7 +260,9 @@ class ProjectManager:
         os.makedirs(files_dir, exist_ok=True)
         
         # Generiert einen sicheren Dateinamen
-        ext = os.path.splitext(original_filename)[1].lower()
+        ext = os.path.splitext(os.path.basename(original_filename))[1].lower()
+        if ext.lstrip('.') not in Config.ALLOWED_EXTENSIONS:
+            raise ValueError("Nicht erlaubter Dateityp")
         safe_filename = f"{uuid.uuid4().hex[:8]}{ext}"
         file_path = os.path.join(files_dir, safe_filename)
         

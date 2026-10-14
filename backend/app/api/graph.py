@@ -19,6 +19,7 @@ from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
 from ..utils.llm_client import LLMResponseError
+from ..utils.security import InvalidIdentifier, safe_display_name, safe_upload_name
 
 # Logger abrufen
 logger = get_logger('mirofish.api')
@@ -26,10 +27,11 @@ logger = get_logger('mirofish.api')
 
 def allowed_file(filename: str) -> bool:
     """Prüft ob Dateiendung erlaubt ist"""
-    if not filename or '.' not in filename:
+    try:
+        safe_upload_name(filename, Config.ALLOWED_EXTENSIONS)
+    except InvalidIdentifier:
         return False
-    ext = os.path.splitext(filename)[1].lower().lstrip('.')
-    return ext in Config.ALLOWED_EXTENSIONS
+    return True
 
 
 # ============== Projektverwaltung-Schnittstellen ==============
@@ -186,10 +188,12 @@ def generate_ontology():
         for file in uploaded_files:
             if file and file.filename and allowed_file(file.filename):
                 # Datei im Projektverzeichnis speichern
+                upload_name, _extension = safe_upload_name(file.filename, Config.ALLOWED_EXTENSIONS)
+                display_name = safe_display_name(file.filename)
                 file_info = ProjectManager.save_file_to_project(
                     project.project_id, 
                     file, 
-                    file.filename
+                    display_name
                 )
                 project.files.append({
                     "filename": file_info["original_filename"],

@@ -135,7 +135,7 @@ weiterhin keine parsebare Antwort liefert, ist kein `unclassified`: ohne positiv
 zusammengeführt. `reliability.<outcome_id>` enthält Prozent-Übereinstimmung (`agreement`), Cohen's Kappa (`kappa`),
 Paarzahl (`n_pairs`) und die Bewertung `messbar` (Kappa ≥ 0,6), `unsicher` (0,4 ≤ Kappa < 0,6) oder
 `nicht messbar` (Kappa < 0,4 oder Kappa nicht definiert). Bei zwei identischen konstanten Urteilsreihen ist Kappa
-nicht definiert (`null`) und die Bewertung nicht messbar; ohne auswertbares Paar bleibt Kappa 0,0. Vergleiche nicht messbarer Ergebnisse tragen
+nicht definiert (`null`) und die Bewertung nicht messbar; ohne auswertbares Paar ist Kappa ebenfalls null. Vergleiche nicht messbarer Ergebnisse tragen
 `unreliable: true` und werden im Markdown-Bericht ausdrücklich nicht gedeutet. Die Doppelbewertung und
 Zuverlässigkeitsberechnung gelten unverändert für `reclassify`; es werden dabei keine Simulationen neu gestartet.
 

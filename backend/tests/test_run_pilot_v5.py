@@ -68,12 +68,40 @@ def test_post_retries_only_when_marked_and_client_errors_are_final():
 
 
 def test_hidden_terms_and_local_matching():
-    outcomes = [{"text_de": "Der Rat lehnt den Antrag am 07.05.2024 ab, 120 Plätze entfallen.",
-                 "quelle": "Beschluss der DLRG-Mitgliederversammlung"}]
-    terms = vc.hidden_terms(outcomes, "Der Rat berät den Antrag.")
+    outcomes = [{
+        "text_de": "Innerhalb von 14 Tagen lehnt der Rat den Antrag ab.",
+        "quelle": "Beschluss der DLRG am 07.05.2024, 120 Plätze",
+    }]
+    terms = vc.hidden_terms(
+        outcomes, "Der Rat berät den Antrag.", verlauf="innerhalb von 14 Tagen",
+    )
     assert "07.05.2024" in terms["strong"] and "120" in terms["strong"] and "DLRG" in terms["strong"]
+    assert "14" not in terms["strong"]
     assert vc.contamination_hits("Am 07.05.2024 beschloss der Rat.", terms)["known"] is True
     assert vc.contamination_hits("Ich kenne den Fall nicht.", terms)["known"] is False
+    assert vc.contamination_hits("nur die Zahl 14 aus der Frage", terms)["known"] is False
+
+    secret = "GEHEIMQUELLE-KENNZEICHEN-NICHT-SENDEN"
+    sourced = vc.hidden_terms(
+        [{"text_de": "Innerhalb von 14 Tagen geschieht etwas.", "quelle": ""}],
+        "sichtbarer Text",
+        quellen=f"{secret}\nDie Akte nennt 88 Vorgänge.",
+    )
+    assert "88" in sourced["strong"] and "14" not in sourced["strong"]
+    prompts = []
+
+    def ask(model, prompt):
+        prompts.append(prompt)
+        return "Ich kenne den Fall nicht."
+
+    vc.check_contamination(
+        "Ort", ask, material="Material ohne Geheimnis.",
+        hidden_outcomes=[{"text_de": "Innerhalb von 14 Tagen geschieht etwas.", "quelle": ""}],
+        verlauf="Im Verlauf stehen 120 eigene Tage.",
+        quellen=secret,
+    )
+    joined = "\n".join(prompts)
+    assert prompts and secret not in joined and "120" not in joined
 
 
 def test_ensemble_start_options_only_from_frame():
@@ -82,7 +110,8 @@ def test_ensemble_start_options_only_from_frame():
     assert options == {"text_model": vc.PILOT_V5_FRAME["models"]["agent_model"],
                        "arm_model": vc.PILOT_V5_FRAME["models"]["agent_model"],
                        "strict_second_rater": True,
-                       "min_classified": vc.PILOT_V5_FRAME["min_classified_per_arm"]}
+                       "min_classified": vc.PILOT_V5_FRAME["min_classified_per_arm"],
+                       "min_posts": 3}
 
 
 def test_probe_frame_is_two_seeds_single_case():

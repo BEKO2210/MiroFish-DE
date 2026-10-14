@@ -716,8 +716,13 @@ test.describe('Flows', () => {
     await expect(page.locator('.progress [role="progressbar"]')).toHaveCount(3)
     await expect(page.getByTestId('ensemble-progress-done')).toHaveCount(0)
 
+    await expect(page.locator('.summary__eyebrow')).toHaveText('Hauptfrage')
+    await expect(page.getByTestId('ensemble-summary-noprimary')).toHaveCount(0)
+
     await openCase('ens_sum_fallback')
-    await expect(plain()).toContainText(/unterscheiden sich/i)
+    await expect(plain()).toHaveCount(0)
+    await expect(page.locator('.summary__eyebrow')).toHaveText('Erstes Ergebnis')
+    await expect(page.getByTestId('ensemble-summary-noprimary')).toHaveText('Für diesen Lauf wurde keine Hauptfrage festgelegt')
 
     await openCase('ens_sum_norange')
     const summary = page.getByTestId('ensemble-summary')
@@ -731,6 +736,23 @@ test.describe('Flows', () => {
     await page.goto('/ensemble/ens_sum_mixed', { waitUntil: 'domcontentloaded' })
     await settle(page)
     await expect(plain()).toContainText(/do not all agree/i)
+  })
+
+  test('Alt-Ensemble ohne Hauptfrage: ehrliche Beschriftung', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/ensemble/ens_legacy', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    const summary = page.getByTestId('ensemble-summary')
+    await expect(summary).toBeVisible()
+    await expect(summary.locator('.summary__eyebrow')).toHaveText('Erstes Ergebnis')
+    await expect(page.getByTestId('ensemble-summary-noprimary')).toContainText('keine Hauptfrage festgelegt')
+    await expect(page.getByTestId('ensemble-summary-plain')).toHaveCount(0)
+    await expect(page.locator('.compare__badge--confirmatory')).toHaveCount(0)
+
+    await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await expect(page.getByTestId('ensemble-summary').locator('.summary__eyebrow')).toHaveText('Hauptfrage')
+    await expect(page.getByTestId('ensemble-summary-noprimary')).toHaveCount(0)
   })
 
   test('Inhaltsverzeichnis-Sheet: Fokus, Escape, Rückgabe, ARIA', async ({ page }) => {

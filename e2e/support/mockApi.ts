@@ -216,6 +216,15 @@ function resolveFixture(pathname: string): unknown | null {
   const ens = pathname.match(/^\/api\/ensemble\/(ens_[^/]+)$/)
   if (ens) {
     const id = ens[1]
+    if (id === 'ens_legacy') {
+      // Altlauf: weder primary_outcome_id noch comparisons[].role
+      const { primary_outcome_id: _p, ...rest } = ENSEMBLE_MOCK
+      return defaultOk({
+        ...rest,
+        ensemble_id: id,
+        comparisons: ENSEMBLE_MOCK.comparisons.map(({ role: _r, ...c }) => c),
+      })
+    }
     return defaultOk({
       ...ENSEMBLE_MOCK,
       ensemble_id: id,
