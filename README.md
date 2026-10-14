@@ -53,16 +53,29 @@ Besuche die Online-Demo-Umgebung und erlebe eine Simulation zu einem aktuellen �
 <div align="center">
 <table>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-1.png" alt="Screenshot 1" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-2.png" alt="Screenshot 2" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-start.png" alt="Startseite (Handy)" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-verlauf.png" alt="Verlauf früherer Läufe" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-bericht.png" alt="Bericht eines Einzellaufs mit Hinweis" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-einstellungen.png" alt="Einstellungen mit Farb-Combos" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-leitfaden.png" alt="Leitfaden: Wie verlässlich ist das?" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-3.png" alt="Screenshot 3" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-4.png" alt="Screenshot 4" width="100%"/></td>
+<td align="center"><sub>Startseite</sub></td>
+<td align="center"><sub>Verlauf früherer Läufe</sub></td>
+<td align="center"><sub>Bericht eines Einzellaufs mit Hinweis</sub></td>
+<td align="center"><sub>Einstellungen mit Farb-Combos</sub></td>
+<td align="center"><sub>Leitfaden „Wie verlässlich ist das?“</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="50%"><img src="./static/image/Screenshot/desktop-start.png" alt="Startseite am Desktop" width="100%"/></td>
+<td width="50%"><img src="./static/image/Screenshot/desktop-bericht.png" alt="Bericht mit Wissensgraph am Desktop" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-5.png" alt="Screenshot 5" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-6.png" alt="Screenshot 6" width="100%"/></td>
+<td align="center"><sub>Startseite am Desktop</sub></td>
+<td align="center"><sub>Bericht mit Wissensgraph am Desktop</sub></td>
 </tr>
 </table>
 </div>

@@ -60,16 +60,29 @@ Welcome to visit our online demo environment and experience a prediction simulat
 <div align="center">
 <table>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-1.png" alt="Screenshot 1" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-2.png" alt="Screenshot 2" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-start.png" alt="Home (mobile)" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-verlauf.png" alt="History of past runs" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-bericht.png" alt="Single-run report with notice" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-einstellungen.png" alt="Settings with colour combos" width="100%"/></td>
+<td width="20%"><img src="./static/image/Screenshot/handy-leitfaden.png" alt="Guide: How reliable is this?" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-3.png" alt="Screenshot 3" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-4.png" alt="Screenshot 4" width="100%"/></td>
+<td align="center"><sub>Home</sub></td>
+<td align="center"><sub>History of past runs</sub></td>
+<td align="center"><sub>Single-run report with notice</sub></td>
+<td align="center"><sub>Settings with colour combos</sub></td>
+<td align="center"><sub>Guide “How reliable is this?”</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td width="50%"><img src="./static/image/Screenshot/desktop-start.png" alt="Home on desktop" width="100%"/></td>
+<td width="50%"><img src="./static/image/Screenshot/desktop-bericht.png" alt="Report with knowledge graph on desktop" width="100%"/></td>
 </tr>
 <tr>
-<td><img src="./static/image/Screenshot/screenshot-5.png" alt="Screenshot 5" width="100%"/></td>
-<td><img src="./static/image/Screenshot/screenshot-6.png" alt="Screenshot 6" width="100%"/></td>
+<td align="center"><sub>Home on desktop</sub></td>
+<td align="center"><sub>Report with knowledge graph on desktop</sub></td>
 </tr>
 </table>
 </div>
