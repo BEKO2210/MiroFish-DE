@@ -23,14 +23,14 @@
     "wanzleben-grundschule-2025"
   ],
   "models": {
-    "agent_model": "gemma4:e4b-it-qat",
+    "agent_model": "gemma4:e4b-it-qat-16k",
     "arms_s_d_p": "agent_model",
-    "classification_main": "gemma4:12b-it-qat",
+    "classification_main": "gemma4:12b-it-qat-16k",
     "classification_second": "qwen3.5:9b",
     "seed_fallback": false,
     "cold_question_models": [
-      "gemma4:e4b-it-qat",
-      "gemma4:12b-it-qat"
+      "gemma4:e4b-it-qat-16k",
+      "gemma4:12b-it-qat-16k"
     ]
   },
   "probelauf": {

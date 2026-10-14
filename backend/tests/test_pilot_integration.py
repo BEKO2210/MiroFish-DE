@@ -237,7 +237,7 @@ def pilot_stack(tmp_path, monkeypatch):
     monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(upload_root))
     monkeypatch.setattr(Config, "OASIS_SIMULATION_DATA_DIR", str(upload_root / "simulations"))
     monkeypatch.setattr(Config, "LLM_PROVIDER", "ollama")
-    monkeypatch.setattr(Config, "LOCAL_LLM_MODEL_NAME", "gemma4:12b-it-qat")
+    monkeypatch.setattr(Config, "LOCAL_LLM_MODEL_NAME", "gemma4:12b-it-qat-16k")
     monkeypatch.setattr(Config, "ENSEMBLE_SECOND_RATER_MODEL", "qwen3.5:9b")
     # Die Resolver beziehen ihre Wurzeln aus Config; diese Assertions schützen den Test vor
     # versehentlichem Schreiben in backend/uploads.
@@ -258,7 +258,7 @@ def pilot_stack(tmp_path, monkeypatch):
 
     def ollama_tags():
         tag_checks.append(True)
-        return ["gemma4:e4b-it-qat", "gemma4:12b-it-qat", "qwen3.5:9b"]
+        return ["gemma4:e4b-it-qat-16k", "gemma4:12b-it-qat-16k", "qwen3.5:9b"]
 
     service = EnsembleService(
         runner_cls=SyntheticRunner,

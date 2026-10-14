@@ -78,10 +78,10 @@ PILOT_V5_FRAME = {
         "neuwied-parkgebuehren-2025", "niederkassel-buecherei-2023", "unterschleissheim-wall-2022",
         "wanzleben-grundschule-2025"],
     "models": {
-        "agent_model": "gemma4:e4b-it-qat", "arms_s_d_p": "agent_model",
-        "classification_main": "gemma4:12b-it-qat", "classification_second": "qwen3.5:9b",
+        "agent_model": "gemma4:e4b-it-qat-16k", "arms_s_d_p": "agent_model",
+        "classification_main": "gemma4:12b-it-qat-16k", "classification_second": "qwen3.5:9b",
         "seed_fallback": False,
-        "cold_question_models": ["gemma4:e4b-it-qat", "gemma4:12b-it-qat"]},
+        "cold_question_models": ["gemma4:e4b-it-qat-16k", "gemma4:12b-it-qat-16k"]},
     "probelauf": {"case": "synthetisch, nicht gewertet", "seeds": 2},
     "min_classified_per_arm": 4,
     "min_posts": 3,
