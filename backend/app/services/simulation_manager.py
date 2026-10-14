@@ -136,10 +136,7 @@ class SimulationManager:
     """
     
     # Speicherverzeichnis für Simulationsdaten
-    SIMULATION_DATA_DIR = os.path.join(
-        os.path.dirname(__file__), 
-        '../../uploads/simulations'
-    )
+    SIMULATION_DATA_DIR = os.path.join(Config.UPLOAD_FOLDER, 'simulations')
     
     def __init__(self):
         # Sicherstellen, dass Verzeichnis existiert
