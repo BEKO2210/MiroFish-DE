@@ -22,9 +22,11 @@ from scripts.validate_case import (
     outcome_horizon_hours,
     parse_args,
     parse_arms,
+    resolve_invocation,
     run_ensemble,
     summary_markdown,
     validate_case,
+    KAPPA_INSTRUMENT_STATUS,
 )
 
 CASES = Path(__file__).resolve().parents[2] / "docs" / "validation" / "faelle"
@@ -86,7 +88,8 @@ def _case(tmp_path, primary=True):
     )
     (case / "verlauf.md").write_text("Der echte Verlauf.", encoding="utf-8")
     outcomes = [
-        {"text_de": "Ereignis A tritt ein.", "eingetreten": True, "quelle": "1", "primaer": primary},
+        {"text_de": "Ereignis A tritt ein.", "eingetreten": True, "quelle": "1",
+         "primaer": primary, "kaltfrage_ort": "Beispielstadt 2024"},
         {"text_de": "Ereignis B tritt ein.", "eingetreten": False, "quelle": "2"},
     ]
     (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
@@ -113,10 +116,15 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
     }
     serialized = json.dumps(api.posts, default=str, ensure_ascii=False)
     assert "eingetreten" not in serialized and "Der echte Verlauf" not in serialized
-    assert probes[0][0] == {"location": "Beispielstadt", "year": "2024",
-                            "topic": "geplante Schulschließung"}
+    assert probes[0][0] == {"kaltfrage_ort": "Beispielstadt 2024"}
+    assert "Fall: Beispielstadt 2024" in probes[0][1]
+    assert "fall-a" not in probes[0][1] and "fall-a" not in probes[1][1]
     assert "# Schulschließung" not in probes[0][1]
     assert "# Schulschließung" in probes[1][1]
+    assert "Beispielstadt 2024" not in probes[1][1]
+    ontology = next(kwargs for path, kwargs in api.posts if path == "/api/graph/ontology/generate")
+    assert ontology["data"]["project_name"] == "Realitätsabgleich"
+    assert "fall-a" not in json.dumps(ontology["data"])
     assert all("Der echte Verlauf" not in prompt for _, prompt in probes)
     assert result["contaminated"] is False
     assert result["primary_outcome_id"] == "c1"
@@ -258,8 +266,11 @@ def test_bootstrap_is_deterministic_with_seed():
 
 def test_hours_default_is_two_weeks():
     assert inspect.signature(validate_case).parameters["hours"].default == 336
-    assert parse_args(["fall"]).hours == 336
-    assert parse_args(["fall"]).minutes_per_round == 60
+    resolved = resolve_invocation(parse_args(["fall"]))
+    assert resolved["hours"] == 336
+    assert resolved["minutes_per_round"] == 60
+    assert resolved["runs"] == 10
+    assert resolved["rahmen"] is None
 
 
 def test_file_in_material_horizon_and_uncitable_pool():
@@ -326,13 +337,23 @@ def _skill_case(name, actual, baseline, null):
     })
 
 
+def _with_distance(item, distance=.2):
+    item["primary_s_vs_p"] = {
+        "distance": distance,
+        "table": {"both_yes": 1, "baseline_only": 2, "variant_only": 0,
+                  "both_no": 7, "n_pairs": 10, "unpaired": 0},
+    }
+    return item
+
+
 def test_pilot_status_follows_skill_not_slope():
-    above = [_skill_case(f"a{i}", 1, 1, .5) for i in range(2)]
+    above = [_with_distance(_skill_case(f"a{i}", 1, 1, .5)) for i in range(2)]
     passed = build_summary(above)["clean"]
     assert passed["calibration"]["baseline"]["slope"] is None
     assert passed["calibration"]["baseline"]["note"] == CALIBRATION_PILOT_NOTE
     assert passed["preregistered_criterion"]["checks"]["skill_interval_above_zero"] is True
     assert "calibration_slope_0_5_to_1_5" not in passed["preregistered_criterion"]["checks"]
+    assert passed["preregistered_criterion"]["checks"]["s_vs_p_interval_excludes_zero"] is True
     assert passed["preregistered_criterion"]["status"] == "bestanden"
 
     below = [_skill_case(f"b{i}", 1, 0, .5) for i in range(2)]
@@ -342,10 +363,10 @@ def test_pilot_status_follows_skill_not_slope():
     assert failed["preregistered_criterion"]["status"] == "nicht bestanden"
 
     mixed = (
-        [_skill_case(f"y{i}", 1, .65, 0) for i in range(3)]
-        + [_skill_case("flip0", 0, .65, 1)]
-        + [_skill_case(f"n{i}", 0, .35, 1) for i in range(3)]
-        + [_skill_case("flip1", 1, .35, 0)]
+        [_with_distance(_skill_case(f"y{i}", 1, .65, 0)) for i in range(3)]
+        + [_with_distance(_skill_case("flip0", 0, .65, 1))]
+        + [_with_distance(_skill_case(f"n{i}", 0, .35, 1)) for i in range(3)]
+        + [_with_distance(_skill_case("flip1", 1, .35, 0))]
     )
     steep = build_summary(mixed)["clean"]
     assert steep["scored_primary_cases"] == 8
@@ -396,10 +417,56 @@ def test_ensemble_resume_is_limited(tmp_path):
             return {"status": "failed", "error": "Seed tot"}
 
     api = AlwaysFailed()
-    with pytest.raises(ApiError, match="Seed tot"):
+    state_path = tmp_path / "fall.state.json"
+    state = {"ensemble_id": "ens_aaaaaaaaaaaa"}
+    with pytest.raises(ApiError, match="Resume-Versuche erschöpft"):
+        run_ensemble(api, [], state_path, state, sleep=lambda _: None, poll_interval=0)
+    assert len(api.posts) == ENSEMBLE_RESUME_ATTEMPTS
+    stored = json.loads(state_path.read_text(encoding="utf-8"))
+    assert stored["ensemble_resumes"] == ENSEMBLE_RESUME_ATTEMPTS
+    again = AlwaysFailed()
+    with pytest.raises(ApiError, match="Resume-Versuche erschöpft"):
+        run_ensemble(again, [], state_path, stored, sleep=lambda _: None, poll_interval=0)
+    assert again.posts == []
+
+
+def test_exhausted_attempts_are_not_resumed(tmp_path):
+    class Exhausted:
+        def __init__(self):
+            self.posts = []
+
+        def post(self, path, **kwargs):
+            self.posts.append(path)
+            return {"status": "queued"}
+
+        def get(self, path, **kwargs):
+            return {"status": "failed", "attempts_exhausted": True,
+                    "error": "Seed baseline Lauf 1 nach 3 Versuchen fehlgeschlagen: gpu tot"}
+
+    api = Exhausted()
+    with pytest.raises(ApiError, match="erschöpften Versuchen"):
         run_ensemble(api, [], tmp_path / "fall.state.json",
                      {"ensemble_id": "ens_aaaaaaaaaaaa"}, sleep=lambda _: None, poll_interval=0)
-    assert len(api.posts) == ENSEMBLE_RESUME_ATTEMPTS
+    assert api.posts == []
+
+
+def test_rejected_resume_stops_instead_of_looping(tmp_path):
+    class RejectResume:
+        def __init__(self):
+            self.posts = []
+
+        def post(self, path, **kwargs):
+            self.posts.append(path)
+            raise ApiError("Versuche erschöpft (3), Resume abgebrochen")
+
+        def get(self, path, **kwargs):
+            return {"status": "failed", "error": "Seed tot"}
+
+    api = RejectResume()
+    with pytest.raises(ApiError, match="Resume abgebrochen"):
+        run_ensemble(api, [], tmp_path / "fall.state.json",
+                     {"ensemble_id": "ens_aaaaaaaaaaaa"}, sleep=lambda _: None, poll_interval=0)
+    assert api.posts == ["/api/ensemble/ens_aaaaaaaaaaaa/resume"]
 
 
 def _rates():
@@ -467,6 +534,110 @@ def test_source_gap_stays_in_primary_and_drops_from_sensitivity(tmp_path):
                       contamination_checker=lambda *_: pytest.fail("State-Konflikt vor der Kaltfrage"),
                       sleep=lambda _: None, poll_interval=0)
     assert resumed.posts == []
+
+
+def test_low_primary_kappa_is_counted_and_fails_the_instrument():
+    good = _with_distance(_summary_case("ok", 1, {
+        "baseline": 1, "null_document": .5, "null_personas": .4,
+    }))
+    bad = _summary_case("leak", 1, {"baseline": 1, "null_document": .5, "null_personas": .4})
+    bad["rows"][0]["measurable"] = False
+    bad["rows"][0]["reliability"] = {"kappa": .4}
+    alone = build_summary([good])["clean"]["preregistered_criterion"]["status"]
+    assert alone == "bestanden"
+    summary = build_summary([good, bad])
+    clean = summary["clean"]
+    assert clean["kappa_excluded_primary_count"] == 1
+    assert clean["kappa_excluded_primary_share"] > 0
+    assert clean["kappa_excluded_primary"] == [{"case": "leak", "kappa": .4}]
+    assert clean["scored_primary_cases"] == 1
+    assert clean["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+    assert clean["preregistered_criterion"]["checks"]["kappa_at_least_0_6"] is False
+    text = summary_markdown(summary)
+    assert "Instrument unzuverlässig" in text
+    assert "leak" in text
+
+    missing = _summary_case("leer", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
+    missing["rows"][0]["measurable"] = False
+    missing["rows"][0]["reliability"] = {"kappa": None}
+    gap = build_summary([missing])["clean"]
+    assert gap["kappa_excluded_primary"] == [{"case": "leer", "kappa": None}]
+    assert gap["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+
+
+def test_s_vs_p_interval_covering_zero_is_not_passed():
+    cases = [
+        _with_distance(_skill_case("hoch", 1, 1, .5), .2),
+        _with_distance(_skill_case("tief", 1, 1, .5), -.2),
+    ]
+    clean = build_summary(cases)["clean"]
+    assert clean["preregistered_criterion"]["checks"]["skill_interval_above_zero"] is True
+    assert clean["preregistered_criterion"]["checks"]["s_vs_p_interval_excludes_zero"] is False
+    assert clean["preregistered_criterion"]["status"] == "nicht bestanden"
+
+
+def test_rahmen_pilot_sets_values_and_rejects_deviation():
+    frame = resolve_invocation(parse_args(["fall", "--rahmen", "pilot-v5"]))
+    assert frame["runs"] == 5
+    assert frame["hours"] == 336
+    assert frame["minutes_per_round"] == 240
+    assert frame["arms"] == list(DEFAULT_ARMS)
+    assert frame["rahmen"]["cases"] == 7
+    assert frame["rahmen"]["status"].startswith("vorgeschlagen, Start erst nach Freigabe")
+    assert frame["rahmen"]["gpu_hours_low"] == 33
+    assert frame["rahmen"]["gpu_hours_high"] == 72
+    assert frame["rahmen"]["gpu_hours_mid"] == 50
+    same = resolve_invocation(parse_args([
+        "fall", "--rahmen", "pilot-v5", "--runs", "5", "--hours", "336",
+        "--minutes-per-round", "240", "--arms", "baseline,null_document,null_personas"]))
+    assert same["runs"] == 5
+    with pytest.raises(ValueError, match="Abbruch"):
+        resolve_invocation(parse_args(["fall", "--rahmen", "pilot-v5", "--runs", "10"]))
+    with pytest.raises(ValueError, match="minutes-per-round"):
+        resolve_invocation(parse_args(["fall", "--rahmen", "pilot-v5", "--minutes-per-round", "60"]))
+
+
+def test_cold_question_refuses_folder_slug(tmp_path):
+    case = _case(tmp_path)
+    outcomes = json.loads((case / "ergebnisse.json").read_text(encoding="utf-8"))
+    del outcomes[0]["kaltfrage_ort"]
+    (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
+    with pytest.raises(ValueError, match="Ordnername"):
+        validate_case(case, runs=1, hours=336, arms=DEFAULT_ARMS, base="http://test",
+                      results_dir=tmp_path / "out", client=FakeApi(),
+                      contamination_checker=lambda *_: pytest.fail("keine Kaltfrage"),
+                      sleep=lambda _: None, poll_interval=0)
+
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    labelled = _case(nested)
+    seen = []
+
+    def checker(identity, prompt):
+        seen.append((identity, prompt))
+        return {"kennt": False, "begruendung": "unbekannt"}
+
+    validate_case(labelled, runs=1, hours=24, minutes_per_round=60, arms=["baseline"],
+                  base="http://test", results_dir=tmp_path / "labelled", client=FakeApi(),
+                  contamination_checker=checker, location="Kehl", year="2017",
+                  sleep=lambda _: None, poll_interval=0)
+    assert seen[0][0] == {"kaltfrage_ort": "Kehl 2017"}
+    assert "Fall: Kehl 2017" in seen[0][1]
+    assert "fall-a" not in seen[0][1]
+    assert "Beispielstadt 2024" not in seen[0][1]
+    assert "folgenden Bogen" in seen[1][1]
+    assert "Kehl 2017" not in seen[1][1]
+    assert "fall-a" not in seen[1][1]
+
+    slug_parent = tmp_path / "slug"
+    slug_parent.mkdir()
+    slug_case = _case(slug_parent)
+    with pytest.raises(ValueError, match="Der Ordnername darf nicht"):
+        validate_case(slug_case, runs=1, hours=24, minutes_per_round=60, arms=["baseline"],
+                      base="http://test", results_dir=tmp_path / "slug-out", client=FakeApi(),
+                      contamination_checker=lambda *_: pytest.fail("keine Kaltfrage"),
+                      location="fall-a",
+                      sleep=lambda _: None, poll_interval=0)
 
 
 def test_sensitivity_uses_field_not_folder_name():

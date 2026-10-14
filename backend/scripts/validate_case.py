@@ -26,7 +26,40 @@ TERMINAL_ENSEMBLE_STATUSES = {"completed", "failed", "cancelled"}
 BOOTSTRAP_SEED, BOOTSTRAP_SAMPLES = 20261014, 10_000
 ENSEMBLE_RESUME_ATTEMPTS = 2
 CALIBRATION_MIN_CASES = 25
-CALIBRATION_PILOT_NOTE = "Unter 25 Fällen nicht als Bestehen zählen"
+CALIBRATION_PILOT_NOTE = "Pilot, keine Kalibrierungsaussage"
+KAPPA_INSTRUMENT_STATUS = "nicht bestanden (Instrument unzuverlässig)"
+DECISION_RULE_PILOT = (
+    "Im Pilot (unter 25 gewerteten Fällen) gilt die Aussage nur als bestanden, wenn gleichzeitig "
+    "das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, "
+    "das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält "
+    "und Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt. "
+    "Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, "
+    "auch wenn Abstand, Kappa oder die Steigung fehlen. "
+    "Die Kalibrierungssteigung wird nur ausgewiesen. "
+    "Unter 25 gewerteten Fällen steht der feste Hinweis „Pilot, keine Kalibrierungsaussage“. "
+    "Sie ist kein Bestehenskriterium."
+)
+DECISION_RULE_CONFIRMATORY = (
+    "Ab 25 gewerteten Fällen gilt die Aussage nur als bestanden, wenn gleichzeitig "
+    "das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, "
+    "das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält, "
+    "Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt "
+    "und die Kalibrierungssteigung von S im Intervall [0,5; 1,5] liegt. "
+    "Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, "
+    "auch wenn andere Größen fehlen."
+)
+PILOT_V5_FRAME = {
+    "id": "pilot-v5",
+    "status": "vorgeschlagen, Start erst nach Freigabe des Projektinhabers",
+    "cases": 7,
+    "arms": ["baseline", "null_document", "null_personas"],
+    "seeds": 5,
+    "minutes_per_round": 240,
+    "hours": 336,
+    "gpu_hours_low": 33,
+    "gpu_hours_high": 72,
+    "gpu_hours_mid": 50,
+}
 METRICS_NOTE = "Sammel-Brier über alle messbaren Ergebnisse, nicht zitierfähig"
 _HORIZON_WORDS = {
     "ein": 1, "eine": 1, "einen": 1, "zwei": 2, "drei": 3, "vier": 4, "fünf": 5,
@@ -205,25 +238,38 @@ def primary_outcome_id(outcomes: Sequence[Dict[str, Any]]) -> Optional[str]:
     return next((f"c{index}" for index, item in enumerate(outcomes, 1) if item.get("primaer") is True), None)
 
 
-def case_identity(case_dir: Path, *, location: Optional[str] = None,
-                  year: Optional[str] = None, topic: Optional[str] = None) -> Dict[str, str]:
-    """Merkmale aus T0-Material bestimmen, ohne den späteren Ausgang zu lesen."""
-    text = (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
-    def field(name: str) -> Optional[str]:
-        match = re.search(rf"(?im)^\s*(?:[-*]\s*)?{name}\s*:\s*(.+?)\s*$", text)
-        return match.group(1).strip() if match else None
-    heading = re.search(r"(?m)^#\s+(.+?)\s*$", text)
-    return {"location": str(location or field("Ort") or case_dir.name),
-            "year": str(year or field("Jahr") or "nicht angegeben"),
-            "topic": str(topic or field("Thema") or (heading.group(1) if heading else case_dir.name))}
+def cold_case_label(outcomes: Sequence[Dict[str, Any]], *, location: Optional[str] = None,
+                    year: Optional[str] = None) -> str:
+    """Echter Ort und Jahr für die Echtfall-Frage. Nie der Ordnername."""
+    if location is not None and str(location).strip():
+        label = str(location).strip()
+        if year is not None and str(year).strip():
+            label = f"{label} {str(year).strip()}"
+        return label
+    found = []
+    for index, outcome in enumerate(outcomes):
+        if "kaltfrage_ort" not in outcome:
+            continue
+        value = outcome.get("kaltfrage_ort")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"kaltfrage_ort in ergebnisse.json[{index}] muss ein nicht-leerer Text sein")
+        found.append(value.strip())
+    unique = set(found)
+    if len(unique) > 1:
+        raise ValueError("kaltfrage_ort ist widersprüchlich gesetzt")
+    if not unique:
+        raise ValueError(
+            "Kaltfrage braucht kaltfrage_ort in ergebnisse.json oder --ort; "
+            "der Ordnername wird nicht an das Modell gesendet")
+    return unique.pop()
 
 
-def _contamination_prompt(identity: Dict[str, str], material: Optional[str]) -> List[tuple]:
+def _contamination_prompt(case_label: str, material: Optional[str]) -> List[tuple]:
     identity_prompt = (
         "Kennst du den folgenden realen kommunalpolitischen Fall aus deinem Vorwissen? "
         "Nutze keine Werkzeuge und recherchiere nicht. Antworte nur als JSON mit kennt "
         "(boolesch) und begruendung (kurzer Text).\n"
-        f"Ort: {identity['location']}\nJahr: {identity['year']}\nThema: {identity['topic']}\n"
+        f"Fall: {case_label}\n"
         "Der Ausgang wird absichtlich nicht genannt."
     )
     prompts = [("identity", identity_prompt)]
@@ -246,17 +292,24 @@ def _read_contamination_answer(answer: Any) -> bool:
     return known
 
 
-def check_contamination(identity: Dict[str, str], llm: Any = None,
-                       *, material: Optional[str] = None) -> Dict[str, Any]:
+def check_contamination(case_label: str, llm: Any = None,
+                       *, material: Optional[str] = None,
+                       forbidden: Optional[str] = None) -> Dict[str, Any]:
     """Hauptmodell kalt zum echten Fall und, getrennt, zum Bogenwortlaut fragen."""
     if llm is None:
         from app.utils.llm_client import LLMClient
         llm = LLMClient()
+    identity = {"kaltfrage_ort": case_label}
     answers: Dict[str, Any] = {}
     known_flags: Dict[str, bool] = {}
     model = "configured-main-model"
+    prompts = _contamination_prompt(case_label, material)
+    if forbidden:
+        for _, prompt in prompts:
+            if forbidden in prompt:
+                raise ValueError("Der Ordnername darf nicht an das Modell gesendet werden")
     try:
-        for kind, prompt in _contamination_prompt(identity, material):
+        for kind, prompt in prompts:
             if callable(llm) and not hasattr(llm, "chat_json"):
                 answer = llm(identity, prompt)
                 model = str(getattr(llm, "model", "injected-checker"))
@@ -319,7 +372,7 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
             data = client.post("/api/graph/ontology/generate",
                                files={"files": (source.name, handle, "text/markdown")},
                                data={"simulation_requirement": QUESTION,
-                                     "project_name": f"Realitätsabgleich: {case_dir.name}"}, timeout=3600)
+                                     "project_name": "Realitätsabgleich"}, timeout=3600)
         state["project_id"] = data["project_id"]
         _save_state(state_path, state)
     if not state.get("graph_id"):
@@ -363,6 +416,22 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
                 sleep(poll_interval)
 
 
+def _ensemble_attempts_exhausted(ensemble: Dict[str, Any]) -> bool:
+    """True, wenn der Seed-Zähler ausgereizt ist und ein weiteres Resume nichts mehr versucht."""
+    if ensemble.get("attempts_exhausted") is True:
+        return True
+    error = str(ensemble.get("error") or "")
+    if "Versuche erschöpft" in error or "Versuchen fehlgeschlagen" in error:
+        return True
+    attempts = ensemble.get("seed_attempts") or {}
+    if not isinstance(attempts, dict) or not attempts:
+        return False
+    for value in attempts.values():
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or int(value) < 3:
+            return False
+    return True
+
+
 def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_path: Path,
                  state: Dict[str, Any], *, sleep: Callable[[float], None] = time.sleep,
                  poll_interval: float = 15.0) -> Dict[str, Any]:
@@ -384,7 +453,7 @@ def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_pa
             raise
         state["ensemble_id"] = started["ensemble_id"]
         _save_state(state_path, state)
-    resumes = 0
+    resumes = int(state.get("ensemble_resumes") or 0)
     while True:
         ensemble = client.get(f"/api/ensemble/{state['ensemble_id']}")
         status = ensemble.get("status")
@@ -392,9 +461,21 @@ def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_pa
             state["ensemble_completed"] = True
             _save_state(state_path, state)
             return ensemble
-        if status == "failed" and resumes < ENSEMBLE_RESUME_ATTEMPTS:
+        if status == "failed":
+            reason = str(ensemble.get("error") or "Ensemble fehlgeschlagen")
+            if _ensemble_attempts_exhausted(ensemble):
+                raise ApiError(f"Ensemble nach erschöpften Versuchen abgebrochen: {reason}")
+            if resumes >= ENSEMBLE_RESUME_ATTEMPTS:
+                raise ApiError(
+                    f"Resume-Versuche erschöpft ({ENSEMBLE_RESUME_ATTEMPTS}), Abbruch: {reason}")
             resumes += 1
-            client.post(f"/api/ensemble/{state['ensemble_id']}/resume", timeout=120)
+            state["ensemble_resumes"] = resumes
+            _save_state(state_path, state)
+            try:
+                client.post(f"/api/ensemble/{state['ensemble_id']}/resume", timeout=120)
+            except ApiError as error:
+                raise ApiError(f"Resume abgebrochen: {error}") from error
+            sleep(poll_interval)
             continue
         if status in TERMINAL_ENSEMBLE_STATUSES:
             raise ApiError(str(ensemble.get("error") or f"Ensemble endete mit {status}"))
@@ -480,9 +561,11 @@ def contaminated_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]],
                              contamination: Dict[str, Any], *, runs: int, hours: int,
                              arms: Sequence[str], minutes_per_round: int = 60,
                              quellenluecke: bool = False,
-                             kontaminiert: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+                             kontaminiert: Optional[Dict[str, str]] = None,
+                             rahmen: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     result = {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
               "hours": hours, "minutes_per_round": minutes_per_round, "arms": list(arms),
+              "rahmen": rahmen,
               "primary_outcome_id": primary_outcome_id(outcomes),
               "contaminated": True, "quellenluecke": quellenluecke,
               "contamination_check": contamination,
@@ -499,7 +582,8 @@ def contaminated_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]],
 def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemble: Dict[str, Any],
                       *, runs: int, hours: int, arms: Optional[Sequence[str]] = None,
                       contamination: Optional[Dict[str, Any]] = None,
-                      minutes_per_round: int = 60) -> Dict[str, Any]:
+                      minutes_per_round: int = 60,
+                      rahmen: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     results, reliability = ensemble.get("results") or {}, ensemble.get("reliability") or {}
     arms = list(arms or [arm for arm in ALLOWED_ARMS if arm in results])
     custom = {str(item.get("text_de") or "").strip(): item for item in ensemble.get("checklist") or []
@@ -537,7 +621,7 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
     primary_id = next((row["outcome_id"] for row in rows if row["primary"]), None)
     return {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
             "hours": hours, "minutes_per_round": minutes_per_round, "arms": arms,
-            "primary_outcome_id": primary_id,
+            "rahmen": rahmen, "primary_outcome_id": primary_id,
             "contaminated": bool((contamination or {}).get("known", False)),
             "quellenluecke": any(item.get("quellenluecke") is True for item in outcomes),
             "contamination_check": contamination, "simulation_id": ensemble.get("simulation_id"),
@@ -614,14 +698,33 @@ def _bootstrap_skill_ci(cases: Sequence[Dict[str, float]], numerator: str, denom
     return {"low": round(_percentile(values, .025), 6), "high": round(_percentile(values, .975), 6)}
 
 
+def _kappa_number(row: Dict[str, Any]) -> Optional[float]:
+    kappa = (row.get("reliability") or {}).get("kappa")
+    if isinstance(kappa, bool) or not isinstance(kappa, (int, float)):
+        return None
+    return float(kappa)
+
+
+def _primary_kappa_ok(row: Dict[str, Any]) -> bool:
+    value = _kappa_number(row)
+    return value is not None and value >= .6
+
+
+def _primary_row(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    return next((item for item in result.get("rows", []) if item.get("primary")), None)
+
+
 def _summary_group(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     observations = []
+    kappa_excluded = []
     for result in results:
-        row = next((item for item in result.get("rows", []) if item.get("primary") and item.get("measurable")), None)
-        if row:
-            observations.append({"case": result.get("case"), "actual": int(row["actual"]),
-                                 "kappa": float(row["reliability"]["kappa"]),
-                                 "p": {arm: float(row["arms"][arm]["rate"]) for arm in result["arms"]}})
+        primary = _primary_row(result)
+        if primary is not None and not _primary_kappa_ok(primary):
+            kappa_excluded.append({"case": result.get("case"), "kappa": _kappa_number(primary)})
+        if primary is not None and primary.get("measurable") and _primary_kappa_ok(primary):
+            observations.append({"case": result.get("case"), "actual": int(primary["actual"]),
+                                 "kappa": float(primary["reliability"]["kappa"]),
+                                 "p": {arm: float(primary["arms"][arm]["rate"]) for arm in result["arms"]}})
     arms = [arm for arm in ALLOWED_ARMS if observations and all(arm in item["p"] for item in observations)]
     losses = [{arm: (item["p"][arm] - item["actual"]) ** 2 for arm in arms} for item in observations]
     brier = {arm: _rounded(sum(item[arm] for item in losses) / len(losses)) if losses else None for arm in arms}
@@ -645,14 +748,38 @@ def _summary_group(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     skill_above = None if interval is None else interval["low"] > 0
     skill_below = None if interval is None else interval["high"] < 0
     kappas = [item["kappa"] for item in observations]
+    distances = []
+    paired_cases = []
+    missing_distance = False
+    scored_names = {item["case"] for item in observations}
+    for result in results:
+        if result.get("case") not in scored_names:
+            continue
+        distance = (result.get("primary_s_vs_p") or {}).get("distance")
+        if not isinstance(distance, (int, float)) or isinstance(distance, bool):
+            missing_distance = True
+            continue
+        distances.append(float(distance))
+        paired_cases.append({"case": result.get("case"),
+                             "table": result["primary_s_vs_p"].get("table"),
+                             "distance": round(float(distance), 6)})
+    distance_ci = None if missing_distance else bootstrap_mean_ci(distances)
+    if distance_ci is None:
+        s_vs_p_excludes_zero = None
+    else:
+        s_vs_p_excludes_zero = distance_ci["low"] > 0 or distance_ci["high"] < 0
+    kappa_share = round(len(kappa_excluded) / len(results), 6) if results else None
     checks = {"skill_interval_above_zero": skill_above,
               "skill_interval_below_zero": skill_below,
-              "kappa_at_least_0_6": None if not kappas else min(kappas) >= .6}
+              "s_vs_p_interval_excludes_zero": s_vs_p_excludes_zero,
+              "kappa_at_least_0_6": False if kappa_excluded else (None if not kappas else min(kappas) >= .6)}
     if not pilot:
         slope = (calibration.get("baseline") or {}).get("slope")
         checks["calibration_slope_0_5_to_1_5"] = None if slope is None else .5 <= slope <= 1.5
     decisive = {key: value for key, value in checks.items() if key != "skill_interval_below_zero"}
-    if skill_below is True:
+    if kappa_excluded:
+        status = KAPPA_INSTRUMENT_STATUS
+    elif skill_below is True:
         status = "nicht bestanden"
     elif any(value is False for value in decisive.values()):
         status = "nicht bestanden"
@@ -660,22 +787,25 @@ def _summary_group(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         status = "nicht prüfbar"
     else:
         status = "bestanden"
-    distances = []
-    paired_cases = []
-    for result in results:
-        row = next((item for item in result.get("rows", []) if item.get("primary") and item.get("measurable")), None)
-        distance = (result.get("primary_s_vs_p") or {}).get("distance")
-        if row and isinstance(distance, (int, float)) and not isinstance(distance, bool):
-            distances.append(float(distance))
-            paired_cases.append({"case": result.get("case"),
-                                 "table": result["primary_s_vs_p"].get("table"),
-                                 "distance": round(float(distance), 6)})
     return {"case_count": len(results), "scored_primary_cases": len(observations), "arms": arms,
-            "brier": brier, "brier_ci_95": brier_ci, "skill": skill, "calibration": calibration,
+            "pilot": pilot, "brier": brier, "brier_ci_95": brier_ci, "skill": skill,
+            "calibration": calibration,
             "s_vs_p": {"mean_distance": _rounded(sum(distances) / len(distances)) if distances else None,
-                       "ci_95": bootstrap_mean_ci(distances), "cases": paired_cases},
+                       "ci_95": distance_ci, "cases": paired_cases},
             "minimum_kappa": _rounded(min(kappas)) if kappas else None,
+            "kappa_excluded_primary": kappa_excluded,
+            "kappa_excluded_primary_count": len(kappa_excluded),
+            "kappa_excluded_primary_share": kappa_share,
             "preregistered_criterion": {"status": status, "checks": checks}}
+
+
+def _rahmen_protocol(results: Sequence[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    frames = [item.get("rahmen") for item in results]
+    if not any(frames):
+        return None
+    if any(frame is None or frame != frames[0] for frame in frames):
+        return {"conflict": True}
+    return frames[0]
 
 
 def _minutes_protocol(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
@@ -702,6 +832,7 @@ def build_summary(case_results: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     return {"schema_version": 2, "generated_at": datetime.now(timezone.utc).isoformat(),
             "bootstrap_unit": "case", "bootstrap_seed": BOOTSTRAP_SEED,
             "bootstrap_samples": BOOTSTRAP_SAMPLES, "minutes_per_round": _minutes_protocol(results),
+            "rahmen": _rahmen_protocol(results),
             "clean": _summary_group(clean),
             "sensitivity_no_source_gap": sensitivity_group,
             "source_gap_cases": [item.get("case") for item in clean if item.get("quellenluecke") is True],
@@ -785,11 +916,31 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
             f"{row['case']} ({row.get('datum') or '–'}: {row.get('quelle') or '–'})" for row in declared)
         contaminated_line += f" Vorab festgelegt: {detail}."
     lines += ["## Vorab-Kriterium", "",
-              f"**{criterion['status']}**. Der Pilotstatus hängt am Skill-Intervall S gegen D "
-              "(vollständig über 0) und an Kappa ≥ 0,6. Liegt das Skill-Intervall ganz unter 0, "
-              "ist der Status nicht bestanden, auch ohne Kalibrierungssteigung. "
-              f"Die Steigung zählt unter {CALIBRATION_MIN_CASES} Fällen nicht als Bestehen.", "",
-              contaminated_line]
+              f"**{criterion['status']}**. "
+              + (DECISION_RULE_CONFIRMATORY if group.get("pilot") is False else DECISION_RULE_PILOT),
+              ""]
+    excluded = group.get("kappa_excluded_primary") or []
+    if excluded:
+        rendered = ", ".join(
+            f"{item.get('case')} (Kappa {_display(item.get('kappa'))})" for item in excluded)
+        lines.append(
+            f"Wegen Kappa aus der Wertung des Primärergebnisses: "
+            f"{group.get('kappa_excluded_primary_count')} von {group['case_count']} "
+            f"(Anteil {group.get('kappa_excluded_primary_share')}). {rendered}.")
+        lines.append("")
+    rahmen = summary.get("rahmen")
+    if isinstance(rahmen, dict) and rahmen.get("conflict"):
+        lines += ["Rahmen widersprüchlich, kein einheitlicher Pilotrahmen.", ""]
+    elif isinstance(rahmen, dict):
+        lines += [
+            f"Rahmen {rahmen.get('id')} ({rahmen.get('status')}): "
+            f"{rahmen.get('cases')} Fälle, Arme {', '.join(rahmen.get('arms') or [])}, "
+            f"{rahmen.get('seeds')} Seeds, minutes_per_round {rahmen.get('minutes_per_round')}, "
+            f"hours {rahmen.get('hours')}, GPU-Schätzung "
+            f"{rahmen.get('gpu_hours_low')}–{rahmen.get('gpu_hours_high')} h "
+            f"(Mitte {rahmen.get('gpu_hours_mid')}).",
+            ""]
+    lines.append(contaminated_line)
     sens = summary["sensitivity_no_source_gap"]
     excluded = ", ".join(summary.get("source_gap_cases") or []) or "keine"
     lines += ["", "## Vorab fixierte Sensitivitätsanalyse", "",
@@ -830,7 +981,7 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
                   results_dir: Path = DEFAULT_RESULTS_DIR, client: Optional[ApiClient] = None,
                   contamination_checker: Any = None, location: Optional[str] = None,
                   year: Optional[str] = None, topic: Optional[str] = None,
-                  minutes_per_round: int = 60,
+                  minutes_per_round: int = 60, rahmen: Optional[Dict[str, Any]] = None,
                   sleep: Callable[[float], None] = time.sleep, poll_interval: float = 5.0) -> Dict[str, Any]:
     case_dir = case_dir.resolve()
     validate_case_files(case_dir)
@@ -850,7 +1001,7 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
             {"known": True, "predeclared": True, "quelle": flag["quelle"], "datum": flag["datum"],
              "checked_at": datetime.now(timezone.utc).isoformat(), "model": None, "answer": None},
             runs=runs, hours=hours, arms=arms, minutes_per_round=minutes_per_round,
-            quellenluecke=annotations["quellenluecke"], kontaminiert=flag)
+            quellenluecke=annotations["quellenluecke"], kontaminiert=flag, rahmen=rahmen)
         _write_contaminated(
             results_dir, case_dir.name, result,
             f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
@@ -863,13 +1014,14 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
     if not state.get("contamination_check"):
         material = (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
         state["contamination_check"] = check_contamination(
-            case_identity(case_dir, location=location, year=year, topic=topic),
-            contamination_checker, material=material)
+            cold_case_label(outcomes, location=location, year=year),
+            contamination_checker, material=material, forbidden=case_dir.name)
         _save_state(state_path, state)
     if state["contamination_check"].get("known") is True:
         result = contaminated_case_result(
             case_dir.name, outcomes, state["contamination_check"], runs=runs, hours=hours, arms=arms,
-            minutes_per_round=minutes_per_round, quellenluecke=annotations["quellenluecke"])
+            minutes_per_round=minutes_per_round, quellenluecke=annotations["quellenluecke"],
+            rahmen=rahmen)
         _write_contaminated(
             results_dir, case_dir.name, result,
             f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
@@ -882,21 +1034,68 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
     ensemble = run_ensemble(api, outcomes, state_path, state, sleep=sleep, poll_interval=poll_interval)
     result = build_case_result(case_dir.name, outcomes, ensemble, runs=runs, hours=hours,
                                arms=arms, contamination=state["contamination_check"],
-                               minutes_per_round=state["minutes_per_round"])
+                               minutes_per_round=state["minutes_per_round"], rahmen=rahmen)
     _write_json_atomic(results_dir / f"{case_dir.name}.json", result)
     _write_text_atomic(results_dir / f"{case_dir.name}.md", case_markdown(result))
     update_summary(results_dir)
     return result
 
 
+def load_rahmen(name: str) -> Dict[str, Any]:
+    if name != "pilot-v5":
+        raise ValueError(f"Unbekannter Rahmen: {name}")
+    path = REPOSITORY_ROOT / "docs" / "validation" / "rahmen-pilot-v5.json"
+    payload = _load_json(path)
+    if not isinstance(payload, dict):
+        raise ValueError("rahmen-pilot-v5.json muss ein Objekt sein")
+    for key, value in PILOT_V5_FRAME.items():
+        if payload.get(key) != value:
+            raise ValueError(
+                f"rahmen-pilot-v5.json weicht bei {key} ab: {payload.get(key)!r} statt {value!r}")
+    frame = {key: payload[key] for key in PILOT_V5_FRAME}
+    frame["arms"] = list(frame["arms"])
+    return frame
+
+
+def resolve_invocation(arguments: argparse.Namespace) -> Dict[str, Any]:
+    """CLI-Werte. --rahmen pilot-v5 setzt den Pilotrahmen; ein abweichender Einzelwert bricht ab."""
+    if arguments.rahmen:
+        frame = load_rahmen(arguments.rahmen)
+        deviations = []
+        if arguments.runs is not None and arguments.runs != frame["seeds"]:
+            deviations.append(f"--runs {arguments.runs} weicht vom Rahmenwert {frame['seeds']} ab")
+        if arguments.hours is not None and arguments.hours != frame["hours"]:
+            deviations.append(f"--hours {arguments.hours} weicht vom Rahmenwert {frame['hours']} ab")
+        if (arguments.minutes_per_round is not None
+                and arguments.minutes_per_round != frame["minutes_per_round"]):
+            deviations.append(
+                f"--minutes-per-round {arguments.minutes_per_round} weicht vom Rahmenwert "
+                f"{frame['minutes_per_round']} ab")
+        if arguments.arms is not None and parse_arms(arguments.arms) != frame["arms"]:
+            deviations.append(f"--arms {arguments.arms} weicht vom Rahmen ab")
+        if deviations:
+            raise ValueError("Rahmen pilot-v5: " + "; ".join(deviations) + ". Abbruch.")
+        return {"runs": frame["seeds"], "hours": frame["hours"],
+                "minutes_per_round": frame["minutes_per_round"], "arms": list(frame["arms"]),
+                "rahmen": frame}
+    return {"runs": 10 if arguments.runs is None else arguments.runs,
+            "hours": 336 if arguments.hours is None else arguments.hours,
+            "minutes_per_round": 60 if arguments.minutes_per_round is None else arguments.minutes_per_round,
+            "arms": parse_arms(arguments.arms) if arguments.arms is not None else list(DEFAULT_ARMS),
+            "rahmen": None}
+
+
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("case_dir", type=Path, help="Ordner mit ausgangslage.md, verlauf.md und ergebnisse.json")
-    parser.add_argument("--runs", type=int, default=10)
-    parser.add_argument("--hours", type=int, default=336)
-    parser.add_argument("--minutes-per-round", type=int, default=60, choices=ALLOWED_MINUTES_PER_ROUND,
+    parser.add_argument("--rahmen", choices=("pilot-v5",), default=None,
+                        help="Pilotrahmen; setzt Seeds, Stunden, Takt und Arme")
+    parser.add_argument("--runs", type=int, default=None)
+    parser.add_argument("--hours", type=int, default=None)
+    parser.add_argument("--minutes-per-round", type=int, default=None,
+                        choices=ALLOWED_MINUTES_PER_ROUND,
                         help="Rundentakt in Minuten, an den Ensemble-Start durchgereicht")
-    parser.add_argument("--arms", default=",".join(DEFAULT_ARMS), help="Kommagetrennte V5-Arme")
+    parser.add_argument("--arms", default=None, help="Kommagetrennte V5-Arme")
     parser.add_argument("--base", default="http://127.0.0.1:5002")
     parser.add_argument("--results-dir", type=Path, default=None,
                         help="Zielordner für Fallberichte und GESAMT (Standard: docs/validation/ergebnisse)")
@@ -912,9 +1111,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if arguments.results_dir is not None:
         options["results_dir"] = arguments.results_dir
     try:
-        result = validate_case(arguments.case_dir, runs=arguments.runs, hours=arguments.hours,
-                               minutes_per_round=arguments.minutes_per_round,
-                               arms=parse_arms(arguments.arms), base=arguments.base,
+        chosen = resolve_invocation(arguments)
+        result = validate_case(arguments.case_dir, runs=chosen["runs"], hours=chosen["hours"],
+                               minutes_per_round=chosen["minutes_per_round"],
+                               arms=chosen["arms"], base=arguments.base, rahmen=chosen["rahmen"],
                                location=arguments.location, year=arguments.year, topic=arguments.topic,
                                **options)
     except (ApiError, OSError, ValueError) as error:

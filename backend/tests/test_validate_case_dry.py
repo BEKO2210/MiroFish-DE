@@ -9,7 +9,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 from werkzeug.serving import make_server
 
-from scripts.validate_case import BOOTSTRAP_SAMPLES, DEFAULT_ARMS, QUESTION
+from scripts.validate_case import BOOTSTRAP_SAMPLES, DEFAULT_ARMS, PILOT_V5_FRAME, QUESTION
 
 CASES = Path(__file__).resolve().parents[2] / "docs" / "validation" / "faelle"
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "validate_case.py"
@@ -24,6 +24,7 @@ class DryRun:
         self.starts = []
         self.uploads = []
         self.chats = 0
+        self.chat_prompts = []
         self.ensembles = {}
         self._projects = {}
         self._tasks = {}
@@ -119,7 +120,13 @@ def _build_app(state: DryRun) -> Flask:
 
     @app.post("/v1/chat/completions")
     def chat():
-        state.chats += 1
+        body = request.get_json(silent=True) or {}
+        text = "\n".join(
+            str(item.get("content") or "")
+            for item in body.get("messages") or [] if isinstance(item, dict))
+        with state._lock:
+            state.chats += 1
+            state.chat_prompts.append(text)
         content = json.dumps({"known": False, "begruendung": "im Trockenlauf unbekannt"},
                              ensure_ascii=False)
         return jsonify({"id": "chatcmpl-dry", "object": "chat.completion", "created": 1710000000,
@@ -130,14 +137,20 @@ def _build_app(state: DryRun) -> Flask:
     @app.post("/api/graph/ontology/generate")
     def ontology():
         uploaded = request.files.get("files")
+        raw = uploaded.read() if uploaded else b""
+        case = "unbekannt"
+        for folder in CASES.iterdir():
+            sheet = folder / "ausgangslage.md"
+            if sheet.is_file() and sheet.read_bytes() == raw:
+                case = folder.name
+                break
         project_name = request.form.get("project_name") or ""
-        case = project_name.split(": ", 1)[-1]
         with state._lock:
             project_id = state._seq("proj_")
             state._projects[project_id] = case
             state.uploads.append({"case": case, "filename": uploaded.filename if uploaded else None,
                                   "requirement": request.form.get("simulation_requirement")})
-        text_length = len(uploaded.read()) if uploaded else 0
+        text_length = len(raw)
         return _envelope({"project_id": project_id, "project_name": project_name,
                           "ontology": {"entity_types": [], "edge_types": []},
                           "analysis_summary": "Trockenlauf",
@@ -240,7 +253,7 @@ def _run_case(case: Path, results: Path, base: str) -> subprocess.CompletedProce
                 "LLM_BASE_URL": f"{base}/v1", "LLM_MODEL_NAME": "dry-run",
                 "OPENAI_API_KEY": "dry-run", "OPENAI_BASE_URL": f"{base}/v1"})
     return subprocess.run(
-        [sys.executable, str(SCRIPT), str(case), "--hours", "336", "--minutes-per-round", "240",
+        [sys.executable, str(SCRIPT), str(case), "--rahmen", "pilot-v5",
          "--base", base, "--results-dir", str(results)],
         cwd=SCRIPT.parent.parent, env=env, capture_output=True, text=True, timeout=120,
         check=False)
@@ -279,6 +292,7 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
     assert started == {path.name for path in folders if path.name != FREIBURG}
     for item in state.starts:
         body = item["body"]
+        assert body["runs"] == PILOT_V5_FRAME["seeds"]
         assert body["hours"] == 336
         assert body["minutes_per_round"] == 240
         assert body["variants"] == ARMS
@@ -288,6 +302,9 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         assert "quellenluecke" not in blinded
         assert "kontaminiert" not in blinded
         assert "kodierhinweis" not in blinded
+        assert "kaltfrage_ort" not in blinded
+        for outcome in body["custom_outcomes"]:
+            assert set(outcome) <= {"text_de", "polarity"}
     assert {item["filename"] for item in state.uploads} == {"ausgangslage.md"}
     assert {item["requirement"] for item in state.uploads} == {QUESTION}
     assert FREIBURG not in {item["case"] for item in state.uploads}
@@ -326,18 +343,46 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
     assert isinstance(summary["clean"]["s_vs_p"]["mean_distance"], float)
     assert summary["clean"]["s_vs_p"]["ci_95"]["low"] <= summary["clean"]["s_vs_p"]["ci_95"]["high"]
     assert summary["minutes_per_round"]["values"] == [240]
+    assert summary["rahmen"] == PILOT_V5_FRAME
+    assert "Rahmen pilot-v5 (vorgeschlagen, Start erst nach Freigabe des Projektinhabers)" in markdown
+    assert "Pilot, keine Kalibrierungsaussage" in markdown
+    labels = {}
+    for folder in folders:
+        outcomes = json.loads((folder / "ergebnisse.json").read_text(encoding="utf-8"))
+        found = {item["kaltfrage_ort"] for item in outcomes if "kaltfrage_ort" in item}
+        assert len(found) == 1
+        labels[folder.name] = found.pop()
+    identity = [prompt for prompt in state.chat_prompts if "\nFall: " in prompt]
+    sheets = [prompt for prompt in state.chat_prompts if "folgenden Bogen" in prompt]
+    assert len(identity) == 7 and len(sheets) == 7
+    for name, label in labels.items():
+        hits = [prompt for prompt in identity if f"Fall: {label}\n" in prompt]
+        if name == FREIBURG:
+            assert hits == []
+            assert all(label not in prompt for prompt in state.chat_prompts)
+        else:
+            assert len(hits) == 1
+        assert all(label not in prompt for prompt in sheets)
+    blob_text = blob.decode("utf-8", errors="replace")
+    for folder in folders:
+        assert folder.name not in blob_text
+        assert all(folder.name not in prompt for prompt in state.chat_prompts)
     assert "Primäranalyse: 7 nicht kontaminierte Fälle" in markdown
     assert "4 nicht kontaminierte Fälle ohne Quellenlücke" in markdown
     assert f"{BOOTSTRAP_SAMPLES} Ziehungen" in markdown
     assert "baseline_vs_null_document" in markdown
 
     skipped = json.loads((results / f"{FREIBURG}.json").read_text(encoding="utf-8"))
+    assert skipped["runs"] == PILOT_V5_FRAME["seeds"]
+    assert skipped["rahmen"]["id"] == "pilot-v5"
     assert skipped["contaminated"] is True and skipped["aborted_before_prepare"] is True
     assert skipped["ensemble_id"] is None
     assert not (results / f"{FREIBURG}.state.json").exists()
     for name in started:
         saved = json.loads((results / f"{name}.json").read_text(encoding="utf-8"))
+        assert saved["runs"] == PILOT_V5_FRAME["seeds"]
         assert saved["hours"] == 336 and saved["minutes_per_round"] == 240
+        assert saved["rahmen"]["id"] == "pilot-v5"
         assert saved["contaminated"] is False
         assert saved["contamination_check"]["known"] is False
         assert saved["contamination_check"]["answer"]["known"] is False

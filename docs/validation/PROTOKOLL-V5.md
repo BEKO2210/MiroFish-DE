@@ -41,7 +41,7 @@ Genau dieser Satz ist in jeder `ergebnisse.json` die einzige Frage mit `"primaer
 
 Anonymisierung: In `ausgangslage.md` sind Eigennamen, Ortsnamen und einmalige Zahlen entfernt oder gerundet (Größenordnungen statt exakter Werte, „Nachbarland“ statt Ortsnamen), damit das Modell den Fall nicht über Fingerabdrücke erinnert. Die Originalwerte stehen in `quellen.md`. Anonymisierung ersetzt die Kontaminationsprüfung nicht.
 
-Vor jedem Lauf wird das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge kalt gefragt, ob es den Fall anhand von Ort, Jahr und Thema kennt; der Ausgang wird nicht genannt. Anfrage, Modell, Zeitpunkt und vollständige Antwort werden protokolliert. Bejaht das Modell die Kenntnis, erhält der Fall `contaminated: true`. Kontaminierte Fälle werden nicht mit der Hauptstichprobe vermischt, sondern in `GESAMT.json` und `GESAMT.md` getrennt ausgewiesen.
+Vor jedem Lauf wird das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge zweimal kalt gefragt. Die Echtfall-Frage nennt nur `kaltfrage_ort` aus `ergebnisse.json` (echter Ort und Jahr, zum Beispiel „Kehl 2017“) oder den Wert von `--ort`; der Ordnername geht nicht an das Modell. Die Bogen-Frage enthält nur den Text von `ausgangslage.md`. Der Ausgang wird nicht genannt. Anfrage, Modell, Zeitpunkt und vollständige Antwort werden protokolliert. Bejaht das Modell eine der beiden Fragen, erhält der Fall `contaminated: true`. Kontaminierte Fälle werden nicht mit der Hauptstichprobe vermischt, sondern in `GESAMT.json` und `GESAMT.md` getrennt ausgewiesen.
 
 Externe Kaltprüfung vor dem Start (14.10.2026, Gemini 3.8 Flash, ohne Websuche, nur Bogentext): Freiburg wurde auch nach
 zweiter Anonymisierung erkannt (95 %, Ausgang bekannt), weil Konfliktstruktur und Gebührenmodell selbst der
@@ -104,7 +104,20 @@ Der Standardaufruf des Werkzeugs umfasst S, D und P; explorative Arme werden üb
 
 ## Rahmen
 
-Rundentakt und Seedzahl: siehe Abschnitt Rahmen, wird vor Start festgelegt. Der GPU-Rahmen (Hardware, Modell, Laufzeit je Lauf, Gesamtaufwand) ist offen und wird datiert nachgetragen, bevor der erste Lauf startet. Es wird kein echter Lauf automatisch gestartet.
+Vorgeschlagen, Start erst nach Freigabe des Projektinhabers. Bis zu dieser Freigabe wird kein echter Lauf gestartet. Freiburg wird nicht gestartet.
+
+| Größe | Wert |
+|---|---|
+| Fälle | 7 (Primäranalyse, ohne das vorab kontaminierte Freiburg) |
+| Arme | `baseline`, `null_document`, `null_personas` |
+| Seeds | 5 |
+| `minutes_per_round` | 240 |
+| `hours` | 336 |
+| GPU-Schätzung | 33–72 h, Mitte rund 50 |
+
+Der Aufruf erzwingt diese Werte über `--rahmen pilot-v5`. Die Datei `docs/validation/rahmen-pilot-v5.json` enthält genau dieselben Zahlen. Weicht ein Einzelwert per CLI ab, bricht das Werkzeug mit einer Meldung ab. `GESAMT` protokolliert den Rahmen.
+
+Herleitung der GPU-Schätzung auf einer RTX 3070: 336 Stunden bei 240 Minuten sind 84 Runden. Arm S: 7 Fälle × 5 Seeds × 35–70 Minuten = 20–41 Stunden. D und P: 70 Seeds × 5–10 Minuten = 6–12 Stunden. Vorbereitung 4–11 Stunden, Klassifikation 3–8 Stunden. Summe 33–72 GPU-Stunden, Mitte rund 50. Ohne Wiederholungen seriell etwa zwei bis drei Tage. Der Default-Takt von 60 Minuten ohne `--rahmen` gilt nicht für diesen Piloten.
 
 ## Auswertung
 
@@ -118,13 +131,19 @@ Zusätzlich wird die Kalibrierungssteigung aus einer logistischen Regression des
 
 ## Entscheidungsregel
 
-Die vorab registrierte Aussage gilt nur als bestanden, wenn gleichzeitig:
+Im Pilot (unter 25 gewerteten Fällen) gilt die Aussage nur als bestanden, wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält und Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt. Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, auch wenn Abstand, Kappa oder die Steigung fehlen. Die Kalibrierungssteigung wird nur ausgewiesen. Unter 25 gewerteten Fällen steht der feste Hinweis „Pilot, keine Kalibrierungsaussage“. Sie ist kein Bestehenskriterium.
+
+Dieselben drei Bedingungen, einzeln:
 
 - das 95-%-Fall-Bootstrap-Intervall von `Skill(S,D)` vollständig über 0 liegt;
-- die Kalibrierungssteigung von S im Intervall [0,5; 1,5] liegt;
-- Kappa für das Primärergebnis mindestens 0,6 beträgt (die KI-Zweitkodierung liefert 1,0, ersetzt aber keine menschliche Zweitkodierung).
+- das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P (Anteil S minus Anteil P) die 0 nicht enthält;
+- Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt (die KI-Zweitkodierung liefert 1,0, ersetzt aber keine menschliche Zweitkodierung).
 
-Wegen des Pilotcharakters kann auch ein „bestanden“ keine Kalibrierung belegen. Fehlt eine erforderliche Größe, lautet das Urteil „nicht prüfbar“; ist mindestens eine prüfbare Bedingung verletzt, „nicht bestanden“. S gegen P, S gegen `isolated` und S gegen `blind_feed` sind sekundäre, explorative Kontraste.
+„bestanden“ wird nicht nachträglich aufgeweicht. Fehlt eine der drei Größen, lautet das Urteil „nicht prüfbar“. Ist mindestens eine prüfbare Bedingung verletzt, „nicht bestanden“. Wird mindestens ein Primärergebnis wegen Kappa unter 0,6 oder ohne numerisches Kappa aus der Wertung genommen, zählt `GESAMT` diese Fälle mit Anteil. Ist der Anteil größer als 0, lautet das Pilot-Urteil „nicht bestanden (Instrument unzuverlässig)“.
+
+Ab 25 gewerteten Fällen gilt die Aussage nur als bestanden, wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält, Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt und die Kalibrierungssteigung von S im Intervall [0,5; 1,5] liegt. Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, auch wenn andere Größen fehlen. Die drei Bedingungen des Piloten bleiben; die Steigung kommt hinzu.
+
+S gegen `isolated` und S gegen `blind_feed` bleiben sekundäre, explorative Kontraste und gehen nicht in die Entscheidungsregel ein. Wegen des Pilotcharakters kann auch ein „bestanden“ keine Kalibrierung belegen.
 
 ## Falsifikationskriterien
 
@@ -132,4 +151,4 @@ Bereits der Pilot widerspricht der Nutzenbehauptung, wenn der Skill klar negativ
 
 ## Rechenaufwand
 
-Offen; siehe Abschnitt Rahmen. Hinzu kommen Ontologie- und Profilvorbereitung, die blinde Kodierung der Simulationsausgaben, Adjudikation und Wiederholungen technisch fehlgeschlagener Läufe. Für mindestens 25 konfirmatorische Fälle ist der Aufwand entsprechend hochzurechnen.
+Der vorgeschlagene Pilotrahmen steht im Abschnitt Rahmen: 33–72 GPU-Stunden, Mitte rund 50. Start erst nach Freigabe des Projektinhabers. Hinzu kommen Ontologie- und Profilvorbereitung, die blinde Kodierung der Simulationsausgaben, Adjudikation und Wiederholungen technisch fehlgeschlagener Läufe. Für mindestens 25 konfirmatorische Fälle ist der Aufwand entsprechend hochzurechnen.
