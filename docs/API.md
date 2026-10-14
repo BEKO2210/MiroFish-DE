@@ -5,6 +5,11 @@ oder `error`. Ist in der `.env` ein `API_TOKEN` gesetzt, braucht jeder Aufruf de
 (Skripte, Agenten); sonst antwortet die API mit HTTP 401 (`API-Schlüssel fehlt oder ist falsch`). Im Browser einmal `https://<host>/?token=<token>` öffnen: das Token wird als geschütztes Cookie
 gespeichert und aus der Adresse entfernt. Ohne `API_TOKEN` ist die API offen – dann nur in einem geschützten Netz betreiben.
 
+Die Endpunkte fuer Systemeinstellungen und Modelltests akzeptieren absichtlich benutzerdefinierte LLM-Basis-URLs und
+stellen Verbindungen dorthin her. Das ist fuer lokale Ollama-/LM-Studio-Server erforderlich, stellt bei fremden URLs
+aber eine SSRF-Faehigkeit dar. Sie sind ohne `API_TOKEN` nur ueber Loopback erreichbar; beim Teilen ueber Tailscale
+oder einen anderen Proxy ist daher ein `API_TOKEN` Pflicht. API-Schluessel werden im Status nur maskiert ausgegeben.
+
 ## Der eine Aufruf, der alles macht
 
 ```bash

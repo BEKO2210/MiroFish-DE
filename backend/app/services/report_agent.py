@@ -19,6 +19,7 @@ from datetime import datetime
 from enum import Enum
 
 from ..config import Config
+from ..utils.security import safe_child, validate_identifier
 from ..utils.llm_client import LLMClient
 from ..utils.logger import get_logger
 from .zep_tools import (
@@ -1987,7 +1988,8 @@ class ReportManager:
     @classmethod
     def _get_report_folder(cls, report_id: str) -> str:
         """Get report folder path"""
-        return os.path.join(cls.REPORTS_DIR, report_id)
+        validate_identifier("report_id", report_id)
+        return str(safe_child(cls.REPORTS_DIR, report_id))
     
     @classmethod
     def _ensure_report_folder(cls, report_id: str) -> str:
@@ -2508,11 +2510,19 @@ class ReportManager:
         for item in os.listdir(cls.REPORTS_DIR):
             item_path = os.path.join(cls.REPORTS_DIR, item)
             if os.path.isdir(item_path):
+                try:
+                    validate_identifier("report_id", item)
+                except ValueError:
+                    continue
                 report = cls.get_report(item)
                 if report and report.simulation_id == simulation_id:
                     return report
             elif item.endswith('.json'):
                 report_id = item[:-5]
+                try:
+                    validate_identifier("report_id", report_id)
+                except ValueError:
+                    continue
                 report = cls.get_report(report_id)
                 if report and report.simulation_id == simulation_id:
                     return report
@@ -2528,12 +2538,20 @@ class ReportManager:
         for item in os.listdir(cls.REPORTS_DIR):
             item_path = os.path.join(cls.REPORTS_DIR, item)
             if os.path.isdir(item_path):
+                try:
+                    validate_identifier("report_id", item)
+                except ValueError:
+                    continue
                 report = cls.get_report(item)
                 if report:
                     if simulation_id is None or report.simulation_id == simulation_id:
                         reports.append(report)
             elif item.endswith('.json'):
                 report_id = item[:-5]
+                try:
+                    validate_identifier("report_id", report_id)
+                except ValueError:
+                    continue
                 report = cls.get_report(report_id)
                 if report:
                     if simulation_id is None or report.simulation_id == simulation_id:

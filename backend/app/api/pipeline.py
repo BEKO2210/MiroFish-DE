@@ -19,6 +19,7 @@ from flask import Blueprint, jsonify, request
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.security import InvalidIdentifier, safe_upload_name
 
 pipeline_bp = Blueprint('pipeline', __name__)
 logger = get_logger('mirofish.pipeline')
@@ -41,6 +42,8 @@ def mark_stale_runs():
         if not name.endswith('.json'):
             continue
         pid = name[:-5]
+        if not re.fullmatch(r"run_[0-9a-f]{12}", pid):
+            continue
         st = _load(pid)
         if not st or st.get("status") != "running":
             continue
@@ -79,6 +82,8 @@ def _dir():
 
 
 def _path(pid):
+    from ..utils.security import validate_identifier
+    validate_identifier("run_id", pid)
     return os.path.join(_dir(), f"{pid}.json")
 
 
@@ -125,6 +130,9 @@ def _run(pid, files, requirement, project_name):
     state = _load(pid) or {}
     base = _base()
     s = requests.Session()
+    api_token = os.environ.get("API_TOKEN", "").strip()
+    if api_token:
+        s.headers["Authorization"] = f"Bearer {api_token}"
     try:
         # 1 Ontologie (Upload + Frage)
         _set(state, "ontology", "running")
@@ -240,16 +248,24 @@ def start_pipeline():
     if not requirement:
         return jsonify({"success": False, "error": "Bitte eine Frage oder Simulationsanforderung angeben"}), 400
     uploads = request.files.getlist('files')
-    if not uploads:
+    if not uploads or all(not upload.filename for upload in uploads):
         return jsonify({"success": False, "error": "Bitte mindestens eine Datei (PDF, MD, TXT) hochladen"}), 400
+    prepared = []
+    for upload in uploads:
+        try:
+            name, extension = safe_upload_name(upload.filename, Config.ALLOWED_EXTENSIONS)
+        except InvalidIdentifier:
+            return jsonify({"success": False, "error": "Nicht erlaubter Dateityp"}), 400
+        prepared.append((upload, name, extension))
     pid = f"run_{uuid.uuid4().hex[:12]}"
     folder = os.path.join(_dir(), pid)
     os.makedirs(folder, exist_ok=True)
     files = []
-    for f in uploads:
-        name = os.path.basename(f.filename or "dokument.txt")
-        path = os.path.join(folder, name)
-        f.save(path)
+    for upload, name, extension in prepared:
+        # Nie einen vom Client kontrollierten Namen als Pfad verwenden.
+        stored_name = f"{uuid.uuid4().hex}.{extension}"
+        path = os.path.join(folder, stored_name)
+        upload.save(path)
         files.append((name, path))
     state = {
         "pipeline_id": pid, "status": "running", "created_at": datetime.now().isoformat(),
@@ -304,7 +320,7 @@ def delete_pipeline(pid):
 def pipeline_list():
     items = []
     for name in sorted(os.listdir(_dir()), reverse=True):
-        if name.endswith('.json'):
+        if name.endswith('.json') and re.fullmatch(r"run_[0-9a-f]{12}\.json", name):
             st = _load(name[:-5])
             if st:
                 items.append({k: st.get(k) for k in ("pipeline_id", "status", "created_at", "completed_at", "requirement",

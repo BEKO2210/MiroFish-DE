@@ -4,6 +4,7 @@ Stellt Schnittstellen für Simulationsbericht-Generierung, -Abruf und -Dialog be
 """
 
 import os
+import io
 import traceback
 import threading
 from flask import request, jsonify, send_file
@@ -418,14 +419,9 @@ def download_report(report_id: str):
         md_path = ReportManager._get_report_markdown_path(report_id)
         
         if not os.path.exists(md_path):
-            # Wenn MD-Datei nicht existiert, temporäre Datei generieren
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
-                f.write(report.markdown_content)
-                temp_path = f.name
-            
             return send_file(
-                temp_path,
+                io.BytesIO(report.markdown_content.encode('utf-8')),
+                mimetype='text/markdown; charset=utf-8',
                 as_attachment=True,
                 download_name=f"{report_id}.md"
             )

@@ -174,6 +174,11 @@ geschützten Weg nutzen, z. B. [Tailscale](https://tailscale.com) (`tailscale se
 `.env` (vor dem ersten Docker-Start) oder `data/.env` (danach, mit `docker compose restart`) ein `API_TOKEN` setzen. Die HTTP-Schnittstelle für eigene Skripte und KI-Agenten ist in
 [docs/API.md](docs/API.md) beschrieben – ein Aufruf startet einen kompletten Durchlauf bis zum Bericht.
 
+Beim Teilen ueber Tailscale muss `API_TOKEN` gesetzt sein. Die Systemeinstellungen erlauben bewusst frei waehlbare
+LLM-Basis-URLs (auch lokale Ollama-/LM-Studio-Adressen) und koennen deshalb ausgehende HTTP-Anfragen ausloesen; ohne
+Token sind diese Endpunkte nur von einer Loopback-Adresse erreichbar. CORS ist standardmaessig aus und kann nur mit
+einer expliziten, kommaseparierten `CORS_ORIGINS`-Liste aktiviert werden.
+
 ### Cloud-Modelle
 
 Statt Ollama geht jeder OpenAI-kompatible Dienst: unter **Einstellungen** Anbieter „OpenAI“ wählen, Adresse und

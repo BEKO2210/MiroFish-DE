@@ -16,9 +16,18 @@ from ..utils.llm_client import LLMClient
 def mask_key(key):
     if not key or key == 'not-needed-for-local-llm' or key == 'lm-studio':
         return key
-    if len(key) > 8:
-        return f"{key[:4]}...****{key[-4:]}"
     return "***"
+
+
+def public_url(value):
+    """URL ohne Benutzerinfo, Query oder Fragment fuer Statusantworten."""
+    parsed = urlparse(value or '')
+    if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+        return ''
+    host = f"[{parsed.hostname}]" if ':' in parsed.hostname else parsed.hostname
+    if parsed.port:
+        host += f":{parsed.port}"
+    return parsed._replace(netloc=host, query='', fragment='').geturl()
 
 def _ollama_root(base_url):
     """Ollama-Wurzeladresse aus der OpenAI-kompatiblen Adresse (…/v1) ableiten."""
@@ -84,7 +93,7 @@ def system_status():
             'llm_provider': Config.LLM_PROVIDER,
             'llm_model': llm_cfg['model'],
             'agent_model': agent_model,
-            'llm_base_url': llm_cfg['base_url'],
+            'llm_base_url': public_url(llm_cfg['base_url']),
             'is_local_llm': Config.is_local_llm(),
             'reachable': reachable,
             # Bei Servern ohne Modellliste (leere Antwort) nicht fälschlich "fehlt" melden
@@ -95,9 +104,9 @@ def system_status():
             'config': {
                 'llm_provider': Config.LLM_PROVIDER,
                 'llm_api_key': mask_key(Config.LLM_API_KEY),
-                'llm_base_url': Config.LLM_BASE_URL,
+                'llm_base_url': public_url(Config.LLM_BASE_URL),
                 'llm_model_name': Config.LLM_MODEL_NAME,
-                'local_llm_base_url': Config.LOCAL_LLM_BASE_URL,
+                'local_llm_base_url': public_url(Config.LOCAL_LLM_BASE_URL),
                 'local_llm_model_name': Config.LOCAL_LLM_MODEL_NAME,
                 'local_llm_api_key': mask_key(Config.LOCAL_LLM_API_KEY),
                 'zep_api_key': mask_key(Config.ZEP_API_KEY),

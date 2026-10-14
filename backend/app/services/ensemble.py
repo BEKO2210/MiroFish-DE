@@ -1553,8 +1553,8 @@ class EnsembleService:
         max_agent_error_rate: float = DEFAULT_MAX_AGENT_ERROR_RATE,
     ) -> Dict[str, Any]:
         self._check_disk_space()
-        if not isinstance(simulation_id, str) or not simulation_id.startswith("sim_"):
-            raise ValueError("simulation_id muss mit sim_ beginnen")
+        from ..utils.security import validate_identifier
+        validate_identifier("simulation_id", simulation_id)
         if isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100:
             raise ValueError("runs muss zwischen 1 und 100 liegen")
         if (
