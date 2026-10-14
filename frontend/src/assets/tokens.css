@@ -105,6 +105,7 @@
   --color-error-text:        #B91C1C; /* Kontrast  6.47:1 -> AA */
   --color-error-bg:          #FEF2F2;
   --color-error-border:      #FECACA;
+  --color-on-error:          #FFFFFF; /* Schrift auf gefüllten Fehler-Flächen (Kontrast auf #B91C1C: 6.47:1) */
 
   --color-info-text:         #1D4ED8; /* Kontrast  6.70:1 -> AA */
   --color-info-bg:           #EFF6FF;
@@ -164,6 +165,7 @@
   --color-error-text:        #F87171; /* Kontrast  6.41:1 -> AA */
   --color-error-bg:          #450A0A;
   --color-error-border:      #991B1B;
+  --color-on-error:          #0F172A;
 
   --color-info-text:         #60A5FA; /* Kontrast  6.98:1 -> AA */
   --color-info-bg:           #0C2852;
@@ -314,7 +316,7 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--color-brand-primary);
-  box-shadow: 0 0 0 3px rgba(194, 65, 12, 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-primary) 15%, transparent);
   outline: none;
 }
 
@@ -336,7 +338,7 @@ textarea:focus {
   top: -40px;
   left: 0;
   background: var(--color-brand-primary);
-  color: #fff;
+  color: var(--color-brand-on-primary);
   padding: var(--space-2) var(--space-4);
   z-index: 10000;
   transition: top 0.2s;
