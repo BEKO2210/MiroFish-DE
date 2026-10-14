@@ -140,7 +140,8 @@
 
   --color-text-primary:      #F8FAFC; /* Kontrast 16.98:1 -> AAA */
   --color-text-secondary:    #E2E8F0; /* Kontrast 13.42:1 -> AAA */
-  --color-text-muted:        #94A3B8; /* Kontrast  6.61:1 -> AA */
+  /* #A8B6C8: ≥ 4.5:1 auch auf Mobile-Nav (~#303A47) und surface-raised; #94A3B8 lag bei 4.49 */
+  --color-text-muted:        #A8B6C8;
   --color-text-inverse:      #0F172A;
 
   --color-border-subtle:     #1E293B;
@@ -305,6 +306,8 @@ textarea {
   font-family: var(--font-body);
   font-size: var(--font-size-body);
   color: var(--color-text-primary);
+  /* WebKit/iOS: sonst oft system-schwarz auf dunklem Feld */
+  -webkit-text-fill-color: var(--color-text-primary);
   background-color: var(--color-bg-canvas);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md);

@@ -276,7 +276,8 @@ onUnmounted(() => clearInterval(timer))
 .form__title { font-family: var(--font-heading); font-size: 22px; margin: 0 0 14px; letter-spacing: -0.01em; }
 .form__foot { margin: 10px 0 0; text-align: center; font-size: 14px; }
 .form__foot a { color: var(--color-brand-primary); }
-.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 124px; padding: 16px; border: 1.5px dashed var(--color-border-default); border-radius: 14px; background: var(--color-bg-surface); cursor: pointer; text-align: center; transition: border-color .15s, background .15s; }
+/* background ohne Transition: sonst Theme-Wechsel (hell→dunkel) mittendrin axe-Kontrast-Fails */
+.drop { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 124px; padding: 16px; border: 1.5px dashed var(--color-border-default); border-radius: 14px; background: var(--color-bg-surface); cursor: pointer; text-align: center; transition: border-color .15s; }
 .drop:hover, .drop:focus-visible, .drop.is-over { border-color: var(--color-brand-primary); background: var(--color-brand-subtle); outline: none; }
 .drop.has-files { align-items: stretch; cursor: default; }
 .drop__icon { width: 30px; height: 30px; fill: none; stroke: var(--color-brand-primary); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 6px; }

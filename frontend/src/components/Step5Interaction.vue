@@ -3,7 +3,7 @@
     <!-- Main Split Layout -->
     <div class="main-split-layout">
       <!-- LEFT PANEL: Report Style -->
-      <div class="left-panel report-style" ref="leftPanel">
+      <div class="left-panel report-style" ref="leftPanel" tabindex="0" :aria-label="$t('common.workspace')">
         <div v-if="reportOutline" class="report-content-wrapper">
           <!-- Report Header -->
           <div class="report-header-block">
@@ -160,8 +160,14 @@
                 <div class="tools-card-name">{{ $t('step5.berichtsAgentChat') }}</div>
                 <div class="tools-card-subtitle">{{ $t('step5.schnelleChatVersionDesBerichtsgenerierungsAgentenKann') }}</div>
               </div>
-              <button class="tools-card-toggle" @click="showToolsDetail = !showToolsDetail">
-                <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <button
+                type="button"
+                class="tools-card-toggle"
+                :aria-expanded="showToolsDetail"
+                :aria-label="showToolsDetail ? $t('common.hideParameters') : $t('common.showParameters')"
+                @click="showToolsDetail = !showToolsDetail"
+              >
+                <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
@@ -2116,13 +2122,13 @@ watch([chatHistory, isSending], () => scrollToBottom(), { deep: true })
 }
 
 .chat-message.is-error .message-text {
-  background: var(--color-danger-bg, #fef2f2);
-  color: var(--color-danger-text, #b91c1c);
-  border: 1px solid color-mix(in srgb, var(--color-danger-text, #b91c1c) 28%, transparent);
+  background: var(--color-error-bg);
+  color: var(--color-error-text);
+  border: 1px solid var(--color-error-border);
 }
 
 .chat-message.is-error .sender-name {
-  color: var(--color-danger-text, #b91c1c);
+  color: var(--color-error-text);
 }
 
 .chat-message.user .message-content {

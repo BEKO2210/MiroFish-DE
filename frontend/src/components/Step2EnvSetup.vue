@@ -1172,7 +1172,7 @@ onUnmounted(() => {
   padding: 20px;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-text-primary) 12%, transparent);
   border: 1px solid var(--color-border-subtle);
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   position: relative;
 }
 
@@ -1198,7 +1198,7 @@ onUnmounted(() => {
   font-family: var(--font-body);
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-border-default);
+  color: var(--color-text-muted);
 }
 
 .step-card.active .step-num,
@@ -1221,7 +1221,7 @@ onUnmounted(() => {
 }
 
 .badge.success { background: var(--color-success-bg); color: var(--color-success-text); }
-.badge.processing { background: var(--color-brand-primary); color: var(--color-text-inverse); }
+.badge.processing { background: var(--color-brand-primary); color: var(--color-brand-on-primary); }
 .badge.pending { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); }
 .badge.accent { background: var(--color-info-bg); color: var(--color-info-text); }
 

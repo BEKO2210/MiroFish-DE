@@ -66,6 +66,13 @@ function statusVars(canvas) {
   return vars
 }
 
+/** Textfarbe gegen alle Flächen absichern, auf denen muted/secondary typisch liegt (Stats, Dropzone, Badges). */
+function ensureOnBackgrounds(color, backgrounds, min) {
+  let c = color
+  for (const bg of backgrounds) c = ensureContrast(c, bg, min)
+  return c
+}
+
 // ---- Ableitung der Variablen ---------------------------------------------
 export function deriveVars(theme) {
   const a = norm(theme.a), b = norm(theme.b)
@@ -77,19 +84,41 @@ export function deriveVars(theme) {
   const canvas = full ? light : (lightIsLight ? mix(light, '#FFFFFF', 0.35) : '#FFFFFF')
   const darkCanvas = luminance(canvas) <= 0.4
   const ink = darkCanvas ? '#FFFFFF' : '#000000'
-  const text = ensureContrast(full ? dark : mix(dark, ink, 0.6), canvas, 7)
   const accent = ensureContrast(accentRaw, canvas, 4.5)
   const onAccent = contrast(accent, '#FFFFFF') >= contrast(accent, '#0F172A') ? '#FFFFFF' : '#0F172A'
   const surface = mix(canvas, darkCanvas ? '#FFFFFF' : '#000000', 0.97)
+  const surfaceRaised = darkCanvas ? mix(canvas, '#FFFFFF', 0.9) : mix(canvas, '#FFFFFF', 0.45)
+  const surfaceSubtle = mix(canvas, ink, 0.94)
+  const brandSubtle = mix(accent, canvas, 0.1)
+  const status = statusVars(canvas)
+  // 4.6 statt 4.5: Puffer gegen Rundung/axe auf leicht abweichenden Flächen
+  const textSurfaces = [
+    canvas,
+    surface,
+    surfaceRaised,
+    surfaceSubtle,
+    brandSubtle,
+    status['--color-success-bg'],
+    status['--color-warning-bg'],
+    status['--color-error-bg'],
+    status['--color-info-bg'],
+  ]
+  const text = ensureContrast(
+    ensureOnBackgrounds(ensureContrast(full ? dark : mix(dark, ink, 0.6), canvas, 7), textSurfaces, 4.6),
+    canvas,
+    7,
+  )
+  const secondary = ensureContrast(ensureOnBackgrounds(mix(text, canvas, 0.8), textSurfaces, 4.6), canvas, 4.6)
+  const muted = ensureOnBackgrounds(mix(text, canvas, 0.6), textSurfaces, 4.6)
   return {
     '--color-bg-canvas': canvas,
     '--color-bg-surface': surface,
     // Karten und Felder: hellere (bzw. bei dunklem Grund etwas hellere) Abstufung der Combo statt reinem Weiß
-    '--color-bg-surface-raised': darkCanvas ? mix(canvas, '#FFFFFF', 0.9) : mix(canvas, '#FFFFFF', 0.45),
-    '--color-bg-surface-subtle': mix(canvas, ink, 0.94),
+    '--color-bg-surface-raised': surfaceRaised,
+    '--color-bg-surface-subtle': surfaceSubtle,
     '--color-text-primary': text,
-    '--color-text-secondary': ensureContrast(mix(text, canvas, 0.8), canvas, 7),
-    '--color-text-muted': ensureContrast(mix(text, canvas, 0.6), canvas, 4.5),
+    '--color-text-secondary': secondary,
+    '--color-text-muted': muted,
     '--color-text-inverse': canvas,
     '--color-border-subtle': mix(text, canvas, 0.12),
     '--color-border-default': mix(text, canvas, 0.22),
@@ -97,11 +126,11 @@ export function deriveVars(theme) {
     '--color-brand-primary': accent,
     '--color-brand-hover': mix(accent, ink, 0.82),
     '--color-brand-active': mix(accent, ink, 0.7),
-    '--color-brand-subtle': mix(accent, canvas, 0.1),
+    '--color-brand-subtle': brandSubtle,
     '--color-brand-border': mix(accent, canvas, 0.45),
     '--color-brand-on-primary': onAccent,
     '--color-focus-ring': accent,
-    ...statusVars(canvas),
+    ...status,
     '--theme-light': light,
     '--theme-dark': dark
   }

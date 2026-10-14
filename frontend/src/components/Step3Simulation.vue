@@ -1263,7 +1263,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   font-size: 10px;
-  color: var(--color-border-strong);
+  color: var(--color-text-muted);
   font-family: var(--font-body);
 }
 
@@ -1277,7 +1277,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  color: var(--color-border-strong);
+  color: var(--color-text-muted);
   font-size: 12px;
   text-transform: none;
   letter-spacing: normal;
