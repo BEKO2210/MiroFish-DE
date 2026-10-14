@@ -312,7 +312,7 @@ const ENSEMBLE_MOCK = {
     { variant: 'null_document', outcome_id: 'o3', diff: -0.4, ci_low: -0.68, ci_high: -0.05, unreliable: false, role: 'exploratory', mcnemar_p: 0.0625, holm_p: 0.75 },
   ],
   current: null,
-  eta_seconds: null,
+  eta_seconds: 90,
   error: null,
 }
 

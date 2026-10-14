@@ -294,6 +294,7 @@ const currentVariantLabel = computed(() => {
   return variantLabel(variants.value.find((x) => x.key === key) || { key })
 })
 const etaLabel = computed(() => {
+  if (!['queued', 'running'].includes(data.value?.status)) return ''
   const s = data.value?.eta_seconds
   if (s == null) return ''
   return t('ensemble.eta', { time: formatDuration(s) })

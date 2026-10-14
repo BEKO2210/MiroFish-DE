@@ -191,6 +191,15 @@ test.describe('Flows', () => {
     )
   })
 
+  test('Fertiges Mehrfachlauf-Ensemble zeigt keine Restzeit', async ({ page }) => {
+    await preparePage(page)
+    await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    await expect(page.locator('.meta')).toBeVisible()
+    await expect(page.getByText(/Noch ca\./)).toHaveCount(0)
+  })
+
   test('Mehrfachlauf erklärt Laufanteile und trennt Mechanismen von Vergleichen', async ({ page }) => {
     await preparePage(page)
     await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
