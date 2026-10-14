@@ -5,24 +5,40 @@
       <!-- LEFT PANEL: Report Style -->
       <div class="left-panel report-style" ref="leftPanel">
         <div v-if="reportOutline" class="article-shell">
-          <nav class="report-toc" :aria-label="$t('step4.contents')">
+          <nav class="report-toc" data-testid="report-toc-desktop" :aria-label="$t('step4.contents')">
             <p class="toc-label">{{ $t('step4.contents') }}</p>
             <ol class="toc-list">
-              <li v-for="(section, idx) in reportOutline.sections" :key="'toc-' + idx">
+              <li v-for="entry in tocEntries" :key="'toc-d-' + entry.id">
                 <button
                   type="button"
                   class="toc-link"
-                  :class="{ 'is-current': activeTocIndex === idx }"
-                  @click="scrollToSection(idx)"
+                  :class="{ 'is-current': activeTocId === entry.id }"
+                  @click="scrollToSection(entry.id)"
                 >
-                  <span class="toc-num">{{ String(idx + 1).padStart(2, '0') }}</span>
-                  <span class="toc-title">{{ section.title }}</span>
+                  <span class="toc-num">{{ entry.num }}</span>
+                  <span class="toc-title">{{ entry.title }}</span>
                 </button>
               </li>
             </ol>
           </nav>
 
           <div class="report-content-wrapper">
+          <details class="report-toc-mobile" data-testid="report-toc-mobile">
+            <summary class="toc-mobile-summary">{{ $t('step4.contents') }}</summary>
+            <ol class="toc-list">
+              <li v-for="entry in tocEntries" :key="'toc-m-' + entry.id">
+                <button
+                  type="button"
+                  class="toc-link"
+                  :class="{ 'is-current': activeTocId === entry.id }"
+                  @click="scrollToSection(entry.id)"
+                >
+                  <span class="toc-num">{{ entry.num }}</span>
+                  <span class="toc-title">{{ entry.title }}</span>
+                </button>
+              </li>
+            </ol>
+          </details>
           <ReliabilityHint
             v-if="isSingleRun"
             storage-key="single-run"
@@ -115,7 +131,12 @@
             </div>
 
             <!-- V1: Methodik und Grenzen (deterministisch) -->
-            <aside v-if="methodology && isComplete" class="methodology-card" aria-labelledby="methodology-heading">
+            <aside
+              v-if="methodology && isComplete"
+              id="report-methodology"
+              class="methodology-card"
+              aria-labelledby="methodology-heading"
+            >
               <h2 id="methodology-heading" class="methodology-title">{{ $t('step4.methodologyTitle') }}</h2>
               <p class="methodology-disclaimer">{{ methodology.disclaimer || $t('step4.methodologyDisclaimer') }}</p>
               <p class="methodology-disclaimer">{{ $t('step4.methodologyMultiRunLimit') }}</p>
@@ -131,7 +152,11 @@
                 <li>{{ $t('step4.methodologySeed', { seed: methodology.seed != null ? methodology.seed : $t('step4.methodologySeedMissing') }) }}</li>
                 <li v-if="methodology.timestamp">{{ $t('step4.methodologyTimestamp', { time: methodology.timestamp }) }}</li>
               </ul>
-              <div v-if="(methodology.already_in_material || []).length" class="methodology-material">
+              <div
+                v-if="(methodology.already_in_material || []).length"
+                id="report-material-abgleich"
+                class="methodology-material"
+              >
                 <h3 class="methodology-subtitle">{{ $t('step4.methodologyAlreadyInMaterial') }}</h3>
                 <p class="material-in-hint">{{ $t('reliability.inMaterialHint') }}</p>
                 <ul>
@@ -490,11 +515,52 @@
     </details>
     <MobileStickyBar
       v-if="isComplete"
+      :leading-label="$t('step4.contents')"
       :primary-label="$t('step4.zurTiefeninteraktion')"
       :secondary-label="simulationId ? $t('ensemble.startShort') : ''"
+      @leading-click="tocSheetOpen = true"
       @primary-click="goToInteraction"
       @secondary-click="openEnsembleSheet"
     />
+
+    <Teleport to="body">
+      <div
+        v-if="tocSheetOpen"
+        class="toc-sheet-backdrop"
+        data-testid="report-toc-sheet"
+        @click.self="tocSheetOpen = false"
+      >
+        <section
+          class="toc-sheet"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="$t('step4.contents')"
+        >
+          <header class="toc-sheet__head">
+            <h2 class="toc-sheet__title">{{ $t('step4.contents') }}</h2>
+            <button
+              type="button"
+              class="toc-sheet__close"
+              :aria-label="$t('common.close')"
+              @click="tocSheetOpen = false"
+            >{{ $t('common.close') }}</button>
+          </header>
+          <ol class="toc-list">
+            <li v-for="entry in tocEntries" :key="'toc-s-' + entry.id">
+              <button
+                type="button"
+                class="toc-link"
+                :class="{ 'is-current': activeTocId === entry.id }"
+                @click="scrollToSection(entry.id)"
+              >
+                <span class="toc-num">{{ entry.num }}</span>
+                <span class="toc-title">{{ entry.title }}</span>
+              </button>
+            </li>
+          </ol>
+        </section>
+      </div>
+    </Teleport>
 
     <ConfirmSheet
       :open="ensembleSheetOpen"
@@ -803,14 +869,73 @@ const loadMethodology = async () => {
   }
 }
 
-const activeTocIndex = ref(0)
+const activeTocId = ref('')
+const tocSheetOpen = ref(false)
+let tocObserver = null
 
-const scrollToSection = (idx) => {
-  activeTocIndex.value = idx
-  const el = document.getElementById('report-section-' + idx)
+const tocEntries = computed(() => {
+  const sections = reportOutline.value?.sections || []
+  const entries = sections.map((section, idx) => ({
+    id: 'report-section-' + idx,
+    num: String(idx + 1).padStart(2, '0'),
+    title: section.title,
+  }))
+  if (methodology.value && isComplete.value) {
+    entries.push({
+      id: 'report-methodology',
+      num: String(entries.length + 1).padStart(2, '0'),
+      title: t('step4.methodologyTitle'),
+    })
+    if ((methodology.value.already_in_material || []).length) {
+      entries.push({
+        id: 'report-material-abgleich',
+        num: String(entries.length + 1).padStart(2, '0'),
+        title: t('step4.tocAbgleich'),
+      })
+    }
+  }
+  return entries
+})
+
+const scrollToSection = (id) => {
+  activeTocId.value = id
+  tocSheetOpen.value = false
+  const el = document.getElementById(id)
   if (!el) return
+  // Eingeklappten Abschnitt aufklappen, falls nötig
+  const match = /^report-section-(\d+)$/.exec(id)
+  if (match) {
+    const idx = Number(match[1])
+    if (collapsedSections.value.has(idx)) toggleSectionCollapse(idx)
+  }
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+}
+
+const teardownTocObserver = () => {
+  if (tocObserver) {
+    tocObserver.disconnect()
+    tocObserver = null
+  }
+}
+
+const setupTocObserver = () => {
+  teardownTocObserver()
+  if (typeof IntersectionObserver === 'undefined') return
+  const els = tocEntries.value
+    .map((e) => document.getElementById(e.id))
+    .filter(Boolean)
+  if (!els.length) return
+  tocObserver = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+      if (visible[0]?.target?.id) activeTocId.value = visible[0].target.id
+    },
+    { root: null, rootMargin: '-15% 0px -55% 0px', threshold: [0, 0.25, 0.5] },
+  )
+  els.forEach((el) => tocObserver.observe(el))
 }
 
 // State
@@ -2548,11 +2673,15 @@ onMounted(() => {
     addLog(t('step4.reportAgentInitialized', { id: props.reportId }))
     startPolling()
   }
+  nextTick(setupTocObserver)
 })
 
 onUnmounted(() => {
   stopPolling()
+  teardownTocObserver()
 })
+
+watch(tocEntries, () => nextTick(setupTocObserver), { deep: true })
 
 watch(() => props.reportId, (newId) => {
   if (newId) {
@@ -2726,22 +2855,57 @@ watch(() => props.reportId, (newId) => {
   background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
 }
 
-/* Report column: ~68 characters, centered. TOC sits beside it from 1024px. */
+/* Report column: ~72 characters (≤75), centered. TOC sits beside it from 1024px. */
 .article-shell {
-  width: min(100%, 68ch);
+  width: min(100%, 72ch);
   margin-inline: auto;
   font-size: 17px;
+  overflow-x: clip;
 }
 
 .report-toc {
   display: none;
 }
 
+.report-toc-mobile {
+  display: block;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.toc-mobile-summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm, 0.875rem);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.toc-mobile-summary::-webkit-details-marker { display: none; }
+
+.report-toc-mobile[open] .toc-mobile-summary {
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.report-toc-mobile .toc-list {
+  padding: 8px 10px 10px;
+}
+
 .report-content-wrapper {
-  max-width: 68ch;
+  max-width: 72ch;
   margin: 0 auto;
   width: 100%;
   font-size: inherit;
+  overflow-x: clip;
 }
 
 .report-header-block {
@@ -2781,6 +2945,11 @@ watch(() => props.reportId, (newId) => {
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-md, 6px);
   color: var(--color-text-secondary);
+  scroll-margin-top: 16px;
+}
+
+.methodology-material {
+  scroll-margin-top: 16px;
 }
 
 .methodology-title {
@@ -3012,7 +3181,7 @@ watch(() => props.reportId, (newId) => {
   line-height: 1.6;
   margin: 0;
   font-weight: 400;
-  max-width: 68ch;
+  max-width: 72ch;
 }
 
 .report-actions {
@@ -3171,7 +3340,7 @@ watch(() => props.reportId, (newId) => {
   font-size: 1em;
   line-height: 1.7;
   color: var(--color-text-primary);
-  max-width: 68ch;
+  max-width: 72ch;
 }
 
 .generated-content :deep(p),
@@ -5923,7 +6092,6 @@ watch(() => props.reportId, (newId) => {
 .log-msg.success { color: var(--color-success-text); }
 /* Mobile-first polish */
 button, [role="button"], input, select, textarea { min-height: var(--touch-target-min); }
-.toc-link { min-height: 0; }
 h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-heading); }
 .report-id { display: none; }
 .generated-content, .tool-content, .timeline-content { overflow-wrap: anywhere; word-break: break-word; }
@@ -5953,13 +6121,14 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
   align-items: flex-start;
   gap: 8px;
   width: 100%;
-  padding: 4px 2px;
+  min-height: 44px;
+  padding: 10px 8px;
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--color-text-secondary);
   font-family: var(--font-body);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm, 0.875rem);
   font-weight: 500;
   line-height: 1.4;
   text-align: left;
@@ -5969,6 +6138,7 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
 .toc-link:hover,
 .toc-link.is-current {
   color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-brand-primary) 8%, transparent);
 }
 
 .toc-link:focus-visible {
@@ -5993,13 +6163,64 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
   overflow: hidden;
 }
 
+.toc-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.toc-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: min(70dvh, calc(100dvh - 24px));
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.2);
+}
+
+.toc-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.toc-sheet__title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.125rem;
+  color: var(--color-text-primary);
+}
+
+.toc-sheet__close {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-bg-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 @media (min-width: 1024px) {
   .left-panel.report-style { padding: 40px 32px 80px; }
   .article-shell {
-    width: min(100%, calc(68ch + 220px));
+    width: min(100%, calc(72ch + 220px));
     font-size: 18px;
     display: grid;
-    grid-template-columns: 180px minmax(0, 68ch);
+    grid-template-columns: 180px minmax(0, 72ch);
     column-gap: 40px;
     align-items: start;
   }
@@ -6007,7 +6228,11 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
     display: block;
     position: sticky;
     top: 24px;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
+  .report-toc-mobile { display: none; }
   .sub-title { font-size: 1.2rem; }
 }
 
@@ -6054,7 +6279,7 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
   }
   .report-content-wrapper,
   .generated-content {
-    max-width: 68ch !important;
+    max-width: 72ch !important;
     margin-left: auto !important;
     margin-right: auto !important;
     background: transparent !important;
@@ -6063,6 +6288,8 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
   .report-origin,
   .report-actions,
   .report-toc,
+  .report-toc-mobile,
+  .toc-sheet-backdrop,
   .collapse-toggle,
   .waiting-placeholder,
   .loading-state,

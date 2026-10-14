@@ -267,6 +267,57 @@ test.describe('Flows', () => {
     ])
   })
 
+  test('Bericht: Inhaltsverzeichnis öffnen, Sprung, Abschnitt sichtbar', async ({ page }, testInfo) => {
+    await preparePage(page)
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await page.waitForSelector('#report-section-0, .methodology-card', { timeout: 15000 })
+
+    const project = testInfo.project.name
+    const methodologyBtn = /Methodik und Grenzen|Methods and limits/i
+    const sectionBtn = /Agentenverhalten|Adoptionsgruppen/i
+    const sectionTitle = page.locator('#report-section-1 .section-title')
+    const methodHeading = page.locator('#methodology-heading')
+
+    if (project === 'desktop') {
+      const toc = page.getByTestId('report-toc-desktop')
+      await expect(toc).toBeVisible()
+      await toc.getByRole('button', { name: sectionBtn }).click()
+      await expect(sectionTitle).toBeInViewport({ ratio: 0.5 })
+      await toc.getByRole('button', { name: methodologyBtn }).click()
+      await expect(methodHeading).toBeInViewport({ ratio: 0.5 })
+      await expect(toc.getByRole('button', { name: /Vorgabe-Abgleich|Source check/i })).toBeVisible()
+    } else {
+      const leading = page.locator('.mobile-sticky-bar .sticky-btn--leading')
+      if (await leading.isVisible()) {
+        await leading.click()
+        const sheet = page.getByTestId('report-toc-sheet')
+        await expect(sheet).toBeVisible()
+        await sheet.getByRole('button', { name: sectionBtn }).click()
+        await expect(sectionTitle).toBeInViewport({ ratio: 0.5 })
+        await leading.click()
+        await expect(sheet).toBeVisible()
+        await sheet.getByRole('button', { name: methodologyBtn }).click()
+      } else {
+        const mobile = page.getByTestId('report-toc-mobile')
+        await expect(mobile).toBeVisible()
+        await mobile.evaluate((el: HTMLDetailsElement) => {
+          el.open = true
+        })
+        await mobile.getByRole('button', { name: sectionBtn }).click()
+        await expect(sectionTitle).toBeInViewport({ ratio: 0.5 })
+        await mobile.evaluate((el: HTMLDetailsElement) => {
+          el.open = true
+        })
+        await mobile.getByRole('button', { name: methodologyBtn }).click()
+      }
+      await expect(methodHeading).toBeInViewport({ ratio: 0.5 })
+    }
+
+    await expect(page.locator('#report-methodology')).toContainText(/Methodik und Grenzen|Methods and limits/i)
+    await expectNoHorizontalScroll(page)
+  })
+
   test('Verlässlichkeit: Hinweis im Bericht, Seite und Mehrfachlauf', async ({ page }) => {
     await preparePage(page)
     await page.addInitScript(() => {
