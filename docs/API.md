@@ -61,7 +61,10 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
   "custom_outcomes": [
     {"text_de": "Es wird zu einer Unterschriftensammlung aufgerufen", "polarity": "presence", "kind": "event"}
   ],
-  "primary_outcome_id": "c1"
+  "primary_outcome_id": "c1",
+  "text_model": "gemma4:e4b-it-qat",
+  "strict_second_rater": true,
+  "min_classified": 4
 }'
 # -> {"success": true, "data": {"ensemble_id": "ens_…", "estimate_seconds": 1234}}
 ```
@@ -76,9 +79,31 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
 | `variants` | `["baseline"]` | nicht leer, `baseline` ist Pflicht (siehe unten) |
 | `custom_outcomes` | – | optionale Liste, höchstens 20 Einträge (siehe unten) |
 | `primary_outcome_id` | – | ID des einen konfirmatorischen Ergebnisses |
+| `text_model` | Hauptmodell (`LLM_MODEL_NAME`) | Modell der Agenten in allen Armen mit Agentensimulation; wird als `llm_model` in die Laufkonfiguration geschrieben |
+| `arm_model` | Hauptmodell der LLM-Konfiguration | Modell der Nullarme (`null_document`, `null_personas`, Alias `null_model`) |
+| `strict_second_rater` | `false` | Boolean. `true`: der Zweitbewerter muss ein anderes, vorhandenes Modell sein; kein Rückfall auf das Hauptmodell mit anderem Seed (siehe unten) |
+| `min_classified` | `runs` | ganze Zahl 1 bis `runs`: Mindestzahl klassifizierter Läufe je Variante und Ergebnis, damit es „messbar“ ist |
+| `min_posts` | 1 | ganze Zahl ≥ 1: Mindestzahl an Beiträgen je Lauf (Nullarme zählen die Erzählung als 1 Beitrag) |
+| `max_agent_error_rate` | 0.5 | Zahl 0–1: höchste zulässige Fehlerquote der Agentenaktionen je Lauf |
 
-Alle Zahlen müssen echte ganze Zahlen sein (keine Strings, keine Booleans). Fehler: 400 bei ungültigen Werten,
-404 wenn die Simulation nicht vorbereitet ist, 500 sonst.
+Alle Zahlen müssen echte ganze Zahlen sein (keine Strings, keine Booleans); `max_agent_error_rate` darf auch eine
+Dezimalzahl sein. Fehler: 400 bei ungültigen Werten, 404 wenn die Simulation nicht vorbereitet ist, 500 sonst
+(auch bei den Gesundheitsprüfungen unten).
+
+**Gesundheitsprüfung beim Start (Preflight)**: Vor dem Anlegen prüft der Start den freien Plattenplatz im
+Ensemble-Datenverzeichnis (mindestens 5 GiB, sonst 500 mit „Zu wenig freier Speicher …“). Mit
+`strict_second_rater: true` wird zusätzlich Ollama (`/api/tags`) abgefragt; fehlt ein benötigtes Modell (Agenten-,
+Nullarm-, Haupt- und Zweitbewerter) oder ist der Server nicht erreichbar, gibt es 500 mit „Benötigte Ollama-Modelle
+fehlen: …“. `strict_second_rater: true` ohne konfiguriertes Zweitmodell (`ENSEMBLE_SECOND_RATER_MODEL`, Standard
+`qwen3.5:9b`) ergibt 400. Während des Laufs wird vor jedem Versuch erneut Plattenplatz und (bei Ollama als Anbieter) die
+Modellverfügbarkeit geprüft; bei Ausfall wartet der Lauf bis zu 30 Minuten und verbraucht dabei keinen Versuch.
+
+**Zweitbewerter**: Ohne `strict_second_rater` fällt die Klassifikation auf das Hauptmodell mit anderem Seed zurück,
+wenn das Zweitmodell fehlt oder nicht antwortet (Vermerk `fallback_reason` im Audit). Mit `true` schlägt der Versuch
+stattdessen fehl.
+
+**Lauf-Qualität**: Ein Lauf mit weniger als `min_posts` Beiträgen oder einer Agenten-Fehlerquote über
+`max_agent_error_rate` gilt als technischer Fehlschlag und wird wiederholt (bis zu 3 Versuche je Seed).
 
 **Varianten (`variants`)**
 
@@ -110,6 +135,7 @@ curl http://127.0.0.1:5001/api/ensemble/list                       # alle Ensemb
 curl "http://127.0.0.1:5001/api/ensemble/list?simulation_id=sim_…"  # nur zu einer Simulation
 curl http://127.0.0.1:5001/api/ensemble/ens_…                       # Zustand und Ergebnisse
 curl -X POST http://127.0.0.1:5001/api/ensemble/ens_…/cancel        # abbrechen (gestoppt wird auch der laufende Lauf)
+curl -X POST http://127.0.0.1:5001/api/ensemble/ens_…/resume        # fehlgeschlagenes Ensemble fortsetzen
 curl -X POST http://127.0.0.1:5001/api/ensemble/ens_…/reclassify    # neu auswerten, ohne zu simulieren
 curl -X DELETE http://127.0.0.1:5001/api/ensemble/ens_…             # löschen
 ```
@@ -118,6 +144,14 @@ curl -X DELETE http://127.0.0.1:5001/api/ensemble/ens_…             # löschen
 gestartet. Antwort `{"ensemble_id": "ens_…", "status": "queued"}`; der Fortschritt steht wie sonst in `GET`. Die
 bisherigen Werte bleiben in `results_v1` und `comparisons_v1` erhalten. 404: unbekannt oder gespeicherter Lauf fehlt;
 409: Ensemble läuft noch (`queued`/`running`) oder hat keine abgeschlossene Klassifikation.
+
+**Fortsetzen (`resume`)**: setzt ein `failed` (oder unvollständiges) Ensemble am letzten unfertigen Seed fort; bereits
+fertig klassifizierte Läufe bleiben erhalten. Antwort `{"ensemble_id": "ens_…", "status": "queued"}`, bei bereits
+`completed` `{"status": "completed"}`. 404: unbekannt; 409: `cancelled` (wird nicht fortgesetzt), Ensemble läuft schon,
+zu wenig Plattenplatz oder **Versuche erschöpft**. Je Seed gibt es höchstens 3 Versuche (`seed_attempts`). Sind sie
+aufgebraucht, setzt der Server `attempts_exhausted: true` und weist jedes weitere `resume` mit 409 ab; ein weiterer
+Aufruf ändert dann nichts. Ein Backend-Neustart setzt laufende Ensembles auf `failed` („Backend wurde neu gestartet …“)
+und gibt den unterbrochenen Versuch zurück, sodass `resume` möglich bleibt.
 
 **Löschen**: entfernt das Ensemble mit allen Läufen von der Platte. 404 wenn unbekannt, 409 solange es `queued` oder
 `running` ist (erst `cancel`). `cancel` bei bereits beendetem Ensemble ist wirkungslos (Antwort trotzdem `success`).
@@ -128,12 +162,18 @@ bisherigen Werte bleiben in `results_v1` und `comparisons_v1` erhalten. 404: unb
 
 | Feld | Inhalt |
 |---|---|
-| `ensemble_id`, `simulation_id`, `question`, `created_at`, `finished_at`, `error`, `eta_seconds`, `current` | Kopfdaten und Fortschritt |
+| `ensemble_id`, `simulation_id`, `question`, `created_at`, `finished_at`, `error`, `eta_seconds`, `current` | Kopfdaten und Fortschritt. `eta_seconds` ist bei `completed`, `failed` und `cancelled` immer `null`; `current` nennt `variant`, `run`, `round`, `attempt` |
 | `runs`, `hours`, `start_hour`, `minutes_per_round` | die beim Start gewählten Parameter |
-| `variants` | je Variante `key`, `label_de`, `label_en`, `status`, `done`, `total` |
+| `strict_second_rater`, `min_classified`, `min_posts`, `max_agent_error_rate` | die beim Start gewählten Parameter (mit aufgelösten Standardwerten) |
+| `models` | Modelle je Rolle: `agents`, `null_arms`, `classification_primary`, `classification_secondary` (`null`, wenn nicht konfiguriert) |
+| `arm_models` | `arm_models[variante]` = Modell, mit dem die Variante läuft (`text_model` bzw. `arm_model`) |
+| `variants` | je Variante `key`, `label_de`, `label_en`, `status`, `done`, `total`, `text_model`, `classification_models` (`primary`, `secondary`) |
+| `seed_attempts`, `attempts_exhausted` | Versuchszähler je `variante:lauf`; `attempts_exhausted` = `true`, wenn ein Seed alle 3 Versuche verbraucht hat (nur dann vorhanden) |
+| `unclassified_runs`, `unclassified_runs_by_variant` | Zahl der Läufe mit mindestens einem unklassifizierten Ergebnis, gesamt und je Variante |
+| `measurement` | `min_classified`, `measurable` (alles messbar?) und `unmeasurable`: Liste aus `variant`, `outcome_id`, `classified` |
 | `checklist` | Ergebnisse: `id`, `text_de`, `definition`, `polarity`, `kind`, `source` (`auto`/`user`); bei Gegenstücken `counter_outcome_id` bzw. `collapsed_into` |
 | `custom_outcomes`, `primary_outcome_id` | wie gesendet bzw. aufgelöst |
-| `results` | `results[variante][ergebnis_id]` mit `yes`, `n`, `unclassified`, `disputed`, `rate`, `ci_low`, `ci_high` (95-%-Wilson-Intervall), `evidence` (höchstens 5 Belege). `n` zählt nur Läufe, die weder unklassifiziert noch strittig sind |
+| `results` | `results[variante][ergebnis_id]` mit `yes`, `n`, `unclassified`, `disputed`, `rate`, `ci_low`, `ci_high` (95-%-Wilson-Intervall), `evidence` (höchstens 5 Belege), `measurable`. `n` zählt nur Läufe, die weder unklassifiziert noch strittig sind; `measurable` ist `true`, wenn `n` ≥ `min_classified` |
 | `comparisons` | je Variante ≠ `baseline` und je Ergebnis eine Zeile (siehe unten) |
 | `reliability` | je Ergebnis die Übereinstimmung der zwei Bewerter (siehe unten) |
 | `run_stats` | `run_stats[variante]` = Liste je Lauf (siehe unten) |
@@ -153,7 +193,7 @@ Nicht enthalten sind Seeds und interne Steuerfelder. `GET /list` liefert dieselb
 | `mcnemar_p` | exakter zweiseitiger McNemar-Test über die diskordanten Paare |
 | `holm_p` | Holm-adjustierter p-Wert, nur bei explorativen Vergleichen mit `n_pairs` > 0; sonst `null` |
 | `newcombe` | `ci_low`, `ci_high`: Newcombe-Intervall (Methode 10) der Differenz aus den ungepaarten Anteilen, als Sensitivitätsprüfung |
-| `unreliable` | `true`, wenn das Ergebnis in `reliability` „nicht messbar“ ist |
+| `unreliable` | `true`, wenn das Ergebnis in `reliability` „nicht messbar“ ist oder `results[…].measurable` bei Variante oder Basis `false` ist (zu wenige klassifizierte Läufe) |
 
 **`reliability[ergebnis_id]`**: `agreement` (Anteil gleicher Urteile), `kappa` (Cohens Kappa), `n_pairs` und `label`:
 `messbar` (κ ≥ 0,6), `unsicher` (κ ≥ 0,4), sonst `nicht messbar`. Das Endurteil ist konservativ: Ja nur, wenn beide
@@ -161,7 +201,10 @@ Bewerter Ja sagen; Dissens zählt als `disputed`. Fehlt die Varianz (beide Urtei
 `null` und `label` `nicht messbar`. Ohne auswertbares Paar bleibt `kappa` `0.0`.
 
 **`run_stats[variante]`**: je Lauf `run`, `post_count`, `character_count` (bei Nullmodellen Länge der Erzählung,
-`post_count` = 0), `batch_count` (Klassifikationsstapel) sowie die Fremdnutzung im blinden Feed:
+`post_count` = 0), `contribution_count` (Mindestbeitrags-Maß: Beiträge; bei Nullarmen 1, wenn die Erzählung nicht leer
+ist; wird gegen `min_posts` geprüft), `batch_count` (Klassifikationsstapel), `agent_action_count`,
+`agent_error_count` und `agent_error_rate` (fehlgeschlagene Agentenaktionen aus `actions.jsonl`, 0.0 ohne Aktionen;
+wird gegen `max_agent_error_rate` geprüft) sowie die Fremdnutzung im blinden Feed:
 `search_action_count` (Suchaktionen), `trend_action_count` (Trendaktionen), `foreign_interaction_count`
 (Interaktionen mit Beiträgen anderer: like, repost, quote).
 

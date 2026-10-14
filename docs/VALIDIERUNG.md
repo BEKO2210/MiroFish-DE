@@ -317,7 +317,7 @@ python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --rahmen pilot
 
 `--rahmen pilot-v5` liest `docs/validation/rahmen-pilot-v5.json` und setzt 5 Seeds, 336 Stunden, Rundentakt 240 Minuten
 und die Arme `baseline`, `null_document`, `null_personas`. Der Rahmen ist vorgeschlagen; ein echter Start erst nach
-Freigabe des Projektinhabers. Der Rahmen legt zusätzlich die 7 Fälle (`case_ids`), die Modelle je Rolle und die Mindestzahl klassifizierter Läufe je Arm (4 von 5) fest; die gewertete Fallmenge muss exakt diesen 7 Fällen entsprechen, sonst „nicht prüfbar“. Je Fall gilt ein gültiger Lauf, Wiederholung nur bei technischem Ausfall, alle `ensemble_id` werden protokolliert. Vor dem Pilot läuft ein Probelauf mit einem synthetischen, nicht gewerteten Fall (2 Seeds) zur Prüfung von Varianz und Kappa. Weicht ein Einzelwert auf der Kommandozeile ab, bricht das Werkzeug ab. Ohne `--rahmen`
+Freigabe des Projektinhabers. Der Rahmen legt zusätzlich die 7 Fälle (`case_ids`), die Modelle je Rolle und die Mindestzahl klassifizierter Läufe je Arm (4 von 5) fest; die gewertete Fallmenge muss exakt diesen 7 Fällen entsprechen, sonst „nicht prüfbar“. Je Fall gilt ein gültiger Lauf, Wiederholung nur bei technischem Ausfall, alle `ensemble_id` werden protokolliert. Vor dem Pilot läuft ein Probelauf mit einem synthetischen, nicht gewerteten Fall (2 Seeds) zur Prüfung von Varianz und Kappa. Weicht ein Einzelwert auf der Kommandozeile (`--runs`, `--hours`, `--minutes-per-round`, `--arms`) vom Rahmen ab, bricht das Werkzeug ab. `--probe` nutzt den Probe-Rahmen `probe-v5` (2 Seeds, synthetischer Fall) und schließt sich mit `--rahmen` aus. Ohne `--rahmen`
 bleiben die Defaults 10 Läufe, 336 Stunden und Rundentakt 60. `--base` zeigt standardmäßig auf `http://127.0.0.1:5002`.
 
 Alle Textarme (S-Agenten, D, P) nutzen im Pilot dasselbe Agentenmodell (`gemma4:e4b-it-qat`); die Klassifikation nutzt für alle Arme Hauptbewerter `gemma4:12b-it-qat` und Zweitbewerter `qwen3.5:9b` (anderes Modell, kein `seed_fallback`). Das ist eine Doppelklassifikation durch zwei Sprachmodelle, keine blinde menschliche Kodierung; zusätzlich prüft eine Person mindestens 10 % von `classification.json` per Stichprobe. Ein Fall ist je Arm erst ab 4 von 5 klassifizierten Läufen messbar. Degeneriertes Kappa (keine Varianz) heißt „Instrument nicht prüfbar“, nicht „widerlegt“.
@@ -359,7 +359,7 @@ Agentenzahl und Modell mehrere Tage dauern. Die vorhandene ETA skaliert mit der 
 D und P zählen je Seed jeweils als eine Modellrunde.
 
 Nach jedem dauerhaften Schritt speichert das Skript Projekt-, Graph-Aufgaben-, Graph-, Simulations-, Vorbereitungs-
-und Ensemble-ID in `docs/validation/ergebnisse/<fall>.state.json`. Ein identischer Aufruf setzt am letzten bekannten
+und Ensemble-ID in `<Ergebnisordner>/<fall>.state.json` (Standard mit Rahmen: `docs/validation/ergebnisse/pilot-v5/`, mit `--probe`: `…/probe-v5/`, ohne Rahmen: `docs/validation/ergebnisse/`; änderbar mit `--results-dir`). Ein identischer Aufruf setzt am letzten bekannten
 Schritt wieder auf. Abweichende Basis-URL, Laufzahl, Stundenzahl oder Armauswahl werden bei vorhandenem State
 abgewiesen, damit keine Ergebnisse verschiedener Konfigurationen vermischt werden.
 
@@ -388,3 +388,47 @@ Kalibrierungsaussage“. Sie ist kein Bestehenskriterium. Ab 25 gewerteten Fäll
 im Intervall [0,5; 1,5] als zusätzliche Bedingung hinzu. Fälle, deren Primärergebnis wegen Kappa unter 0,6 oder ohne
 numerisches Kappa aus der Wertung fällt, zählt `GESAMT`. Ist ihr Anteil größer als 0, lautet das Urteil „nicht
 bestanden (Instrument unzuverlässig)“.
+
+## Pilot ausführen
+
+**Wichtig: Der Start erfolgt erst nach Freigabe des Projektinhabers.** Die Befehle unten sind nur die Vorgehensweise.
+
+**1. Preflight.** Der Treiber `backend/scripts/run_pilot_v5.py` prüft vor jedem Fall Plattenplatz (Standard mindestens
+40 GB frei auf dem Datenträger von `backend/uploads`, einstellbar mit `--min-free-gb` und `--data-dir`), Erreichbarkeit
+von Ollama, das Vorhandensein aller Rahmenmodelle (Agenten-, Haupt- und Zweitbewerter, Kaltfragenmodelle) und ob fremde
+Ensembles laufen (`--ignore-busy` überspringt das). Nur prüfen, nichts starten:
+
+```bash
+cd backend
+python3 scripts/run_pilot_v5.py --base http://127.0.0.1:5001 --preflight-only
+```
+
+Beide Skripte nehmen als Standard-`--base` `http://127.0.0.1:5002`; für das Backend auf Port 5001 muss `--base`
+gesetzt werden. Zusätzlich prüft das Backend selbst beim Ensemble-Start den Plattenplatz (mindestens 5 GiB) und mit
+`strict_second_rater` die Modelle (siehe `docs/API.md`).
+
+**2. Start.** Zuerst der Probelauf mit dem synthetischen, nicht gewerteten Fall, dann der Pilot mit den 7 Fällen:
+
+```bash
+python3 scripts/run_pilot_v5.py --base http://127.0.0.1:5001 --probe   # Probelauf
+python3 scripts/run_pilot_v5.py --base http://127.0.0.1:5001           # Pilot, 7 Fälle nacheinander
+python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --rahmen pilot-v5 --base http://127.0.0.1:5001   # einzelner Fall
+```
+
+Der Rahmen setzt 5 Seeds, 336 Stunden, Rundentakt 240 Minuten (`--minutes-per-round`; erlaubt 60, 120, 240; Stunden × 60
+müssen durch den Takt teilbar sein) und das Agentenmodell als `text_model`, `strict_second_rater` und
+`min_classified` = 4 werden aus dem Rahmen an `POST /api/ensemble/start` weitergegeben. Fortschritt und Restzeit
+stehen im Log `pilot.log` im Ergebnisordner.
+
+**3. Abbruch und Fortsetzen.** Ein laufendes Ensemble stoppt `POST /api/ensemble/<id>/cancel` (abgebrochene Ensembles werden nicht fortgesetzt). Derselbe Aufruf
+setzt am gespeicherten State wieder auf: fertige Fälle (`<fall>.json`) werden übersprungen, ein fehlgeschlagenes
+Ensemble wird per `POST /api/ensemble/<id>/resume` am letzten Seed fortgesetzt. Der Treiber versucht je Fall bis zu 4
+Anläufe mit wachsender Wartezeit (`--max-attempts`, `--wait-seconds`; höchstens 30 Minuten), das Fall-Werkzeug höchstens
+2 Resumes je Ensemble. Sind die 3 Versuche eines Seeds im Backend aufgebraucht (`attempts_exhausted`), hält der Pilot
+an; dann ist der manuelle Reset aus dem Abschnitt „Betrieb“ des Protokolls nötig. Ändert man Basis-URL, Läufe, Stunden
+oder Arme, weist das Werkzeug den vorhandenen State ab.
+
+**4. Ergebnisse.** Standardmäßig unter `docs/validation/ergebnisse/pilot-v5/` (Probelauf `…/probe-v5/`; anderer Ort mit
+`--results-dir`): `<fall>.md` und `<fall>.json` je Fall, `<fall>.state.json` (IDs und Resume-Zähler), `preflight.json`,
+`pilot.log`, am Ende `GESAMT.md` und `GESAMT.json` mit dem vorregistrierten Urteil. Die Rohdaten je Ensemble liegen unter
+`backend/uploads/ensembles/<id>/` (`ensemble.json`, je Lauf `classification.json`) und über `GET /api/ensemble/<id>`.
