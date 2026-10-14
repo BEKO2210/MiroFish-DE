@@ -82,17 +82,14 @@ Die Zeilenangaben beziehen sich auf den Stand dieses Commits.
      mitgeschickt, wenn es gesetzt ist.
    - `Step2EnvSetup.vue` Z. 915 und `Step5Interaction.vue` Z. 900: `getSimulationProfilesRealtime(props.simulationId)`
      ohne `'reddit'` aufrufen.
-4. **Verlaufskarten zeigen bei Nicht-UTC ein falsches Datum** (e6a5021).
-   `frontend/src/components/HistoryDatabase.vue`, `formatDate` Z. 316–320: Statt `toISOString().slice(0, 10)` wird das
-   Datum aus `getFullYear()`, `getMonth()+1` und `getDate()` zusammengesetzt (`padStart(2,'0')`).
-5. **Chatverlauf verliert frühere gleichlautende Nachrichten** (442d5fd).
+4. **Chatverlauf verliert frühere gleichlautende Nachrichten** (442d5fd).
    `frontend/src/components/Step5Interaction.vue`: Z. 666 `.filter(msg => msg.role !== 'user' || msg.content !== message)`
    und Z. 702 `.filter(msg => msg.content !== message)` werden jeweils durch `.slice(0, -1)` ersetzt.
-6. **Backend-Fehlertext bei HTTP-Fehlern anzeigen** (Frontend-Teil von f0d487f).
+5. **Backend-Fehlertext bei HTTP-Fehlern anzeigen** (Frontend-Teil von f0d487f).
    `frontend/src/api/index.js`, Fehler-Interceptor: Hier wird
    `const apiError = error.response?.data?.error || error.response?.data?.message` gesetzt. Wenn das ein nicht-leerer
    String ist, gilt `error.message = apiError`. Sonst sieht man bei 500/502 nur „Request failed with status code …“.
-7. **npm-Sicherheitsupdates** (c81d628, 223b283, 7c7c7a2). Nichts geändert, der Stand ist notiert:
+6. **npm-Sicherheitsupdates** (c81d628, 223b283, 7c7c7a2). Nichts geändert, der Stand ist notiert:
 
    | Paket | Datei | bei uns (package.json / lock) | Upstream |
    |---|---|---|---|

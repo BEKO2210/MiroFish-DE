@@ -4,7 +4,7 @@
 **Zielgruppe:** Nicht-Entwickler (Journalisten, Kommunalmitarbeiter, Marketing-Teams, Studierende)  
 **Sprachen:** Deutsch & Englisch  
 **Primäres Testgerät:** Smartphone mit 412 px Viewport-Breite (Android / Pixel / Galaxy) sowie Desktop (ab 1280 px)  
-**Geprüfte Komponenten:** `App.vue`, `Home.vue`, `HistoryDatabase.vue`, `MainView.vue`, `SimulationView.vue`, `SimulationRunView.vue`, `ReportView.vue`, `InteractionView.vue`, `Step1GraphBuild.vue`, `Step2EnvSetup.vue`, `Step3Simulation.vue`, `Step4Report.vue`, `Step5Interaction.vue`, `GraphPanel.vue`.
+**Geprüfte Komponenten:** `App.vue`, `Home.vue`, `MainView.vue`, `SimulationView.vue`, `SimulationRunView.vue`, `ReportView.vue`, `InteractionView.vue`, `Step1GraphBuild.vue`, `Step2EnvSetup.vue`, `Step3Simulation.vue`, `Step4Report.vue`, `Step5Interaction.vue`, `GraphPanel.vue`.
 
 ---
 
@@ -62,8 +62,6 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 - **Datei & Zeilen:** 
   - `frontend/src/views/Home.vue:40`, Styling `Home.vue:692-698` (`.decoration-square`)
   - `frontend/src/views/Home.vue:195` (`<span class="diamond-icon">◇</span> Workflow-Sequenz`)
-  - `frontend/src/components/HistoryDatabase.vue:40, 44, 49, 75, 161, 169, 178` (`◇`, `◈`, `◆`)
-  - `frontend/src/views/Process.vue:25` (`<span class="header-deco">◆</span>`)
 - **Befund:** In `Home.vue:40` befindet sich ein leeres `div`:
   ```css
   .decoration-square {
@@ -75,33 +73,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
   }
   ```
   Dieses Element ist eine inhaltsleere, um 45 Grad gedrehte schwarze Box, die wie ein Grafikfehler oder ein Platzhalter für ein fehlendes Bild aussieht. Auf mobilen Bildschirmen stiehlt sie wertvollen Leerraum.
-  In `HistoryDatabase.vue:75` wird bei leeren Dateilisten lediglich ein Rauten-Symbol `◇` gerendert. Status-Indikatoren (`◇`, `◈`, `◆`) werden ohne Text-Labels oder Screenreader-Attribute (`aria-hidden` oder `aria-label`) genutzt.
 - **Schweregrad:** **Mittel** (Verwirrend, vermittelt unfertigen Software-Eindruck).
-
----
-
-### Mangel 4: Karten der „Simulationsaufzeichnungen“ am Handy links/rechts abgeschnitten (horizontaler Überlauf)
-- **Datei & Zeilen:** `frontend/src/components/HistoryDatabase.vue:21-31`, Skript-Berechnung `HistoryDatabase.vue:213-268`, Styling `HistoryDatabase.vue:655-687`
-- **Befund:** Die Kartenanordnung wird via JavaScript absolut mit statischen Pixelwerten für den Desktop berechnet:
-  ```javascript
-  const CARDS_PER_ROW = 4
-  const CARD_WIDTH = 280  
-  const CARD_HEIGHT = 280 
-  const CARD_GAP = 24
-  
-  // Im expandierten Zustand:
-  const rowWidth = currentRowCards * CARD_WIDTH + (currentRowCards - 1) * CARD_GAP // = 1192 px bei 4 Karten!
-  const startX = -(rowWidth / 2) + (CARD_WIDTH / 2)
-  const x = startX + colInRow * (CARD_WIDTH + CARD_GAP)
-  return {
-    transform: `translate(${x}px, ${y}px) ...`
-  }
-  ```
-- **Auswirkung am 412 px Display:** 
-  1. Im expandierten Zustand errechnet das Skript eine Zeilenbreite von fast 1200 px. Die linkeste Karte wird bei `x = -456 px` und die rechteste bei `x = +456 px` positioniert. Auf einem 412 px Smartphone liegen diese Karten hunderte Pixel außerhalb des sichtbaren Bildschirms.
-  2. Im eingeklappten Zustand (fächerförmig `offset * 35`) ragen die äußeren Karten ebenfalls über den 412 px Viewport hinaus.
-  3. `HistoryDatabase.vue` besitzt **keine einzige `@media`-Abfrage**! Die Karten sind unbedienbar, erzeugen einen horizontalen Scrollbalken auf der gesamten Startseite und sind am Touchscreen links und rechts abgeschnitten.
-- **Schweregrad:** **Kritisch** (Vollständiger Funktions- und Layoutausfall auf Smartphones).
 
 ---
 
@@ -135,7 +107,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 ---
 
 ### Mangel 6: Monospace-Fließtext ist schwer lesbar
-- **Datei & Zeilen:** `frontend/src/App.vue:17-24`, `Home.vue:536, 616, 669, 756, 789, 1036, 1082, 1216`, `HistoryDatabase.vue:635, 696, 1248, 1293, 1308, 1333`, `MainView.vue:437, 493`, `Step1GraphBuild.vue:520, 560, 590, 649`
+- **Datei & Zeilen:** `frontend/src/App.vue:17-24`, `Home.vue:536, 616, 669, 756, 789, 1036, 1082, 1216`, `MainView.vue:437, 493`, `Step1GraphBuild.vue:520, 560, 590, 649`
 - **Befund:** In `App.vue:18` ist global festgelegt:
   ```css
   #app {
@@ -197,17 +169,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.3 Simulationshistorie (`HistoryDatabase.vue`)
-1. **Zwang zur Desktop-Breite:**
-   - *Zeilen 655-687:* `.cards-container` hat horizontales Padding von `40px` und keine Media Queries.
-2. **Modal-Aktionen auf Smartphones:**
-   - *Zeilen 1257-1285:* Das Detail-Modal rendert drei Aktions-Buttons nebeneinander (`display: flex; gap: 16px; padding: 20px 32px`). Auf 412 px (Modalbreite max. 370 px) bleiben pro Button nur knapp 85 px übrig. Die Texte „Umgebung aufbauen“ und „Analysebericht“ brechen unleserlich um.
-3. **Kryptische Status-Icons:**
-   - *Zeilen 36-50:* Symbole `◇`, `◈`, `◆` ohne Textbeschriftung auf der Karte. Mobil gibt es keinen Hover-Tooltip; Nutzer können den Status einzelner Phasen nicht deuten.
-
----
-
-### 3.4 Prozess- und Arbeitsbereich-Shell (`MainView.vue`, `SimulationView.vue`, etc.)
+### 3.3 Prozess- und Arbeitsbereich-Shell (`MainView.vue`, `SimulationView.vue`, etc.)
 1. **Der 50/50 Split-Screen-Kollaps am Smartphone:**
    - *`MainView.vue:113-123`, `SimulationView.vue:94-104`, `SimulationRunView.vue:99-110`:*
      Das Standard-Layout ist `viewMode = 'split'`. Dies setzt `leftPanelStyle` auf `width: 50%` und `rightPanelStyle` auf `width: 50%`.
@@ -226,7 +188,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.5 Schritt 1: Wissensgraph & Dokumentenverarbeitung (`Step1GraphBuild.vue`, `GraphPanel.vue`)
+### 3.4 Schritt 1: Wissensgraph & Dokumentenverarbeitung (`Step1GraphBuild.vue`, `GraphPanel.vue`)
 1. **Rohe Entwickler-Logs im Blickfeld:**
    - *`Step1GraphBuild.vue:174-185`:* Die Komponente blendet standardmäßig Terminal-Logs (`.system-logs`) mit Zeitstempeln bis auf Millisekunden ein. Am Smartphone raubt dies 120 px vertikalen Platz.
 2. **Dreispaltiges Statistik-Grid auf 412 px:**
@@ -234,7 +196,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.6 Schritt 2: Simulationsumgebung & Akteure (`Step2EnvSetup.vue`)
+### 3.5 Schritt 2: Simulationsumgebung & Akteure (`Step2EnvSetup.vue`)
 1. **24-Stunden Mini-Zeitleiste auf Touchscreens:**
    - *`Step2EnvSetup.vue:207-225`:* In den Akteurs-Karten wird eine 24-Stunden-Zeitleiste gerendert, bestehend aus 24 Blöcken nebeneinander. Innerhalb einer mobilen Karte ist jeder Block weniger als 10 px breit. Eine Interaktion oder Lesbarkeit per Finger ist unmöglich.
 2. **Übermäßige Informationsdichte:**
@@ -242,7 +204,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.7 Schritt 3: Simulationslauf & Langzeit-Wartezustand (`Step3Simulation.vue`)
+### 3.6 Schritt 3: Simulationslauf & Langzeit-Wartezustand (`Step3Simulation.vue`)
 1. **Fehlende Rückmeldung bei langen Laufzeiten (Minuten bis 1 Stunde):**
    - *Problem:* Eine Simulation läuft typischerweise 10 bis 45 Minuten. Aktuell gibt es in `Step3Simulation.vue:6-91` lediglich zwei statische Kacheln mit „ROUND 0/-“ und „Vergangene Zeit 0h 0m“.
    - *Folge:* Nutzer wissen nicht, ob die Anwendung noch arbeitet oder abgestürzt ist. Es gibt keine Schätzung der verbleibenden Restzeit (ETA), keinen Gesamtfortschrittsbalken und keinen Hinweis darauf, dass der Tab im Hintergrund laufen gelassen oder geschlossen werden kann.
@@ -251,7 +213,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.8 Schritt 4: Berichterstellung (`Step4Report.vue`)
+### 3.7 Schritt 4: Berichterstellung (`Step4Report.vue`)
 1. **Split-Screen bei der Berichtsausgabe:**
    - *Zeilen 4-80:* Der eigentliche Ergebnisbericht teilt sich den Bildschirm mit dem Agenten-Workflow-Protokoll. Am Smartphone wird der Berichtstext auf eine schmale Spalte gequetscht.
 2. **Verschachtelte Markdown-Inhalte:**
@@ -259,7 +221,7 @@ Die bestehende Web-App weist ein ausgeprägtes **Entwickler-zentriertes Desktop-
 
 ---
 
-### 3.9 Schritt 5: Interaktion & Befragung (`Step5Interaction.vue`)
+### 3.8 Schritt 5: Interaktion & Befragung (`Step5Interaction.vue`)
 1. **Tab-Pills kollabieren mobil:**
    - *Zeilen 92-147:* Die Schaltflächen „Mit Berichts-Agent chatten“, „Gesprächspartner auswählen“ und „Umfrage in die Welt senden“ liegen in einer horizontalen Leiste. Am Handy erzeugen sie extremen horizontalen Überlauf oder verdecken das Chat-Eingabefeld.
 2. **Eingabefeld am unteren Bildschirmrand:**
@@ -277,7 +239,6 @@ Zur Überprüfung der WCAG-2.1-AA-Konformität (Mindestkontrast 4,5:1 für norma
 |---|---|---|---|---|
 | Muted Labels (`.version-text`, `.detail-label`, `.metric-label`, `.step-num`) | `#999999` | `#FFFFFF` | **2,85 : 1** | **FAIL** (Erfordert mind. 4,5 : 1) |
 | Sekundärtext (`.step-desc`, `.field-desc`) | `#888888` | `#FFFFFF` | **3,54 : 1** | **FAIL** (Erfordert mind. 4,5 : 1) |
-| History Titel & Icons (`#9CA3AF`) | `#9CA3AF` | `#FFFFFF` | **2,54 : 1** | **FAIL** (Erfordert mind. 4,5 : 1) |
 | Orange Akzenttext (`.gradient-text`, `.diamond-icon`) | `#FF5722` | `#FFFFFF` | **3,16 : 1** | **FAIL** (Erfordert mind. 4,5 : 1) |
 | Orange Badge (`.orange-tag`) mit weißer Schrift | `#FFFFFF` | `#FF5722` | **3,16 : 1** | **FAIL** (Erfordert mind. 4,5 : 1) |
 | Status Grün (`.status-dot`) auf Weiß | `#4CAF50` | `#FFFFFF` | **2,78 : 1** | **FAIL** (Erfordert mind. 3,0 : 1 für UI) |
@@ -290,7 +251,6 @@ Zur Überprüfung der WCAG-2.1-AA-Konformität (Mindestkontrast 4,5:1 für norma
 - **WCAG 2.5.5 / 2.5.8 (Target Size):** Touch-Ziele müssen mindestens **44 × 44 px** (bzw. 24 × 24 px mit ausreichendem Abstand) groß sein.
 - In `Home.vue` ist der Datei-Entfernen-Button (`.remove-btn`) lediglich **24 × 24 px** groß (`padding: 0; line-height: 1`).
 - Die View-Switcher-Buttons in `MainView.vue` (`.switch-btn`) haben ein Padding von `6px 16px`, was zu einer Gesamthöhe von knapp **28 px** führt.
-- Die Toggle-Buttons der History-Karten haben Touch-Ziele unter **30 px**. Auf Smartphones führt dies zu häufigem Fehlklicken.
 
 ---
 
@@ -298,7 +258,6 @@ Zur Überprüfung der WCAG-2.1-AA-Konformität (Mindestkontrast 4,5:1 für norma
 
 | ID | Bereich | Datei & Zeilen | Problembeschreibung | Priorität |
 |---|---|---|---|---|
-| **M-01** | Layout (Mobil) | `HistoryDatabase.vue:213-268` | Karten overflowen horizontal um bis zu 800 px; links/rechts abgeschnitten | **P0 (Kritisch)** |
 | **M-02** | Layout (Mobil) | `MainView.vue:113-123` u. a. | 50/50 Split-Layout quetscht Panels auf 206 px zusammen | **P0 (Kritisch)** |
 | **M-03** | Typografie | `Home.vue:22-29, 619-625` | 4-zeilige Hero-Headline verdeckt mobilen Viewport | **P1 (Hoch)** |
 | **M-04** | UI / Formular | `Home.vue:291-300, 1229-1238` | `model-badge` überdeckt Textarea-Platzhalter und Benutzereingabe | **P1 (Hoch)** |
@@ -309,6 +268,5 @@ Zur Überprüfung der WCAG-2.1-AA-Konformität (Mindestkontrast 4,5:1 für norma
 | **M-09** | Layout (Mobil) | `MainView.vue:418-450` | App-Header-Elemente (Logo, Tabs, Steps) überlappen sich auf 412 px | **P1 (Hoch)** |
 | **M-10** | UI / Ästhetik | `Home.vue:40, 692-698` | Rauten-Grafik (`.decoration-square`) steht isoliert als Fremdkörper | **P2 (Mittel)** |
 | **M-11** | UI / Text | `Home.vue:18, 598-611` | Badge bricht unsauber um, Buzzword-Text | **P2 (Mittel)** |
-| **M-12** | Ergonomie | `HistoryDatabase.vue:1257-1285` | 3 Modal-Buttons nebeneinander zu schmal für Mobilgeräte | **P2 (Mittel)** |
 | **M-13** | Ergonomie | `Home.vue:1166-1179` | Löschen-Button mit 24×24 px zu klein für Touch-Bedienung | **P2 (Mittel)** |
 | **M-14** | Information | `Step1GraphBuild.vue:19, 123` | Exponierung roher interner API-Pfade (`POST /api/...`) an Endnutzer | **P2 (Mittel)** |

@@ -164,7 +164,7 @@
                 type="button"
                 class="tools-card-toggle"
                 :aria-expanded="showToolsDetail"
-                :aria-label="showToolsDetail ? $t('common.hideParameters') : $t('common.showParameters')"
+                :aria-label="showToolsDetail ? $t('step4.hideParameters') : $t('step4.showParameters')"
                 @click="showToolsDetail = !showToolsDetail"
               >
                 <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">

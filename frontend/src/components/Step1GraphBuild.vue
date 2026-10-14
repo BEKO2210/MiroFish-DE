@@ -37,7 +37,7 @@
           <div v-if="selectedOntologyItem" class="ontology-detail-overlay">
             <div class="detail-header">
                <div class="detail-title-group">
-                  <span class="detail-type-badge">{{ selectedOntologyItem.itemType === 'entity' ? $t('step1.entity') : $t('step1.relationship') }}</span>
+                  <span class="detail-type-badge">{{ selectedOntologyItem.itemType === 'entity' ? $t('graph.entity') : $t('graph.relationship') }}</span>
                   <span class="detail-name">{{ selectedOntologyItem.itemType === 'entity' ? formatLabel(selectedOntologyItem.name) : formatLabel(selectedOntologyItem.name, 'relation') }}</span>
                </div>
                <button class="close-btn" @click="selectedOntologyItem = null">×</button>

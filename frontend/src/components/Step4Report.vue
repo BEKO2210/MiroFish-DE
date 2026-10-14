@@ -2056,7 +2056,7 @@ const InterviewDisplay = {
         h('div', { class: 'agent-profile' }, [
           h('div', { class: 'profile-avatar' }, props.result.interviews[activeIndex.value]?.name?.charAt(0) || 'A'),
           h('div', { class: 'profile-info' }, [
-            h('div', { class: 'profile-name' }, props.result.interviews[activeIndex.value]?.name || t('step4.agent')),
+            h('div', { class: 'profile-name' }, props.result.interviews[activeIndex.value]?.name || t('step2.agent')),
             h('div', { class: 'profile-role' }, props.result.interviews[activeIndex.value]?.role || ''),
             props.result.interviews[activeIndex.value]?.bio && h('div', { class: 'profile-bio' }, props.result.interviews[activeIndex.value].bio)
           ])
@@ -2097,7 +2097,7 @@ const InterviewDisplay = {
                 h('div', { class: 'qa-badge a-badge' }, `A${qIdx + 1}`),
                 h('div', { class: 'qa-content' }, [
                   h('div', { class: 'qa-answer-header' }, [
-                    h('div', { class: 'qa-sender' }, interview?.name || t('step4.agent')),
+                    h('div', { class: 'qa-sender' }, interview?.name || t('step2.agent')),
                     // Dualplattform-Umschaltfläche (nur bei echten Antworten von beiden Plattformen anzeigen)
                     hasDualPlatform && h('div', { class: 'platform-switch' }, [
                       h('button', {

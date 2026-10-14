@@ -18,10 +18,6 @@ Stand: 2026-10-13. Worktree `mirofish-polish` only.
 | `frontend/package.json` | axios `^1.18.1`, vite `^7.3.6`; Symlink `node_modules` entfernt, neu installiert |
 | `package.json` (Wurzel) | concurrently `^9.2.4` |
 
-## Ausgelassen
-
-- Punkt 4 (`HistoryDatabase.vue`): Komponente ungenutzt, wie beauftragt.
-
 ## Checks
 
 - `cd frontend && npx vite build` — ok (vite 7.3.7)
