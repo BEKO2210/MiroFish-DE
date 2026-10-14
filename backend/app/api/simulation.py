@@ -245,6 +245,7 @@ def create_simulation():
             graph_id=graph_id,
             enable_twitter=data.get('enable_twitter', True),
             enable_reddit=data.get('enable_reddit', True),
+            source=data.get('source') or project.source,
         )
         
         return jsonify({
@@ -719,6 +720,12 @@ def get_prepare_status():
         
         task_id = data.get('task_id')
         simulation_id = data.get('simulation_id')
+
+        if simulation_id and not SimulationManager().get_simulation(simulation_id):
+            return jsonify({
+                "success": False,
+                "error": f"Simulation nicht gefunden: {simulation_id}",
+            }), 404
         
         # Wenn simulation_id angegeben, zuerst prüfen ob Vorbereitung abgeschlossen
         if simulation_id:
@@ -841,22 +848,16 @@ def delete_simulation(simulation_id: str):
         CleanupBusy,
         CleanupError,
         delete_simulation_cascade,
-        simulation_is_active,
     )
     # Nur echte Kennungen: Pfadtrenner oder ".." würden über rmtree sonst gefährlich.
     if not re.fullmatch(r"sim_[0-9a-f]+", simulation_id or ""):
         return jsonify({"success": False, "error": "Ungültige Simulations-ID"}), 400
-    if simulation_is_active(simulation_id):
-        return jsonify({
-            "success": False,
-            "error": "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst.",
-        }), 409
     try:
         removed = delete_simulation_cascade(simulation_id)
-    except CleanupBusy:
+    except CleanupBusy as error:
         return jsonify({
             "success": False,
-            "error": "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst.",
+            "error": str(error),
         }), 409
     except CleanupError as exc:
         logger.info(f"Löschen abgewiesen ({simulation_id}): {exc}")

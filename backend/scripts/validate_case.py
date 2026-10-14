@@ -100,6 +100,7 @@ PROBE_V5_FRAME = {
 }
 TRANSIENT_RETRY_SECONDS = 30 * 60
 TRANSIENT_BACKOFF_START, TRANSIENT_BACKOFF_CAP = 5.0, 300.0
+PREPARE_NOT_STARTED_TIMEOUT_SECONDS = 10 * 60
 CONTAMINATION_MIN_WEAK_HITS = 3
 CONTAMINATION_MAX_TOKENS = 600
 METRICS_NOTE = "Sammel-Brier über alle messbaren Ergebnisse, nicht zitierfähig"
@@ -123,7 +124,13 @@ PROBE_DIR = REPOSITORY_ROOT / "docs" / "validation" / PROBE_CASE_ID
 
 
 class ApiError(RuntimeError):
-    pass
+    def __init__(self, message: str, *, status_code: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class RestartCaseError(ApiError):
+    """Der gespeicherte Fallzustand ist nicht mehr fortsetzbar und muss verworfen werden."""
 
 
 class TransientApiError(ApiError):
@@ -156,7 +163,8 @@ class ApiClient:
             raise ApiError(f"Antwort ist kein JSON (HTTP {response.status_code}): "
                            f"{str(getattr(response, 'text', ''))[:200]}") from error
         if response.status_code >= 400 or not payload.get("success", True):
-            raise ApiError(str(payload.get("error") or f"HTTP {response.status_code}"))
+            raise ApiError(str(payload.get("error") or f"HTTP {response.status_code}"),
+                           status_code=response.status_code)
         data = payload.get("data", payload)
         if not (isinstance(data, dict) or (allow_list and isinstance(data, list))):
             raise ApiError("API-Antwort enthält kein Datenobjekt")
@@ -527,7 +535,8 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
             data = client.post("/api/graph/ontology/generate",
                                files={"files": (source.name, handle, "text/markdown")},
                                data={"simulation_requirement": QUESTION,
-                                     "project_name": "Realitätsabgleich"}, timeout=3600)
+                                     "project_name": "Realitätsabgleich",
+                                     "source": "validierung"}, timeout=3600)
         state["project_id"] = data["project_id"]
         _save_state(state_path, state)
     if not state.get("graph_id"):
@@ -548,7 +557,8 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
             sleep(poll_interval)
     if not state.get("simulation_id"):
         state["simulation_id"] = client.post("/api/simulation/create",
-                                              json_body={"project_id": state["project_id"]})["simulation_id"]
+                                              json_body={"project_id": state["project_id"],
+                                                         "source": "validierung"})["simulation_id"]
         _save_state(state_path, state)
     if not state.get("prepared"):
         if not state.get("prepare_task_id"):
@@ -557,12 +567,22 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
                                    retry=True)
             state["prepare_task_id"] = prepared.get("task_id")
             state["prepared"] = bool(prepared.get("already_prepared"))
+            state["prepare_started_at"] = time.time()
             _save_state(state_path, state)
         while not state.get("prepared"):
-            status = client.post("/api/simulation/prepare/status",
-                                 json_body={"simulation_id": state["simulation_id"],
-                                            "task_id": state.get("prepare_task_id")}, timeout=30,
-                                 retry=True)
+            if not state.get("prepare_started_at"):
+                # Zustände alter Treiberversionen bekommen ab dem ersten Poll ein eindeutiges Zeitbudget.
+                state["prepare_started_at"] = time.time()
+                _save_state(state_path, state)
+            try:
+                status = client.post("/api/simulation/prepare/status",
+                                     json_body={"simulation_id": state["simulation_id"],
+                                                "task_id": state.get("prepare_task_id")}, timeout=30,
+                                     retry=True)
+            except ApiError as error:
+                if error.status_code == 404:
+                    raise RestartCaseError("Simulation gelöscht oder unbekannt", status_code=404) from error
+                raise
             value = status.get("status") or status.get("simulation_status")
             if value in {"ready", "completed"} or status.get("already_prepared") or status.get("is_ready"):
                 state["prepared"] = True
@@ -570,6 +590,22 @@ def prepare_simulation(client: ApiClient, case_dir: Path, state_path: Path, stat
             elif value in {"failed", "error"}:
                 raise ApiError(str(status.get("error") or "Vorbereitung fehlgeschlagen"))
             else:
+                if value == "not_started":
+                    # Kompatibilität mit dem aktuell laufenden alten Dienst: dessen Statusroute
+                    # liefert für gelöschte IDs 200/not_started, während GET bereits 404 liefert.
+                    try:
+                        client.get(f"/api/simulation/{state['simulation_id']}")
+                    except ApiError as error:
+                        if error.status_code == 404:
+                            raise RestartCaseError(
+                                "Simulation gelöscht oder unbekannt", status_code=404
+                            ) from error
+                        raise
+                    elapsed = time.time() - float(state["prepare_started_at"])
+                    if elapsed > PREPARE_NOT_STARTED_TIMEOUT_SECONDS:
+                        raise RestartCaseError(
+                            "Vorbereitung blieb länger als 10 Minuten auf not_started"
+                        )
                 sleep(poll_interval)
 
 

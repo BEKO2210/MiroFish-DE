@@ -29,6 +29,8 @@ RE_UUID = re.compile(
 )
 
 _RUNNER_ACTIVE = ("running", "paused", "starting", "stopping")
+_TASK_ACTIVE = ("pending", "processing")
+_ENSEMBLE_TERMINAL = ("completed", "failed", "cancelled")
 
 
 class CleanupError(ValueError):
@@ -159,6 +161,66 @@ def _pipeline_ids(simulation_id: Optional[str] = None, project_id: Optional[str]
     return found
 
 
+def _active_task_reason(*, simulation_id: Optional[str] = None,
+                        project_id: Optional[str] = None) -> Optional[str]:
+    """Aktive In-Process-Aufgaben finden, bevor ihre Eingaben gelöscht werden."""
+    try:
+        from ..models.task import TaskManager
+        tasks = TaskManager().list_tasks()
+    except Exception as exc:
+        logger.info(f"Aufgabenstatus nicht prüfbar: {exc}")
+        return None
+    for task in tasks:
+        if task.get("status") not in _TASK_ACTIVE:
+            continue
+        metadata = task.get("metadata") or {}
+        if simulation_id and metadata.get("simulation_id") == simulation_id:
+            return "Die Simulation wird gerade vorbereitet. Löschen ist erst nach Abschluss oder Abbruch möglich."
+        if project_id and metadata.get("project_id") == project_id:
+            return "Das Projekt wird gerade verarbeitet. Löschen ist erst nach Abschluss oder Abbruch möglich."
+    return None
+
+
+def _active_ensemble_reason(*, simulation_id: Optional[str] = None,
+                            project_id: Optional[str] = None) -> Optional[str]:
+    """Nicht abgeschlossene Ensembles/Piloten schützen ihre Simulation und ihr Projekt."""
+    folder = os.path.join(_root(), "ensembles")
+    if not os.path.isdir(folder):
+        return None
+    for name in os.listdir(folder):
+        if not re.fullmatch(r"ens_[0-9a-f]{12}", name):
+            continue
+        state = _read_json(os.path.join(folder, name, "ensemble.json")) or {}
+        if state.get("status") in _ENSEMBLE_TERMINAL:
+            continue
+        referenced_simulation = state.get("simulation_id")
+        if simulation_id and referenced_simulation == simulation_id:
+            return f"Die Simulation wird vom nicht abgeschlossenen Ensemble/Pilot {name} verwendet."
+        if project_id and isinstance(referenced_simulation, str):
+            try:
+                sim_dir = _child(["simulations"], referenced_simulation)
+            except CleanupError:
+                continue
+            referenced_project, _ = _sim_links(sim_dir) if os.path.isdir(sim_dir) else (None, None)
+            if referenced_project == project_id:
+                return f"Das Projekt wird vom nicht abgeschlossenen Ensemble/Pilot {name} verwendet."
+    return None
+
+
+def _ensemble_states_for_simulation(simulation_id: str) -> List[dict]:
+    folder = os.path.join(_root(), "ensembles")
+    if not os.path.isdir(folder):
+        return []
+    found = []
+    for name in os.listdir(folder):
+        if not re.fullmatch(r"ens_[0-9a-f]{12}", name):
+            continue
+        state = _read_json(os.path.join(folder, name, "ensemble.json")) or {}
+        if state.get("simulation_id") == simulation_id:
+            found.append(state)
+    return found
+
+
 def _sim_links(sim_dir: str) -> Tuple[Optional[str], Optional[str]]:
     """project_id und graph_id aus state.json oder simulation_config.json."""
     project_id = None
@@ -249,9 +311,57 @@ def simulation_is_active(simulation_id: str) -> bool:
     """Laufende Simulation oder ein laufender Durchlauf, der sie benutzt."""
     if not isinstance(simulation_id, str) or not RE_SIM.fullmatch(simulation_id):
         return False
+    return simulation_delete_block_reason(simulation_id) is not None
+
+
+def simulation_delete_block_reason(simulation_id: str) -> Optional[str]:
+    """Begründung liefern, wenn eine Simulation momentan nicht gelöscht werden darf."""
+    if not isinstance(simulation_id, str) or not RE_SIM.fullmatch(simulation_id):
+        return None
     if _pipeline_ids(simulation_id=simulation_id, status="running"):
-        return True
-    return _runner_alive(simulation_id)
+        return "Die Simulation gehört zu einem laufenden Pipeline-Durchlauf."
+    reason = _active_task_reason(simulation_id=simulation_id)
+    if reason:
+        return reason
+    sim_dir = _child(["simulations"], simulation_id)
+    simulation_state = _read_json(os.path.join(sim_dir, "state.json")) or {}
+    if simulation_state.get("status") == "preparing":
+        return "Die Simulation wird gerade vorbereitet (Prepare-Status processing)."
+    if simulation_state.get("status") == "running":
+        return "Die Simulation läuft gerade."
+    reason = _active_ensemble_reason(simulation_id=simulation_id)
+    if reason:
+        return reason
+    if _runner_alive(simulation_id):
+        return "Die Simulation läuft oder startet gerade."
+    if simulation_state.get("source") == "validierung":
+        ensembles = _ensemble_states_for_simulation(simulation_id)
+        if not ensembles:
+            return "Validierungssimulationen sind geschützt, bis ihr Ensemble abgeschlossen, fehlgeschlagen oder abgebrochen ist."
+    run_state = _read_json(os.path.join(sim_dir, "run_state.json")) or {}
+    if run_state.get("runner_status") in ("running", "starting"):
+        return "Die Simulation läuft oder startet gerade (Runner-Status)."
+    return None
+
+
+def project_delete_block_reason(project_id: str) -> Optional[str]:
+    if _pipeline_ids(project_id=project_id, status="running"):
+        return "Das Projekt gehört zu einem laufenden Pipeline-Durchlauf."
+    reason = _active_task_reason(project_id=project_id)
+    if reason:
+        return reason
+    reason = _active_ensemble_reason(project_id=project_id)
+    if reason:
+        return reason
+    simulation_ids = _simulation_ids_for_project(project_id)
+    for simulation_id in simulation_ids:
+        reason = simulation_delete_block_reason(simulation_id)
+        if reason:
+            return f"Projekt kann wegen {simulation_id} nicht gelöscht werden: {reason}"
+    project = _read_json(os.path.join(_child(["projects"], project_id), "project.json")) or {}
+    if project.get("source") == "validierung" and not simulation_ids:
+        return "Validierungsprojekte sind geschützt, bis ihr Ensemble abgeschlossen, fehlgeschlagen oder abgebrochen ist."
+    return None
 
 
 def _stop_runner(simulation_id: str) -> None:
@@ -355,9 +465,13 @@ def _delete_pipelines_for_simulation(simulation_id: str) -> List[str]:
     return removed
 
 
-def delete_project_cascade(project_id: str) -> List[str]:
+def delete_project_cascade(project_id: str, *, enforce_protection: bool = True) -> List[str]:
     """Projektordner und den zugehörigen Graph-Speicher löschen."""
     project_id = _require(project_id, RE_PROJECT)
+    if enforce_protection:
+        reason = project_delete_block_reason(project_id)
+        if reason:
+            raise CleanupBusy(reason)
     proj = _child(["projects"], project_id)
     meta = _read_json(os.path.join(proj, "project.json"))
     graph_id = (meta or {}).get("graph_id")
@@ -378,7 +492,10 @@ def _maybe_delete_project(project_id: Optional[str], graph_hint: Optional[str] =
         return []
     if _pipeline_ids(project_id=project_id, status="running"):
         return []
-    removed = delete_project_cascade(project_id)
+    # Der übergeordnete Simulations-/Pipeline-Löschvorgang wurde vor seiner ersten
+    # Mutation vollständig geprüft; nach Entfernen der letzten Simulation fehlt sonst
+    # die Referenz, mit der ein terminales Validierungs-Ensemble nachgewiesen wird.
+    removed = delete_project_cascade(project_id, enforce_protection=False)
     already = any(item.startswith("graph:") or item.startswith("zep:") for item in removed)
     if graph_hint and not already and graph_hint.lower() not in _referenced_graph_ids():
         removed.extend(_delete_graph_storage(graph_hint))
@@ -388,15 +505,14 @@ def _maybe_delete_project(project_id: Optional[str], graph_hint: Optional[str] =
 def delete_simulation_cascade(simulation_id: str) -> List[str]:
     """Simulation, ihre Berichte und Durchlauf-Protokolle löschen.
 
-    Ein laufender Runner wird angehalten. Hängt noch ein laufender Durchlauf an der
-    Simulation, wird nichts gelöscht. Das Projekt (samt Graph) folgt nur, wenn keine
-    andere Simulation und kein laufender Durchlauf es noch benutzt.
+    Laufende Runner, Vorbereitungen, Durchläufe und Ensembles blockieren das Löschen.
+    Das Projekt (samt Graph) folgt nur, wenn keine andere Simulation und kein laufender
+    Durchlauf es noch benutzt.
     """
     simulation_id = _require(simulation_id, RE_SIM)
-    if _pipeline_ids(simulation_id=simulation_id, status="running"):
-        raise CleanupBusy(
-            "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst."
-        )
+    reason = simulation_delete_block_reason(simulation_id)
+    if reason:
+        raise CleanupBusy(reason)
     sim_dir = _child(["simulations"], simulation_id)
     project_id, graph_id = _sim_links(sim_dir) if os.path.isdir(sim_dir) else (None, None)
     _stop_runner(simulation_id)
@@ -440,10 +556,13 @@ def delete_pipeline_cascade(run_id: str) -> List[str]:
     project_id = state.get("project_id")
     graph_id = state.get("graph_id")
     if isinstance(simulation_id, str) and RE_SIM.fullmatch(simulation_id):
-        if _pipeline_ids(simulation_id=simulation_id, status="running"):
-            raise CleanupBusy(
-                "Die Simulation läuft noch. Warte, bis sie fertig ist, bevor du sie löschst."
-            )
+        reason = simulation_delete_block_reason(simulation_id)
+        if reason:
+            raise CleanupBusy(reason)
+    if isinstance(project_id, str) and RE_PROJECT.fullmatch(project_id):
+        reason = project_delete_block_reason(project_id)
+        if reason:
+            raise CleanupBusy(reason)
     removed = _remove_pipeline(run_id)
     hint = graph_id if isinstance(graph_id, str) else None
     if isinstance(simulation_id, str) and RE_SIM.fullmatch(simulation_id):
@@ -494,7 +613,10 @@ def sweep_orphans(max_age_hours: float = 24) -> List[str]:
             age = _project_age_hours(name)
             if age is None or age <= max_age_hours:
                 continue
-            removed.extend(delete_project_cascade(name))
+            try:
+                removed.extend(delete_project_cascade(name))
+            except CleanupBusy:
+                continue
     referenced = _referenced_graph_ids()
     sims = os.path.join(_root(), "simulations")
     if os.path.isdir(sims):

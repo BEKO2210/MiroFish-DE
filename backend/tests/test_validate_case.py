@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 
 import pytest
+from scripts import validate_case as validate_module
 
 from scripts.validate_case import (
     ApiError,
@@ -24,7 +25,9 @@ from scripts.validate_case import (
     outcome_horizon_hours,
     parse_args,
     parse_arms,
+    prepare_simulation,
     resolve_invocation,
+    RestartCaseError,
     run_ensemble,
     summary_markdown,
     validate_case,
@@ -129,6 +132,9 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
     assert "Beispielstadt 2024" not in probes[1][1]
     ontology = next(kwargs for path, kwargs in api.posts if path == "/api/graph/ontology/generate")
     assert ontology["data"]["project_name"] == "Realitätsabgleich"
+    assert ontology["data"]["source"] == "validierung"
+    create = next(kwargs for path, kwargs in api.posts if path == "/api/simulation/create")
+    assert create["json_body"]["source"] == "validierung"
     assert "fall-a" not in json.dumps(ontology["data"])
     assert all("Der echte Verlauf" not in prompt for _, prompt in probes)
     assert result["contaminated"] is False
@@ -149,6 +155,38 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
                   sleep=lambda _: None, poll_interval=0)
     assert resumed.posts == []
     assert resumed.gets == ["/api/ensemble/ens_aaaaaaaaaaaa"]
+
+
+class _DeletedDuringPrepare:
+    def post(self, path, **kwargs):
+        if path == "/api/simulation/prepare/status":
+            return {"status": "not_started"}
+        raise AssertionError(path)
+
+    def get(self, path, **kwargs):
+        raise validate_module.ApiError("Simulation nicht gefunden", status_code=404)
+
+
+def test_old_service_not_started_plus_get_404_fails_immediately(tmp_path):
+    state_path = tmp_path / "fall.state.json"
+    state = {"project_id": "proj_x", "graph_id": "graph_x", "simulation_id": "sim_geloescht",
+             "prepare_task_id": "task_alt", "prepare_started_at": 1, "prepared": False}
+    with pytest.raises(RestartCaseError, match="Simulation gelöscht oder unbekannt"):
+        prepare_simulation(_DeletedDuringPrepare(), tmp_path, state_path, state,
+                           sleep=lambda _: pytest.fail("darf nicht warten"), poll_interval=0)
+
+
+def test_not_started_over_ten_minutes_fails_even_if_get_still_exists(tmp_path, monkeypatch):
+    class Api(_DeletedDuringPrepare):
+        def get(self, path, **kwargs):
+            return {"simulation_id": "sim_alt", "status": "created"}
+
+    monkeypatch.setattr(validate_module.time, "time", lambda: 602.0)
+    state = {"project_id": "proj_x", "graph_id": "graph_x", "simulation_id": "sim_alt",
+             "prepare_task_id": "task_alt", "prepare_started_at": 1.0, "prepared": False}
+    with pytest.raises(RestartCaseError, match="10 Minuten"):
+        prepare_simulation(Api(), tmp_path, tmp_path / "fall.state.json", state,
+                           sleep=lambda _: pytest.fail("darf nicht warten"), poll_interval=0)
 
 
 def test_known_cold_question_aborts_before_prepare(tmp_path):

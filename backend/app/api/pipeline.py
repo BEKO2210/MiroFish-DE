@@ -125,7 +125,7 @@ def _set(state, step, status, detail="", **extra):
     _save(state)
 
 
-def _run(pid, files, requirement, project_name):
+def _run(pid, files, requirement, project_name, source=None):
     """Läuft in einem Thread. Jede Stufe wartet geduldig; Fehler beenden den Durchlauf mit Angabe der Stufe."""
     state = _load(pid) or {}
     base = _base()
@@ -139,7 +139,8 @@ def _run(pid, files, requirement, project_name):
         with ExitStack() as stack:
             payload = [("files", (name, stack.enter_context(open(path, "rb")))) for name, path in files]
             data = _ok(s.post(f"{base}/api/graph/ontology/generate", files=payload,
-                              data={"simulation_requirement": requirement, "project_name": project_name}, timeout=3600))
+                              data={"simulation_requirement": requirement, "project_name": project_name,
+                                    "source": source or ""}, timeout=3600))
         project_id = data["project_id"]
         state["project_id"] = project_id
         onto = data.get("ontology") or {}
@@ -163,7 +164,8 @@ def _run(pid, files, requirement, project_name):
 
         # 3 Simulation anlegen
         _set(state, "create", "running")
-        sim = _ok(s.post(f"{base}/api/simulation/create", json={"project_id": project_id}, timeout=60))
+        sim = _ok(s.post(f"{base}/api/simulation/create",
+                         json={"project_id": project_id, "source": source}, timeout=60))
         sim_id = sim["simulation_id"]
         state["simulation_id"] = sim_id
         _set(state, "create", "done", "Simulation angelegt")
@@ -271,12 +273,13 @@ def start_pipeline():
     state = {
         "pipeline_id": pid, "status": "running", "created_at": datetime.now().isoformat(),
         "requirement": requirement, "project_name": request.form.get('project_name') or requirement[:60],
+        "source": request.form.get('source') or None,
         "files": [n for n, _ in files], "current_step": None,
         "steps": {k: {"label": STEP_LABELS[k], "status": "pending", "detail": "", "progress": 0} for k in STEPS},
         "project_id": None, "graph_id": None, "simulation_id": None, "report_id": None, "error": None,
     }
     _save(state)
-    threading.Thread(target=_run, args=(pid, files, requirement, state["project_name"]), daemon=True,
+    threading.Thread(target=_run, args=(pid, files, requirement, state["project_name"], state["source"]), daemon=True,
                      name=f"pipeline-{pid}").start()
     logger.info(f"Durchlauf gestartet: {pid} ({len(files)} Dateien)")
     return jsonify({"success": True, "data": {"pipeline_id": pid}})
@@ -303,10 +306,10 @@ def delete_pipeline(pid):
         return jsonify({"success": False, "error": "Durchlauf nicht gefunden"}), 404
     try:
         removed = delete_pipeline_cascade(pid)
-    except CleanupBusy:
+    except CleanupBusy as error:
         return jsonify({
             "success": False,
-            "error": "Der Durchlauf läuft noch. Warte, bis er fertig ist, bevor du ihn löschst.",
+            "error": str(error),
         }), 409
     except CleanupError as exc:
         logger.info(f"Löschen abgewiesen ({pid}): {exc}")
@@ -325,5 +328,5 @@ def pipeline_list():
             st = _load(name[:-5])
             if st:
                 items.append({k: st.get(k) for k in ("pipeline_id", "status", "created_at", "completed_at", "requirement",
-                                                      "current_step", "simulation_id", "report_id", "error")})
+                                                      "current_step", "simulation_id", "report_id", "error", "source")})
     return jsonify({"success": True, "data": items[:50]})

@@ -46,6 +46,7 @@ class SimulationState:
     simulation_id: str
     project_id: str
     graph_id: str
+    source: Optional[str] = None
     
     # Plattform-Aktivierungsstatus
     enable_twitter: bool = True
@@ -82,6 +83,7 @@ class SimulationState:
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
             "graph_id": self.graph_id,
+            "source": self.source,
             "enable_twitter": self.enable_twitter,
             "enable_reddit": self.enable_reddit,
             "status": self.status.value,
@@ -114,6 +116,7 @@ class SimulationState:
             "simulation_id": self.simulation_id,
             "project_id": self.project_id,
             "graph_id": self.graph_id,
+            "source": self.source,
             "status": self.status.value,
             "entities_count": self.entities_count,
             "profiles_count": self.profiles_count,
@@ -182,6 +185,7 @@ class SimulationManager:
             simulation_id=simulation_id,
             project_id=data.get("project_id", ""),
             graph_id=data.get("graph_id", ""),
+            source=data.get("source"),
             enable_twitter=data.get("enable_twitter", True),
             enable_reddit=data.get("enable_reddit", True),
             status=SimulationStatus(data.get("status", "created")),
@@ -208,6 +212,7 @@ class SimulationManager:
         graph_id: str,
         enable_twitter: bool = True,
         enable_reddit: bool = True,
+        source: Optional[str] = None,
     ) -> SimulationState:
         """
         Neue Simulation erstellen
@@ -228,6 +233,7 @@ class SimulationManager:
             simulation_id=simulation_id,
             project_id=project_id,
             graph_id=graph_id,
+            source=source,
             enable_twitter=enable_twitter,
             enable_reddit=enable_reddit,
             status=SimulationStatus.CREATED,

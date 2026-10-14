@@ -14,6 +14,7 @@ from app.services.cleanup import (
     delete_simulation_cascade,
     sweep_orphans,
 )
+from app.models.task import TaskManager, TaskStatus
 
 P1 = "proj_aaa111"
 P2 = "proj_bbb222"
@@ -34,7 +35,9 @@ RUN2 = "run_bbb222"
 def upload(tmp_path, monkeypatch):
     monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
     monkeypatch.setattr(Config, "MEMORY_PROVIDER", "obsidian")
-    return tmp_path
+    TaskManager()._tasks.clear()
+    yield tmp_path
+    TaskManager()._tasks.clear()
 
 
 def _dump(path, data):
@@ -292,3 +295,63 @@ def test_sweep_deletes_only_old_and_unreferenced(upload):
     assert (upload / "pipelines" / run_live / "dokument.txt").is_file()
     assert (upload / "projects" / p_run / "project.json").is_file()
     assert (upload / "simulations" / sim_run / "state.json").is_file()
+
+
+def test_prepare_task_runner_and_active_ensemble_block_before_deletion(upload):
+    now = datetime.now().isoformat()
+    make_project(upload, P1, G1, now)
+    make_sim(upload, S1, P1, G1)
+    manager = TaskManager()
+    manager._tasks.clear()
+    task_id = manager.create_task("simulation_prepare", {"simulation_id": S1, "project_id": P1})
+    manager.update_task(task_id, status=TaskStatus.PROCESSING)
+
+    with pytest.raises(CleanupBusy, match="vorbereitet"):
+        delete_simulation_cascade(S1)
+    assert (upload / "simulations" / S1 / "state.json").is_file()
+
+    manager.update_task(task_id, status=TaskStatus.FAILED)
+    _dump(upload / "simulations" / S1 / "run_state.json", {"runner_status": "starting"})
+    with pytest.raises(CleanupBusy, match="Runner-Status"):
+        delete_simulation_cascade(S1)
+    (upload / "simulations" / S1 / "run_state.json").unlink()
+
+    _dump(upload / "ensembles" / "ens_aaaaaaaaaaaa" / "ensemble.json", {
+        "ensemble_id": "ens_aaaaaaaaaaaa", "simulation_id": S1, "status": "running",
+    })
+    with pytest.raises(CleanupBusy, match="Ensemble/Pilot"):
+        delete_project_cascade(P1)
+    assert (upload / "projects" / P1 / "project.json").is_file()
+
+    _dump(upload / "ensembles" / "ens_aaaaaaaaaaaa" / "ensemble.json", {
+        "ensemble_id": "ens_aaaaaaaaaaaa", "simulation_id": S1, "status": "cancelled",
+    })
+    removed = delete_simulation_cascade(S1)
+    assert f"simulation:{S1}" in removed
+    manager._tasks.clear()
+
+
+def test_validation_source_needs_terminal_ensemble_and_pipeline_delete_is_atomic(upload):
+    now = datetime.now().isoformat()
+    make_project(upload, P1, G1, now)
+    make_sim(upload, S1, P1, G1)
+    project_path = upload / "projects" / P1 / "project.json"
+    project = json.loads(project_path.read_text(encoding="utf-8"))
+    project["source"] = "validierung"
+    _dump(project_path, project)
+    state_path = upload / "simulations" / S1 / "state.json"
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state["source"] = "validierung"
+    _dump(state_path, state)
+    make_run(upload, RUN1, status="failed", project_id=P1, graph_id=G1, simulation_id=S1)
+
+    with pytest.raises(CleanupBusy, match="Validierungssimulationen"):
+        delete_pipeline_cascade(RUN1)
+    assert (upload / "pipelines" / f"{RUN1}.json").is_file()
+    assert state_path.is_file()
+
+    _dump(upload / "ensembles" / "ens_bbbbbbbbbbbb" / "ensemble.json", {
+        "ensemble_id": "ens_bbbbbbbbbbbb", "simulation_id": S1, "status": "failed",
+    })
+    removed = delete_pipeline_cascade(RUN1)
+    assert f"pipeline:{RUN1}" in removed and f"simulation:{S1}" in removed

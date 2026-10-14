@@ -62,8 +62,9 @@ def test_post_retries_only_when_marked_and_client_errors_are_final():
     assert marked.post("/simulation/prepare", json_body={}, retry=True) == {"ok": 1}
     assert waits == [5]
     failing, session, _ = _client([_Resp(400, {"success": False, "error": "kaputt"})])
-    with pytest.raises(vc.ApiError):
+    with pytest.raises(vc.ApiError) as error:
         failing.get("/p")
+    assert error.value.status_code == 400
     assert session.calls == 1
 
 
@@ -185,3 +186,30 @@ def test_run_pilot_stops_when_attempts_exhausted(tmp_path, monkeypatch):
                                run_case=run_case, max_attempts=2)
     assert outcome["stopped"]["case"] == frame["case_ids"][0]
     assert len(json.dumps(outcome)) > 0
+
+
+def test_run_pilot_archives_invalid_state_and_starts_case_fresh(tmp_path, monkeypatch):
+    frame = {**vc.load_rahmen("probe-v5"), "case_ids": ["probe"]}
+    monkeypatch.setattr(driver, "preflight", lambda *a, **k: {"free_gb": 99})
+    results = tmp_path / "out"
+    calls = []
+
+    def run_case(case_dir, **kwargs):
+        calls.append(case_dir.name)
+        state = kwargs["results_dir"] / f"{case_dir.name}.state.json"
+        if len(calls) == 1:
+            vc._write_json_atomic(state, {"simulation_id": "sim_deleted"})
+            raise vc.RestartCaseError("Simulation gelöscht oder unbekannt", status_code=404)
+        assert not state.exists()
+        vc._write_json_atomic(kwargs["results_dir"] / f"{case_dir.name}.json",
+                              {"schema_version": 2, "rows": [1]})
+        return {}
+
+    monkeypatch.setattr(vc, "update_summary", lambda d, f: {"clean": {"preregistered_criterion": {
+        "status": "nicht prüfbar"}}})
+    outcome = driver.run_pilot(frame, cases_dir=tmp_path, results_dir=results, base="x",
+                               client=object(), log=lambda _: None, sleep=lambda _: None,
+                               run_case=run_case, max_attempts=2)
+    assert calls == ["probe", "probe"]
+    assert len(list(results.glob("probe.state.verworfen-*.json"))) == 1
+    assert outcome["cases"]["probe"] == "abgeschlossen"

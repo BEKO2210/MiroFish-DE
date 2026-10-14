@@ -127,6 +127,16 @@ def _is_done(results_dir: Path, case_name: str) -> bool:
         payload.get("rows") or payload.get("contaminated"))
 
 
+def _archive_case_state(results_dir: Path, case_name: str) -> Optional[Path]:
+    state_path = results_dir / f"{case_name}.state.json"
+    if not state_path.is_file():
+        return None
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    archived = results_dir / f"{case_name}.state.verworfen-{stamp}.json"
+    state_path.replace(archived)
+    return archived
+
+
 def run_pilot(frame: Dict[str, Any], *, cases_dir: Path, results_dir: Path, base: str,
               client: Any, log: Callable[[str], None], data_dir: Path = DEFAULT_DATA_DIR,
               min_free_gb: float = DEFAULT_MIN_FREE_GB, ignore_busy: bool = False,
@@ -157,6 +167,17 @@ def run_pilot(frame: Dict[str, Any], *, cases_dir: Path, results_dir: Path, base
                 log(f"{name}: abgeschlossen")
                 outcome["cases"][name] = "abgeschlossen"
                 break
+            except vc.RestartCaseError as error:
+                archived = _archive_case_state(results_dir, name)
+                suffix = f"; alter State: {archived.name}" if archived else ""
+                log(f"{name}: Versuch nicht fortsetzbar ({error}){suffix}")
+                if attempt == max_attempts:
+                    log(f"{name}: Wiederanläufe erschöpft. Pilot angehalten.")
+                    outcome["stopped"] = {"case": name, "grund": f"Wiederanläufe erschöpft: {error}"}
+                    return outcome
+                wait = min(wait_seconds * 2 ** (attempt - 1), MAX_WAIT_SECONDS)
+                log(f"{name}: neuer Versuch mit frischem State in {wait:.0f} s")
+                sleep(wait)
             except ValueError as error:
                 if "kontaminiert" in str(error):
                     log(f"{name}: kontaminiert, nicht gewertet ({error})")

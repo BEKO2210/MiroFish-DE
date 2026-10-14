@@ -32,6 +32,7 @@ class Project:
     status: ProjectStatus
     created_at: str
     updated_at: str
+    source: Optional[str] = None
     
     # Dateiinformationen
     files: List[Dict[str, str]] = field(default_factory=list)  # [{filename, path, size}]
@@ -61,6 +62,7 @@ class Project:
             "status": self.status.value if isinstance(self.status, ProjectStatus) else self.status,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "source": self.source,
             "files": self.files,
             "total_text_length": self.total_text_length,
             "ontology": self.ontology,
@@ -86,6 +88,7 @@ class Project:
             status=status,
             created_at=data.get('created_at', ''),
             updated_at=data.get('updated_at', ''),
+            source=data.get('source'),
             files=data.get('files', []),
             total_text_length=data.get('total_text_length', 0),
             ontology=data.get('ontology'),
@@ -132,7 +135,7 @@ class ProjectManager:
         return os.path.join(cls._get_project_dir(project_id), 'extracted_text.txt')
     
     @classmethod
-    def create_project(cls, name: str = "Unnamed Project") -> Project:
+    def create_project(cls, name: str = "Unnamed Project", source: Optional[str] = None) -> Project:
         """
         Erstellt ein neues Projekt
         
@@ -152,7 +155,8 @@ class ProjectManager:
             name=name,
             status=ProjectStatus.CREATED,
             created_at=now,
-            updated_at=now
+            updated_at=now,
+            source=source,
         )
         
         # Erstellt die Projektverzeichnisstruktur

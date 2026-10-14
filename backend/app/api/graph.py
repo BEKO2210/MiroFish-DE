@@ -75,17 +75,22 @@ def delete_project(project_id: str):
     """
     Projekt löschen
     """
-    success = ProjectManager.delete_project(project_id)
-    
-    if not success:
+    from ..services.cleanup import CleanupBusy, CleanupError, delete_project_cascade
+    if not ProjectManager.get_project(project_id):
         return jsonify({
             "success": False,
             "error": f"Projekt nicht gefunden oder Löschung fehlgeschlagen: {project_id}"
         }), 404
-    
+    try:
+        removed = delete_project_cascade(project_id)
+    except CleanupBusy as error:
+        return jsonify({"success": False, "error": str(error)}), 409
+    except CleanupError:
+        return jsonify({"success": False, "error": "Ungültige Projekt-ID"}), 400
     return jsonify({
         "success": True,
-        "message": f"Projekt gelöscht: {project_id}"
+        "message": f"Projekt gelöscht: {project_id}",
+        "data": {"project_id": project_id, "deleted": removed},
     })
 
 
@@ -157,6 +162,7 @@ def generate_ontology():
         # Parameter abrufen
         simulation_requirement = request.form.get('simulation_requirement', '')
         project_name = request.form.get('project_name', 'Unnamed Project')
+        source = request.form.get('source') or None
         additional_context = request.form.get('additional_context', '')
         
         logger.debug(f"Projektname: {project_name}")
@@ -177,7 +183,7 @@ def generate_ontology():
             }), 400
         
         # Projekt erstellen
-        project = ProjectManager.create_project(name=project_name)
+        project = ProjectManager.create_project(name=project_name, source=source)
         project.simulation_requirement = simulation_requirement
         logger.info(f"Projekt erstellt: {project.project_id}")
 
