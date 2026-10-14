@@ -87,9 +87,9 @@ const html = computed(() =>
 .guide :deep(li) { margin: 0.35rem 0; }
 .guide :deep(.guide-check) {
   list-style: none;
-  margin-left: -1.25rem;
-  padding: 10px 12px;
-  border-radius: 10px;
+  margin: 0.5rem 0 0.5rem -1.25rem;
+  padding: 12px 14px;
+  border-radius: 12px;
   background: var(--color-bg-surface-subtle);
   border: 1px solid var(--color-border-subtle);
 }

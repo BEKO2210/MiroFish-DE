@@ -2878,7 +2878,7 @@ watch(() => props.reportId, (newId) => {
 }
 .ensemble-list .muted { color: var(--color-text-muted); font-weight: 400; }
 
-.ens-form { display: grid; gap: 14px; }
+.ens-form { display: grid; gap: 16px; }
 .ens-field { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; font-size: 14px; color: var(--color-text-secondary); }
 .ens-field legend, .ens-field > span { font-weight: 600; color: var(--color-text-primary); }
 .ens-pills { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -2916,7 +2916,12 @@ watch(() => props.reportId, (newId) => {
   min-height: 44px;
   color: var(--color-text-primary);
 }
-.ens-check input { width: 20px; height: 20px; }
+.ens-check input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--color-brand-primary);
+}
 .ens-eta { margin: 0; font-size: 13px; color: var(--color-text-muted); }
 .ens-custom__hint { margin: 0; font-size: 13px; line-height: 1.45; color: var(--color-text-muted); font-weight: 400; }
 .ens-custom__row {

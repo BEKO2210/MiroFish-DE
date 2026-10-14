@@ -27,7 +27,7 @@ defineEmits(['confirm', 'close'])
 
 <style scoped>
 .backdrop { position: fixed; inset: 0; z-index: 110; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; }
-.sheet { width: 100%; max-width: 440px; max-height: calc(100dvh - 24px); display: flex; flex-direction: column; background: var(--color-bg-surface-raised); color: var(--color-text-primary); border-radius: 20px 20px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,.2); }
+.sheet { width: 100%; max-width: 520px; max-height: calc(100dvh - 24px); display: flex; flex-direction: column; background: var(--color-bg-surface-raised); color: var(--color-text-primary); border-radius: 20px 20px 0 0; padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 40px rgba(0,0,0,.2); }
 .sheet__title { font-family: var(--font-heading); font-size: 19px; margin: 0 0 6px; }
 .sheet__text { margin: 0 0 18px; font-size: 14px; line-height: 1.5; color: var(--color-text-secondary); }
 .sheet__body { margin: 0 0 18px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }

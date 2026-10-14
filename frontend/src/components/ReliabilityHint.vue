@@ -136,7 +136,7 @@ function onUp(e) {
   border: 1px solid var(--color-info-border);
   background: var(--color-info-bg);
   color: var(--color-info-text);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  box-shadow: none;
   touch-action: pan-y;
   cursor: grab;
   user-select: none;
@@ -145,8 +145,8 @@ function onUp(e) {
 .guide-tip__glow {
   position: absolute;
   inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--color-brand-primary);
+  width: 3px;
+  background: var(--color-info-text);
   border-radius: 14px 0 0 14px;
 }
 .guide-tip__text {
@@ -163,7 +163,7 @@ function onUp(e) {
   margin-left: 4px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-brand-primary);
+  color: var(--color-info-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   min-height: 44px;

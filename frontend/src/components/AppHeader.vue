@@ -34,13 +34,13 @@ const showTheme = ref(false)
 .appbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 16px; padding: 10px 16px; min-height: 56px;
   background: color-mix(in srgb, var(--color-bg-canvas) 88%, transparent); backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
   border-bottom: 1px solid var(--color-border-subtle); }
-.appbar__brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--color-text-primary); font-family: var(--font-heading); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
+.appbar__brand { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; text-decoration: none; color: var(--color-text-primary); font-family: var(--font-heading); font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
 .appbar__nav { display: none; gap: 4px; margin-left: 8px; }
-.appbar__nav a { text-decoration: none; color: var(--color-text-secondary); font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 999px; }
+.appbar__nav a { text-decoration: none; color: var(--color-text-secondary); font-size: 14px; font-weight: 500; padding: 0 12px; min-height: 44px; display: inline-flex; align-items: center; border-radius: 999px; }
 .appbar__nav a:hover { background: var(--color-bg-surface-subtle); }
 .appbar__nav a.on { background: var(--color-text-primary); color: var(--color-text-inverse); }
 .appbar__right { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
-.appbar__icon { width: 40px; height: 40px; border: 1px solid var(--color-border-subtle); border-radius: 50%; background: var(--color-bg-surface-raised); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.appbar__icon { width: 44px; height: 44px; border: 1px solid var(--color-border-subtle); border-radius: 50%; background: var(--color-bg-surface-raised); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .appbar__swatch { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--theme-light, #fff) 50%, var(--color-brand-primary) 50%); border: 1px solid var(--color-border-default); }
 @media (min-width: 769px) {
   .appbar { padding: 10px 24px; }
