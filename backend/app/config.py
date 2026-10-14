@@ -60,7 +60,7 @@ class Config:
         os.environ.get('ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET', '9000')
     )
     ENSEMBLE_SECOND_RATER_MODEL = os.environ.get(
-        'ENSEMBLE_SECOND_RATER_MODEL', 'qwen3.5:9b'
+        'ENSEMBLE_SECOND_RATER_MODEL', 'qwen3.5:9b-agent32k'
     )
     
     # Memory-Provider: 'zep', 'obsidian', 'hybrid'

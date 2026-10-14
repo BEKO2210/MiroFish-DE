@@ -119,17 +119,21 @@ Abwesenheitsgegenstück, das in die Presence-Zeile gefaltet wird, ist diese kano
 ## V3c: Zuverlässigkeit des Messinstruments
 
 Jeder gespeicherte Lauf wird zweimal unabhängig klassifiziert. Bewerter A nutzt das konfigurierte Hauptmodell;
-Bewerter B nutzt `ENSEMBLE_SECOND_RATER_MODEL` (Standard `qwen3.5:9b`) am selben lokalen OpenAI-kompatiblen Server.
+Bewerter B nutzt `ENSEMBLE_SECOND_RATER_MODEL` (Standard `qwen3.5:9b-agent32k`) am selben lokalen OpenAI-kompatiblen Server.
 Ist das Zweitmodell leer konfiguriert, nicht initialisierbar oder bei allen Klassifikationsstapeln nicht erreichbar,
 wird das Hauptmodell mit einem anderen Seed verwendet. `classification.json` enthält Modell, Seed, Rohantwort,
-geprüfte Belege und Urteil beider Bewerter sowie das gemeinsame Endurteil.
+geprüfte Belege und Urteil beider Bewerter sowie das gemeinsame Endurteil. Bei Ollama wird vor der Klassifikation
+für jedes Bewertermodell `num_ctx` über `/api/show` gelesen; ohne den Parameter gilt konservativ 4096. Das
+Eingabebudget ist das Minimum aus dem konfigurierten Budget und `num_ctx` abzüglich Ausgabe und Puffer. Passt schon
+Anweisung plus Checkliste nicht, bricht die Klassifikation ab. Kontext und Budget werden im Audit festgehalten.
 
 Das Endurteil ist nur dann Ja, wenn beide Bewerter nach der Belegprüfung Ja urteilen. Ja/Nein-Dissens ist
 `disputed`, nicht Nein, und wird ebenso wie `unclassified` aus `n`, Rate, Wilson-Intervall und Paartafel ausgeschlossen.
 `results.<variante>.<ergebnis>.disputed` weist diese Fälle separat aus. Fehlt in einer erfolgreich geparsten
-Stapelantwort die Zeile eines Ergebnisses, bleibt dieses Ergebnis `unclassified`. Ein Stapel, der nach drei Versuchen
-weiterhin keine parsebare Antwort liefert, ist kein `unclassified`: ohne positiven Textbeleg bleibt der Lauf in `n`
-(Anwesenheit → Nein, Abwesenheit ohne positiven Beleg → Ja).
+Stapelantwort die Zeile eines Ergebnisses, fragt der Dienst höchstens zweimal gezielt nur die fehlenden IDs mit
+denselben Daten und Regeln nach. Danach weiterhin fehlende IDs bleiben `unclassified`; das Audit enthält die IDs vor
+und nach den Nachfragen. Ein Stapel, der nach drei Versuchen weiterhin keine parsebare Antwort liefert, ist ebenfalls
+`unclassified` und wird nicht still als Nein gewertet.
 
 Über alle Varianten und Läufe werden je Ergebnis die binären, auf beiden Seiten klassifizierten Urteilspaare
 zusammengeführt. `reliability.<outcome_id>` enthält Prozent-Übereinstimmung (`agreement`), Cohen's Kappa (`kappa`),
@@ -320,7 +324,7 @@ und die Arme `baseline`, `null_document`, `null_personas`. Der Rahmen ist vorges
 Freigabe des Projektinhabers. Der Rahmen legt zusätzlich die 7 Fälle (`case_ids`), die Modelle je Rolle und die Mindestzahl klassifizierter Läufe je Arm (4 von 5) fest; die gewertete Fallmenge muss exakt diesen 7 Fällen entsprechen, sonst „nicht prüfbar“. Je Fall gilt ein gültiger Lauf, Wiederholung nur bei technischem Ausfall, alle `ensemble_id` werden protokolliert. Vor dem Pilot läuft ein Probelauf mit einem synthetischen, nicht gewerteten Fall (2 Seeds) zur Prüfung von Varianz und Kappa. Weicht ein Einzelwert auf der Kommandozeile (`--runs`, `--hours`, `--minutes-per-round`, `--arms`) vom Rahmen ab, bricht das Werkzeug ab. `--probe` nutzt den Probe-Rahmen `probe-v5` (2 Seeds, synthetischer Fall) und schließt sich mit `--rahmen` aus. Ohne `--rahmen`
 bleiben die Defaults 10 Läufe, 336 Stunden und Rundentakt 60. `--base` zeigt standardmäßig auf `http://127.0.0.1:5002`.
 
-Alle Textarme (S-Agenten, D, P) nutzen im Pilot dasselbe Agentenmodell (`gemma4:e4b-it-qat`); die Klassifikation nutzt für alle Arme Hauptbewerter `gemma4:12b-it-qat` und Zweitbewerter `qwen3.5:9b` (anderes Modell, kein `seed_fallback`). Das ist eine Doppelklassifikation durch zwei Sprachmodelle, keine blinde menschliche Kodierung; zusätzlich prüft eine Person mindestens 10 % von `classification.json` per Stichprobe. Ein Fall ist je Arm erst ab 4 von 5 klassifizierten Läufen messbar. Degeneriertes Kappa (keine Varianz) heißt „Instrument nicht prüfbar“, nicht „widerlegt“.
+Alle Textarme (S-Agenten, D, P) nutzen im Pilot dasselbe Agentenmodell (`gemma4:e4b-it-qat`); die Klassifikation nutzt für alle Arme Hauptbewerter `gemma4:12b-it-qat` und Zweitbewerter `qwen3.5:9b-agent32k` (anderes Modell, kein `seed_fallback`). Das ist eine Doppelklassifikation durch zwei Sprachmodelle, keine blinde menschliche Kodierung; zusätzlich prüft eine Person mindestens 10 % von `classification.json` per Stichprobe. Ein Fall ist je Arm erst ab 4 von 5 klassifizierten Läufen messbar. Degeneriertes Kappa (keine Varianz) heißt „Instrument nicht prüfbar“, nicht „widerlegt“.
 
 Betrieb: Preflight vor jedem Fall (Plattenplatz, Modelle in Ollama geladen, Busy-Check ohne laufende oder verwaiste Prozesse), Wiederanlauf mit identischem State nach Neustart und ein dokumentierter manueller Reset bei erschöpften Versuchen stehen im Abschnitt „Betrieb“ des Protokolls.
 

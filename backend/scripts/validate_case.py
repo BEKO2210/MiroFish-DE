@@ -79,7 +79,7 @@ PILOT_V5_FRAME = {
         "wanzleben-grundschule-2025"],
     "models": {
         "agent_model": "gemma4:e4b-it-qat-16k", "arms_s_d_p": "agent_model",
-        "classification_main": "gemma4:12b-it-qat-16k", "classification_second": "qwen3.5:9b",
+        "classification_main": "gemma4:12b-it-qat-16k", "classification_second": "qwen3.5:9b-agent32k",
         "seed_fallback": False,
         "cold_question_models": ["gemma4:e4b-it-qat-16k", "gemma4:12b-it-qat-16k"]},
     "probelauf": {"case": "synthetisch, nicht gewertet", "seeds": 2},

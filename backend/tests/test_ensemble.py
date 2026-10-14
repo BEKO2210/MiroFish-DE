@@ -917,6 +917,134 @@ class NamedBatchLLM(BatchLLM):
         self.model = model
 
 
+class MissingIdLLM:
+    model = "missing-id-model"
+
+    def __init__(self, fill_on_followup):
+        self.fill_on_followup = fill_on_followup
+        self.calls = 0
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        is_followup = "vorigen Antwort fehlten" in messages[-1]["content"]
+        outcome_id = "o2" if is_followup and self.fill_on_followup else "o1"
+        return {"results": [{
+            "outcome_id": outcome_id,
+            "yes": False,
+            "post_ids": [],
+            "snippet": "",
+        }]}
+
+
+def _two_outcome_state():
+    return {"checklist": [
+        {"id": "o1", "text_de": "Ereignis eins", "definition": "sichtbar",
+         "polarity": "presence"},
+        {"id": "o2", "text_de": "Ereignis zwei", "definition": "sichtbar",
+         "polarity": "presence"},
+    ]}
+
+
+def test_missing_id_followup_completes_the_batch(tmp_path):
+    llm = MissingIdLLM(fill_on_followup=True)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result, audit = service._classify_posts_once(
+        _two_outcome_state(),
+        [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1, run_number=1, llm=llm,
+    )
+
+    assert llm.calls == 2
+    assert result["o2"] == {"yes": False, "evidence": []}
+    batch = audit["batches"][0]
+    assert batch["missing_ids_before_followup"] == ["o2"]
+    assert batch["missing_ids_after_followup"] == []
+    assert batch["followups"][0]["requested_ids"] == ["o2"]
+
+
+def test_permanently_missing_id_stays_unclassified(tmp_path):
+    llm = MissingIdLLM(fill_on_followup=False)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result, audit = service._classify_posts_once(
+        _two_outcome_state(),
+        [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1, run_number=1, llm=llm,
+    )
+
+    assert llm.calls == 3
+    assert result["o2"] == {"yes": False, "evidence": [], "unclassified": True}
+    batch = audit["batches"][0]
+    assert batch["missing_ids_before_followup"] == ["o2"]
+    assert batch["missing_ids_after_followup"] == ["o2"]
+    assert len(batch["followups"]) == 2
+
+
+def test_ollama_show_controls_classification_context_without_network(tmp_path, monkeypatch):
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps({"parameters": "temperature 0\nnum_ctx 32768\n"}).encode()
+
+    requests = []
+
+    def fake_urlopen(request, timeout):
+        requests.append((request, timeout))
+        return Response()
+
+    monkeypatch.setattr(Config, "LLM_PROVIDER", "ollama")
+    monkeypatch.setattr(Config, "LOCAL_LLM_BASE_URL", "http://ollama.test/v1")
+    monkeypatch.setattr(ensemble_module.urllib.request, "urlopen", fake_urlopen)
+    service = EnsembleService(root=tmp_path / "ensembles")
+    context = service._classification_context(NamedBatchLLM("qwen3.5:9b-agent32k"))
+
+    assert context == {
+        "model": "qwen3.5:9b-agent32k",
+        "num_ctx": 32768,
+        "num_ctx_source": "ollama_parameter",
+        "configured_input_budget": Config.ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET,
+        "output_tokens": 3000,
+        "buffer_tokens": 256,
+        "input_budget": Config.ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET,
+    }
+    request, timeout = requests[0]
+    assert request.full_url == "http://ollama.test/api/show"
+    assert json.loads(request.data) == {"model": "qwen3.5:9b-agent32k"}
+    assert timeout == 10
+
+
+def test_ollama_show_without_num_ctx_uses_conservative_default(tmp_path, monkeypatch):
+    monkeypatch.setattr(Config, "LLM_PROVIDER", "ollama")
+    service = EnsembleService(
+        root=tmp_path / "ensembles",
+        ollama_show=lambda _model: {"parameters": "temperature 0.2"},
+    )
+    context = service._classification_context(NamedBatchLLM("plain-model"))
+    assert context["num_ctx"] == 4096
+    assert context["num_ctx_source"] == "ollama_default"
+    assert context["input_budget"] == 840
+
+
+def test_too_small_ollama_context_fails_before_classification(tmp_path, monkeypatch):
+    monkeypatch.setattr(Config, "LLM_PROVIDER", "ollama")
+    llm = NamedBatchLLM("tiny-model")
+    service = EnsembleService(
+        root=tmp_path / "ensembles",
+        ollama_show=lambda _model: {"parameters": "num_ctx 3200"},
+    )
+    with pytest.raises(ValueError, match=r"tiny-model.*num_ctx=3200.*Anweisung und Checkliste"):
+        service._classify_posts_once(
+            _two_outcome_state(),
+            [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+            seed=1, run_number=1, llm=llm,
+        )
+    assert llm.calls == 0
+
+
 def test_unreachable_second_model_falls_back_to_main_model_with_other_seed(tmp_path):
     main = NamedBatchLLM("main", positive=True)
     broken = NamedBatchLLM("second", fail=True)
