@@ -865,6 +865,8 @@ def baseline_transcript_lengths(ensemble_dir: Path) -> List[int]:
         return []
     run_dirs = []
     for path in baseline.glob("run_*"):
+        if _is_archived_failure(path):
+            continue
         try:
             index = int(path.name.split("_", 1)[1])
         except (IndexError, ValueError):
@@ -1289,11 +1291,72 @@ def verify_classification_evidence(
     return verified
 
 
+_ERROR_LOG_LIMIT = 180
+
+
+def _is_archived_failure(path: Path) -> bool:
+    """Umbenannter Fehlversuch (`run_<n>.failed-…`), nie ein Ergebnisordner."""
+    return ".failed-" in Path(path).name
+
+
+def _clipped_error(error: Any, limit: int = _ERROR_LOG_LIMIT) -> str:
+    """Fehlertext fürs Dienstlog: eine Zeile, ohne JSON- oder Listen-Inhalt."""
+    text = " ".join(str(error or "").split())
+    for marker in ("{", "["):
+        position = text.find(marker)
+        if position >= 0:
+            text = text[:position]
+    text = text.rstrip(" :,-")
+    if len(text) > limit:
+        text = text[:limit].rstrip() + "…"
+    return text
+
+
+def _error_kind(error: Any) -> str:
+    if isinstance(error, BaseException):
+        return type(error).__name__
+    text = str(error or "").strip()
+    match = re.match(r"([A-Za-z_][A-Za-z0-9_]*(?:Error|Exception))\b", text)
+    if match:
+        return match.group(1)
+    return _clipped_error(text, limit=60) or "unbekannt"
+
+
+def _summarize_error_kinds(*audits: Dict[str, Any]) -> str:
+    """Fehlerarten der ausgefallenen Stapel, ohne Texte der Beiträge oder Erzählung."""
+    counts: Dict[str, int] = {}
+    order: List[str] = []
+    for audit in audits:
+        if not isinstance(audit, dict):
+            continue
+        for batch in audit.get("batches") or []:
+            if not isinstance(batch, dict) or not batch.get("error"):
+                continue
+            kind = str(batch.get("error_type") or "").strip() or _error_kind(batch.get("error"))
+            if kind not in counts:
+                order.append(kind)
+                counts[kind] = 0
+            counts[kind] += 1
+    return ", ".join(f"{kind} ×{counts[kind]}" for kind in order)
+
+
+def _raise_if_fully_unclassified(
+    combined: Dict[str, Dict[str, Any]], *audits: Dict[str, Any],
+) -> None:
+    if combined and all(value.get("unclassified") for value in combined.values()):
+        summary = _summarize_error_kinds(*audits)
+        message = "Klassifikationsstapel des Laufs vollständig ausgefallen"
+        if summary:
+            message += f" ({summary})"
+        raise RuntimeError(message)
+
+
 def chat_json_with_retries(
     llm: Any, messages: Sequence[Dict[str, str]], **kwargs: Any
-) -> Tuple[Any, Optional[Any], List[str]]:
+) -> Tuple[Any, Optional[Any], List[str], List[str]]:
     """Fehlgeschlagenen Stapel bis zu zweimal wiederholen. Der Lauf bleibt danach auswertbar."""
     errors: List[str] = []
+    error_types: List[str] = []
     raw = None
     for _ in range(BATCH_ATTEMPTS):
         try:
@@ -1301,11 +1364,12 @@ def chat_json_with_retries(
                 llm.last_raw_response = None
             payload = llm.chat_json(messages, **kwargs)
             raw = getattr(llm, "last_raw_response", None) or payload
-            return payload, raw, errors
+            return payload, raw, errors, error_types
         except Exception as error:
             raw = getattr(llm, "last_raw_response", None)
             errors.append(str(error))
-    return None, raw, errors
+            error_types.append(type(error).__name__)
+    return None, raw, errors, error_types
 
 
 def _render_post(post: Dict[str, Any]) -> str:
@@ -1953,6 +2017,8 @@ class EnsembleService:
             return True
         root = self._path(ensemble_id)
         for path in [root / "ensemble.json", *root.glob("*/run_*/run_state.json")]:
+            if path.name == "run_state.json" and _is_archived_failure(path.parent):
+                continue
             try:
                 if path.stat().st_mtime >= PROCESS_START_TIME:
                     return True
@@ -2338,7 +2404,7 @@ class EnsembleService:
                 "post_count": len({str(post.get('post_id')) for post in batch}),
                 "estimated_input_tokens": estimate_tokens(messages),
             }
-            payload, raw, errors = chat_json_with_retries(
+            payload, raw, errors, error_types = chat_json_with_retries(
                 llm,
                 messages,
                 temperature=0,
@@ -2356,7 +2422,14 @@ class EnsembleService:
                     for item in checklist_items
                 }
                 audit["error"] = errors[-1] if errors else "Stapel fehlgeschlagen"
+                audit["error_type"] = error_types[-1] if error_types else "unbekannt"
                 audit["errors"] = errors
+                logger.warning(
+                    "Klassifikationsstapel %s fehlgeschlagen (%s): %s",
+                    index,
+                    audit["error_type"],
+                    _clipped_error(audit["error"]),
+                )
             else:
                 verified = verify_classification_evidence(
                     payload, batch, checklist_items, run_number
@@ -2508,8 +2581,7 @@ class EnsembleService:
         }
         if run_dir is not None:
             _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
-        if combined and all(value.get("unclassified") for value in combined.values()):
-            raise RuntimeError("Klassifikationsstapel des Laufs vollständig ausgefallen")
+        _raise_if_fully_unclassified(combined, audit_a, audit_b)
         return combined
 
     def _classify_narrative_once(
@@ -2535,7 +2607,7 @@ class EnsembleService:
                 f"Ereignisse:\n{checklist}\n\nErzählung:\n{narrative}"
             )},
         ]
-        payload, raw, errors = chat_json_with_retries(
+        payload, raw, errors, error_types = chat_json_with_retries(
             llm,
             messages,
             temperature=0,
@@ -2544,6 +2616,13 @@ class EnsembleService:
             seed=seed,
         )
         parse_error = errors[-1] if payload is None else None
+        error_type = error_types[-1] if payload is None and error_types else None
+        if parse_error:
+            logger.warning(
+                "Klassifikationsstapel 1 fehlgeschlagen (%s): %s",
+                error_type or "unbekannt",
+                _clipped_error(parse_error),
+            )
         rows = payload.get("results", []) if isinstance(payload, dict) else []
         by_id = {str(r.get("outcome_id")): r for r in rows if isinstance(r, dict)}
         positive: Dict[str, Tuple[bool, str]] = {}
@@ -2595,14 +2674,17 @@ class EnsembleService:
             if interaction:
                 record["mechanism_edges"] = []
             result[outcome["id"]] = record
+        batch_audit = {
+            "batch": 1,
+            "attempts": (len(errors) + 1) if payload is not None else len(errors),
+            "raw_response": raw if not parse_error else None,
+            "error": parse_error,
+            "verified": result,
+        }
+        if error_type:
+            batch_audit["error_type"] = error_type
         audit = {
-            "batches": [{
-                "batch": 1,
-                "attempts": (len(errors) + 1) if payload is not None else len(errors),
-                "raw_response": raw if not parse_error else None,
-                "error": parse_error,
-                "verified": result,
-            }],
+            "batches": [batch_audit],
             "result": result,
         }
         return result, audit
@@ -2665,8 +2747,7 @@ class EnsembleService:
             }
         if run_dir is not None:
             _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
-        if combined and all(value.get("unclassified") for value in combined.values()):
-            raise RuntimeError("Klassifikationsstapel des Laufs vollständig ausgefallen")
+        _raise_if_fully_unclassified(combined, audit_a, audit_b)
         return combined
 
     def _aggregate(self, state: Dict[str, Any], per_run: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -2970,6 +3051,8 @@ class EnsembleService:
         state: Optional[Dict[str, Any]] = None,
         key: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
+        if _is_archived_failure(run_dir):
+            return None
         path = run_dir / "classification.json"
         if not path.is_file():
             return None
@@ -3115,6 +3198,43 @@ class EnsembleService:
         self._validate_run_quality(state, key, run_dir)
         return result
 
+    def _archive_failed_attempt(
+        self,
+        state: Dict[str, Any],
+        failure_key: str,
+        run_dir: Path,
+        error: BaseException,
+        attempt: int,
+    ) -> Optional[Path]:
+        """Fehlversuch umbenennen. Der Ordner bleibt und zählt beim freien Plattenplatz mit."""
+        if not run_dir.exists():
+            return None
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        destination = Path(f"{run_dir}.failed-{attempt}-{stamp}")
+        extra = 0
+        while destination.exists():
+            extra += 1
+            destination = Path(f"{run_dir}.failed-{attempt}-{stamp}-{extra}")
+        run_dir.rename(destination)
+        failures = state.setdefault("seed_failures", {})
+        if not isinstance(failures, dict):
+            failures = {}
+            state["seed_failures"] = failures
+        bucket = failures.setdefault(failure_key, [])
+        if not isinstance(bucket, list):
+            bucket = []
+            failures[failure_key] = bucket
+        text = str(error)
+        if len(text) > 2000:
+            text = text[:2000] + "…"
+        bucket.append({
+            "path": str(destination),
+            "error": text,
+            "at": datetime.now().isoformat(timespec="seconds"),
+            "attempt": int(attempt),
+        })
+        return destination
+
     def _run_ensemble(self, ensemble_id: str) -> None:
         state = self._load(ensemble_id)
         if not state:
@@ -3164,9 +3284,19 @@ class EnsembleService:
                             variant["done"] = run_number
                             self._save(state)
                             continue
-                        if run_dir.exists():
-                            shutil.rmtree(run_dir)
                         failure_key = f"{key}:{run_number}"
+                        if run_dir.exists():
+                            prior = int(attempts.get(failure_key, 0) or 0)
+                            if prior <= 0:
+                                recorded = (state.get("seed_failures") or {}).get(failure_key)
+                                prior = len(recorded) + 1 if isinstance(recorded, list) else 1
+                            self._archive_failed_attempt(
+                                state,
+                                failure_key,
+                                run_dir,
+                                RuntimeError(str(state.get("error") or "unvollständiger Versuch")),
+                                prior,
+                            )
                         classified = None
                         last_error: Optional[BaseException] = None
                         while int(attempts.get(failure_key, 0)) < SEED_ATTEMPTS:
@@ -3194,13 +3324,13 @@ class EnsembleService:
                                 try:
                                     self._check_models_once(state)
                                 except ModelServiceUnavailable as outage:
-                                    attempts[failure_key] = max(
-                                        0, int(attempts.get(failure_key, 1)) - 1
-                                    )
+                                    attempt_n = int(attempts.get(failure_key, 1) or 1)
+                                    attempts[failure_key] = max(0, attempt_n - 1)
                                     last_error = outage
                                     state["current_runner_id"] = None
-                                    if run_dir.exists():
-                                        shutil.rmtree(run_dir)
+                                    self._archive_failed_attempt(
+                                        state, failure_key, run_dir, outage, attempt_n,
+                                    )
                                     self._save(state)
                                     continue
                                 last_error = error
@@ -3209,8 +3339,13 @@ class EnsembleService:
                                     f"Versuch {attempts[failure_key]} fehlgeschlagen: {error}"
                                 )
                                 state["current_runner_id"] = None
-                                if run_dir.exists():
-                                    shutil.rmtree(run_dir)
+                                self._archive_failed_attempt(
+                                    state,
+                                    failure_key,
+                                    run_dir,
+                                    error,
+                                    int(attempts.get(failure_key, 1) or 1),
+                                )
                                 self._save(state)
                         if classified is None:
                             state["attempts_exhausted"] = True

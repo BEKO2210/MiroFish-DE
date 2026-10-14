@@ -676,6 +676,20 @@ def test_failed_seed_is_retried_and_kept_in_n(tmp_path, monkeypatch):
     assert state["results"]["baseline"]["o1"]["n"] == 1
     stored = service._load(started["ensemble_id"])
     assert stored["seed_attempts"]["baseline:1"] == 2
+    baseline = tmp_path / "ensembles" / started["ensemble_id"] / "baseline"
+    archived = [path for path in baseline.iterdir() if ".failed-" in path.name]
+    assert len(archived) == 1
+    assert archived[0].name.startswith("run_1.failed-1-")
+    assert (archived[0] / "simulation_config.json").is_file()
+    assert (baseline / "run_1" / "classification.json").is_file()
+    failure = stored["seed_failures"]["baseline:1"][0]
+    assert failure["path"] == str(archived[0])
+    assert "gpu ausgefallen" in failure["error"]
+    assert failure["at"]
+    (archived[0] / "classification.json").write_text(json.dumps({
+        "result": {"o1": {"yes": True, "unclassified": False}},
+    }), encoding="utf-8")
+    assert service._completed_seed_result(archived[0], stored, "baseline") is None
 
 
 def test_exhausted_seed_refuses_further_resume(tmp_path, monkeypatch):
@@ -709,10 +723,17 @@ def test_exhausted_seed_refuses_further_resume(tmp_path, monkeypatch):
     stored = service._load(started["ensemble_id"])
     assert stored["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
     assert len(DyingRunner.calls) == SEED_ATTEMPTS
+    archived = list(
+        (tmp_path / "ensembles" / started["ensemble_id"] / "baseline").glob("run_1.failed-*")
+    )
+    assert len(archived) == SEED_ATTEMPTS
     with pytest.raises(RuntimeError, match="Versuche erschöpft"):
         service.resume(started["ensemble_id"])
     assert len(DyingRunner.calls) == SEED_ATTEMPTS
     assert service._load(started["ensemble_id"])["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
+    assert len(list(
+        (tmp_path / "ensembles" / started["ensemble_id"] / "baseline").glob("run_1.failed-*")
+    )) == SEED_ATTEMPTS
 
 
 def test_resume_continues_incomplete_ensemble(tmp_path, monkeypatch):
@@ -1166,7 +1187,7 @@ def test_failed_batch_retries_twice_then_fails_the_run(tmp_path):
         "id": "o1", "text_de": "Ereignis", "definition": "sichtbar", "polarity": "presence",
     }]
     run_dir = tmp_path / "run"
-    with pytest.raises(RuntimeError, match="vollständig ausgefallen"):
+    with pytest.raises(RuntimeError, match=r"vollständig ausgefallen \(ValueError ×2\)"):
         service._classify_posts(
             {"checklist": checklist},
             [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Text"}],
@@ -1179,6 +1200,198 @@ def test_failed_batch_retries_twice_then_fails_the_run(tmp_path):
     assert "error" in audit["raters"]["a"]["batches"][0]
     assert llm.calls == 6
     assert audit["result"]["o1"]["unclassified"] is True
+
+
+def test_batch_failure_logs_kind_without_payload(tmp_path, monkeypatch):
+    secret = "GEHEIMER_BEITRAG_XYZ"
+    loud = BatchLLM(fail=True)
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        raise TimeoutError(f"Zeitüberschreitung raw={{{secret}}}")
+
+    monkeypatch.setattr(BatchLLM, "chat_json", chat_json)
+    warnings = []
+
+    def capture(message, *args, **kwargs):
+        warnings.append(message % args if args else str(message))
+
+    monkeypatch.setattr(ensemble_module.logger, "warning", capture)
+    service = EnsembleService(llm_factory=lambda: loud, root=tmp_path / "ensembles")
+    with pytest.raises(RuntimeError, match=r"vollständig ausgefallen \(TimeoutError ×2\)") as raised:
+        service._classify_posts(
+            {"checklist": [{
+                "id": "o1", "text_de": "Ereignis", "definition": "sichtbar", "polarity": "presence",
+            }]},
+            [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": secret}],
+            seed=1, run_number=1, run_dir=tmp_path / "run",
+        )
+    assert secret not in str(raised.value)
+    logged = [line for line in warnings if line.startswith("Klassifikationsstapel")]
+    assert logged
+    assert all(secret not in line for line in logged)
+    assert all("TimeoutError" in line for line in logged)
+    assert "Zeitüberschreitung raw=" in logged[0]
+
+
+def test_error_kind_summary_counts_types_only():
+    from app.services.ensemble import _clipped_error, _summarize_error_kinds
+    assert _clipped_error("Zeitüberschreitung raw={GEHEIM} [liste]") == "Zeitüberschreitung raw="
+    summary = _summarize_error_kinds(
+        {"batches": [
+            {"error": "Zeitüberschreitung {GEHEIM}", "error_type": "TimeoutError"},
+            {"error": "json kaputt", "error_type": "ValueError"},
+        ]},
+        {"batches": [{"error": "nochmal", "error_type": "TimeoutError"}]},
+    )
+    assert summary == "TimeoutError ×2, ValueError ×1"
+    assert "GEHEIM" not in summary
+
+
+def test_classification_failure_archives_attempt_with_audit(tmp_path, monkeypatch):
+    class FailLLM(FakeLLM):
+        def chat_json(self, messages, **kwargs):
+            blob = "\n".join(str(item.get("content") or "") for item in messages)
+            if "Klassifiziere" in blob:
+                raise ValueError("Parser defekt {GEHEIMTEXT}")
+            return super().chat_json(messages, **kwargs)
+
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    service = EnsembleService(
+        runner_cls=FakeRunner, llm_factory=lambda: FailLLM(),
+        root=tmp_path / "ensembles", poll_interval=0.001,
+    )
+    started = service.start("sim_test", 1, 2, ["baseline"])
+    state = _wait_ensemble(service, started["ensemble_id"])
+    assert state["status"] == "failed", state.get("error")
+    assert "GEHEIMTEXT" not in (state.get("error") or "")
+    assert "ValueError" in (state.get("error") or "")
+    stored = service._load(started["ensemble_id"])
+    failures = stored["seed_failures"]["baseline:1"]
+    assert len(failures) == SEED_ATTEMPTS
+    assert stored["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
+    baseline = tmp_path / "ensembles" / started["ensemble_id"] / "baseline"
+    assert not (baseline / "run_1").exists()
+    archived = sorted(baseline.glob("run_1.failed-*"))
+    assert len(archived) == SEED_ATTEMPTS
+    audit = json.loads((archived[0] / "classification.json").read_text(encoding="utf-8"))
+    assert "Parser defekt {GEHEIMTEXT}" in audit["raters"]["a"]["batches"][0]["error"]
+    assert failures[0]["path"] == str(archived[0])
+    assert "ValueError" in failures[0]["error"]
+    assert "GEHEIMTEXT" not in failures[0]["error"]
+    assert service._completed_seed_result(archived[0]) is None
+
+
+def test_baseline_lengths_ignore_archived_failures(tmp_path):
+    from app.services.ensemble import baseline_transcript_lengths
+
+    def write_run(path: Path, text: str) -> None:
+        path.mkdir(parents=True)
+        (path / "simulation_config.json").write_text(
+            json.dumps({"event_config": {"initial_posts": []}}), encoding="utf-8"
+        )
+        db = sqlite3.connect(path / "twitter_simulation.db")
+        db.execute(
+            "CREATE TABLE user (user_id INTEGER, agent_id INTEGER, name TEXT, user_name TEXT)"
+        )
+        db.execute("INSERT INTO user VALUES (0, 0, 'Ada', 'ada')")
+        db.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
+        db.execute("INSERT INTO post VALUES (1, 0, ?)", (text,))
+        db.commit()
+        db.close()
+
+    root = tmp_path / "ens"
+    write_run(root / "baseline" / "run_1", "kurz")
+    write_run(
+        root / "baseline" / "run_1.failed-1-20261014T120000",
+        "dieser text ist viel laenger und darf nicht zaehlen",
+    )
+    assert baseline_transcript_lengths(root) == [len("kurz")]
+
+
+def test_resume_does_not_read_archived_failure_as_result(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    ensemble_id = "ens_eeeeeeeeeeee"
+    root = tmp_path / "ensembles" / ensemble_id
+    archived = root / "baseline" / "run_1.failed-1-20261014T120000"
+    archived.mkdir(parents=True)
+    (archived / "classification.json").write_text(json.dumps({
+        "result": {"o1": {"yes": False, "evidence": [], "unclassified": False}},
+    }), encoding="utf-8")
+    (archived / "marker.txt").write_text("behalten", encoding="utf-8")
+    checklist = [{
+        "id": f"o{i}", "text_de": f"Ergebnis {i}", "definition": "sichtbar",
+        "polarity": "presence", "source": "auto",
+    } for i in range(1, 6)]
+    state = {
+        "ensemble_id": ensemble_id, "simulation_id": "sim_test", "question": "Was geschieht?",
+        "status": "failed", "error": "Seed abgestürzt", "created_at": "2026-01-01T00:00:00",
+        "finished_at": "2026-01-01T01:00:00", "runs": 1, "hours": 2, "start_hour": 7,
+        "variants": [{"key": "baseline", "label_de": "Basislauf", "label_en": "Baseline",
+                      "status": "failed", "done": 0, "total": 1}],
+        "checklist": checklist, "custom_outcomes": [], "primary_outcome_id": "o1",
+        "results": {}, "comparisons": [], "reliability": {}, "consistency_warnings": [],
+        "current": None, "eta_seconds": None, "base_seed": 11, "cancel_requested": False,
+        "current_runner_id": None, "seed_attempts": {},
+        "seed_failures": {"baseline:1": [{
+            "path": str(archived), "error": "alt", "at": "2026-10-14T12:00:00", "attempt": 1,
+        }]},
+    }
+    (root / "ensemble.json").write_text(json.dumps(state), encoding="utf-8")
+    calls = []
+
+    class RecordingRunner(FakeRunner):
+        @classmethod
+        def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+            calls.append(simulation_id)
+            return super().start_simulation(simulation_id, simulation_dir, **kwargs)
+
+    service = EnsembleService(
+        runner_cls=RecordingRunner, llm_factory=FakeLLM,
+        root=tmp_path / "ensembles", poll_interval=0.001,
+    )
+    service.resume(ensemble_id)
+    finished = _wait_ensemble(service, ensemble_id)
+    assert finished["status"] == "completed", finished.get("error")
+    assert calls == [f"{ensemble_id}_baseline_1"]
+    assert finished["results"]["baseline"]["o1"]["yes"] == 1
+    assert finished["results"]["baseline"]["o1"]["n"] == 1
+    assert (archived / "marker.txt").read_text(encoding="utf-8") == "behalten"
+    assert service._load(ensemble_id)["seed_failures"]["baseline:1"][0]["error"] == "alt"
+
+
+def test_low_disk_keeps_archived_failures(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles", min_free_bytes=5 * 1024**3)
+    archived = (
+        tmp_path / "ensembles" / "ens_aaaaaaaaaaaa" / "baseline"
+        / "run_1.failed-1-20261014T120000"
+    )
+    archived.mkdir(parents=True)
+    marker = archived / "classification.json"
+    marker.write_text('{"error": "bleibt"}', encoding="utf-8")
+    monkeypatch.setattr(
+        ensemble_module.shutil, "disk_usage",
+        lambda _path: SimpleNamespace(total=10, used=9, free=1024),
+    )
+    with pytest.raises(RuntimeError, match="Zu wenig freier Speicher"):
+        service._check_disk_space()
+    assert marker.read_text(encoding="utf-8") == '{"error": "bleibt"}'
+
+
+def test_archived_run_state_does_not_keep_ensemble_alive(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    path = _running_ensemble(tmp_path)
+    failed = path.parent / "baseline" / "run_1.failed-1-20261014T120000"
+    failed.mkdir(parents=True)
+    (failed / "run_state.json").write_text("{}", encoding="utf-8")
+    old = time.time() - 600
+    os.utime(path, (old, old))
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() - 60)
+    assert service.mark_stale_runs() == 1
 
 
 class NeverRunner:
@@ -1888,7 +2101,7 @@ def test_null_parse_error_is_unclassified_and_run_fails(tmp_path):
     llm = BatchLLM(fail=True)
     service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
     run_dir = tmp_path / "null" / "run_1"
-    with pytest.raises(RuntimeError, match="vollständig ausgefallen"):
+    with pytest.raises(RuntimeError, match=r"vollständig ausgefallen \(ValueError ×2\)"):
         service._classify_narrative(
             {"checklist": [{
                 "id": "o1", "text_de": "Ereignis", "definition": "sichtbar",
