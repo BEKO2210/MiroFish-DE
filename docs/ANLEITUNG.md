@@ -6,25 +6,26 @@ Diese Anleitung ist für Menschen gedacht, die keine Technik-Profis sind: Du sit
 
 ---
 
-## 1. Wofür MiroFish taugt – und wofür nicht
+## 1. Wofür sich MiroFish lohnt – und wo die Grenzen liegen
 
 MiroFish lässt viele künstliche Rollen (Agenten) in einem digitalen Netzwerk über dein Thema diskutieren. Du lädst Dokumente hoch, stellst eine Frage und bekommst einen Bericht darüber, wie die Debatte verlaufen *könnte*.
 
-**Es taugt dazu,**
+**Dafür lohnt es sich:**
 
-- Argumente und Reaktionen verschiedener Gruppen zu sammeln, an die du selbst nicht gedacht hast,
-- eine Entscheidung oder Ankündigung vorab „durchzuspielen“ und Schwachstellen zu finden,
-- im Gremium eine Diskussion anzustoßen („Was wäre, wenn …?“),
-- Rückfragen an simulierte Rollen zu stellen und so Blickwinkel zu verstehen.
+- **Bürgerversammlungen vorbereiten:** Du siehst vorab, welche Fragen und Einwände auf dich zukommen könnten.
+- **Argumente und Gegenargumente sammeln,** auch von Gruppen, an die du selbst nicht gedacht hast.
+- **Blinde Flecken finden:** Eine Entscheidung oder Ankündigung vorab „durchspielen“ und Schwachstellen entdecken.
+- **Kommunikation testen:** Wie kommt ein Text, eine Pressemitteilung oder ein Beschluss bei verschiedenen Gruppen an? Was wird missverstanden?
+- **Diskussion im Gremium anstoßen** („Was wäre, wenn …?“).
 
-**Es taugt nicht dazu,**
+**Die Grenzen – einmal gebündelt, hier steht alles Wichtige:**
 
-- die Zukunft vorherzusagen. Ein Bericht ist **keine Prognose**,
-- Wahrscheinlichkeiten für die Wirklichkeit zu liefern („70 Prozent der Bürger sind dagegen“). Die Zahlen beschreiben nur, wie sich die Simulation verhält, nicht, wie echte Menschen handeln,
-- Umfragen, Bürgerbeteiligung oder Gespräche mit echten Menschen zu ersetzen,
-- ein „Ergebnis“ zu belegen, das du schon vorher glaubst. Wer suggestives Material hineingibt, bekommt es verstärkt zurück.
+- Ein Bericht ist **keine Prognose** und kein Ersatz für Umfragen, Bürgerbeteiligung oder Gespräche mit echten Menschen. Die Personen und ihre Zitate sind erfunden.
+- Zahlen beschreiben nur, wie sich die Simulation verhält, nicht, wie echte Menschen handeln.
+- Wer einseitiges Material hineingibt, bekommt es verstärkt zurück. Die Simulation bestätigt also nicht, was du schon glaubst.
+- Nutze die Ergebnisse als **Ideengeber und Vorbereitung**, nicht als Beleg.
 
-Die ausführliche, ehrliche Erklärung steht in [VERLAESSLICHKEIT.md](VERLAESSLICHKEIT.md). In der App findest du sie auch unter **Wie verlässlich ist das?**
+Die ausführliche Erklärung steht in [VERLAESSLICHKEIT.md](VERLAESSLICHKEIT.md). In der App findest du sie auch unter **Wie verlässlich ist das?**
 
 ![Der Leitfaden „Wie verlässlich ist das?“ in der App](../static/image/Screenshot/handy-leitfaden.png)
 
@@ -38,7 +39,14 @@ Die Simulation ist nur so gut wie das, was du hochlädst. Die App liest PDF-, Ma
 
 **Mehrere Sichtweisen abbilden.** Ist nur eine Seite im Material vertreten, kommt die Simulation fast zwangsläufig bei dieser Seite an. Lege also auch Argumente der Gegenseite bei: Handel *und* Anwohner, Verwaltung *und* Bürgerinitiative, Befürworter *und* Kritiker.
 
-**Keine vertraulichen Daten.** Lade keine nicht-öffentlichen Protokolle, keine Namen von Privatpersonen, keine Adresslisten und keine Mitgliederdaten hoch. Prüfe vorher, ob du das Dokument auch öffentlich zeigen würdest. Wenn du ein Sprachmodell eines Cloud-Anbieters (etwa OpenAI) nutzt, verlassen die Texte deinen Rechner. Mehr dazu findest du unter **Einstellungen**.
+**Keine vertraulichen Daten.** Lade keine Vorlagen oder Protokolle aus nicht-öffentlichen Sitzungen, keine Namen von Privatpersonen, keine Adresslisten und keine Mitgliederdaten hoch. Prüfe vorher, ob du das Dokument auch öffentlich zeigen würdest. Das ist eine praktische Faustregel und **keine Rechtsberatung**; im Zweifel frag die Verwaltung oder die Datenschutzbeauftragte.
+
+**Lokal oder Cloud – so erkennst du es.** Öffne **Einstellungen**. Dort steht beim Anbieter zum Beispiel **Ollama (auf diesem Rechner)**, **LM Studio (auf diesem Rechner)**, **OpenAI** oder **Anderer OpenAI-kompatibler Server**. Oben auf der Seite siehst du außerdem den Namen des aktuellen Modells.
+
+- **„… (auf diesem Rechner)“ = lokal:** Deine Texte bleiben auf deinem Rechner.
+- **OpenAI = Cloud:** Die Texte werden an den Anbieter gesendet und verlassen deinen Rechner. Auch bei „Anderer OpenAI-kompatibler Server“ prüfe die eingetragene Adresse: Zeigt sie nicht auf deinen eigenen Rechner, ist es ebenfalls Cloud. Dann gilt die Regel „nur öffentliche Texte“ erst recht.
+
+**Kosten.** Lokal fallen keine Gebühren an. Cloud-Anbieter rechnen nach Nutzung ab; je mehr Material und je länger die Simulation, desto mehr kostet es. Die Konditionen legt der Anbieter fest, MiroFish selbst kostet nichts.
 
 **Nicht zu viel, nicht zu wenig.** Ein paar gut gewählte Seiten schlagen einen Aktenberg. Je mehr Material, desto länger dauert alles.
 
@@ -69,11 +77,13 @@ Auf der Startseite klickst du auf **Neue Simulation**, lädst Dokumente hoch, sc
 
 ![Die Startseite mit Dokumenten und Frage](../static/image/Screenshot/desktop-start.png)
 
-Die Dauer hängt stark von Rechner, Sprachmodell und Textmenge ab. Als grobe Größenordnung auf einem normalen Rechner mit Grafikkarte: **gut eine halbe Stunde** für ein kurzes Dokument und eine simulierte Woche. Auf einem Rechner ohne Grafikkarte oder bei vielen Unterlagen kann es mehrere Stunden dauern. Ein Mehrfachlauf (siehe unten) dauert ein Vielfaches davon.
+**Rechner und Dauer.** Laut README reicht für die lokale Variante eine Grafikkarte mit 8 GB Speicher; auf einer RTX 3070 dauert ein kurzes Dokument mit einer simulierten Woche gut 30 Minuten. Ob dein Rechner das schafft, erfährst du von deiner IT oder dem Hersteller (Suchbegriff: „Grafikkarte“ bzw. „GPU“ in den Systeminformationen). Bei älteren Geräten oder vielen Unterlagen dauert es länger; belegte Zeiten dafür gibt es nicht. Probiere es mit einem kurzen Dokument aus. Ein Mehrfachlauf (siehe unten) dauert ein Vielfaches.
+
+**Woran du merkst, dass es läuft:** Der Durchlauf zeigt jeden Schritt live auf dem Bildschirm. Auf der Seite **Einstellungen** steht oben, welches Modell bereit ist. Die Berechnung läuft im Hintergrund, du kannst die Seite schließen und später unter **Verlauf** nachsehen. Wie flüssig sich dein Rechner nebenher bedienen lässt, hängt von seiner Leistung ab und lässt sich nicht pauschal zusagen; plane lange Läufe lieber für eine Pause oder den Feierabend.
 
 | Schritt | Name in der App | Was passiert (Alltagssprache) | Dauer (grob) |
 |---|---|---|---|
-| 1 | **Wissensgraph** | MiroFish liest deine Dokumente, legt fest, welche Rollen und Beziehungen vorkommen („Rollen und Beziehungen festlegen“) und baut daraus eine Art Landkarte: Wer ist wer, wer kennt wen? | wenige Minuten |
+| 1 | **Wissensgraph** (= Themen- und Rollenübersicht) | MiroFish liest deine Dokumente, legt fest, welche Rollen und Beziehungen vorkommen („Rollen und Beziehungen festlegen“) und baut daraus eine Übersicht: Wer ist wer, wer kennt wen? Der Name „Wissensgraph“ ist der Fachbegriff der App für diese Übersicht. | wenige Minuten |
 | 2 | **Agenten vorbereiten** | Zu jeder Rolle entsteht eine Person mit Lebenslauf, Haltung und Verhalten. | einige Minuten |
 | 3 | **Simulation** | Die Personen schreiben Beiträge auf einem „Nachrichtenplatz“ und in einem „Themenforum“, lesen und antworten einander – über die simulierten Tage. | der längste Teil, oft 15 Minuten bis mehrere Stunden |
 | 4 | **Bericht** | Ein Berichts-Agent wertet alle Beiträge aus und schreibt einen Bericht. | einige Minuten |
@@ -85,13 +95,13 @@ Die Dauer hängt stark von Rechner, Sprachmodell und Textmenge ab. Als grobe Gr�
 
 ![Ein Bericht auf dem Desktop](../static/image/Screenshot/desktop-bericht.png)
 
-**Ein Einzellauf ist ein denkbarer Verlauf.** Der Bericht beschreibt *eine* Simulation. Sie ist wie eine Theaterprobe mit Improvisation: Ein zweiter Durchgang wäre etwas anders verlaufen. Im Bericht steht deshalb „Szenario aus 1 Lauf“. Nutze Formulierungen wie „in der Simulation zeigte sich …“ und nicht „es wird passieren, dass …“.
+**Ein Einzellauf ist ein denkbarer Verlauf.** Der Bericht beschreibt *eine* Simulation. Sie ist wie eine Theaterprobe mit Improvisation: Ein zweiter Durchgang wäre etwas anders verlaufen. Im Bericht steht deshalb „Szenario aus 1 Lauf“. Schreibe „in der Simulation zeigte sich …“.
 
 **Der Abschnitt „Methodik und Grenzen“.** Im Bericht (siehe auch **So entstand der Bericht**) steht, wie der Bericht zustande kam: Zahl der Läufe, Zahl und Arten der Agenten, simulierte Zeit, Zahl der Beiträge und Kommentare, die verwendeten Sprachmodelle und der Zeitpunkt. Wirf dort immer einen Blick hin. Er zeigt dir auch gleich den wichtigsten Satz: *Ein einzelner Lauf zeigt einen möglichen Verlauf, keine Wahrscheinlichkeit.*
 
 **Der Vorgabe-Abgleich: „Stand schon im Material“.** Manchmal wirkt ein Ergebnis wie eine kluge Voraussicht – dabei stand es schon in deinen Dokumenten. MiroFish vergleicht die Kernaussagen des Berichts mit deinem Ausgangsmaterial. Trifft das zu, steht dort **Stand schon im Material** (mit **Fundstelle anzeigen**). Das ist keine neue Erkenntnis, sondern eine Wiederholung. Im Inhaltsverzeichnis des Berichts heißt der Abschnitt **Vorgabe-Abgleich**.
 
-**Zitate und Namen sind erfunden.** Die Personen existieren nicht. Gib ihre Aussagen nie als echte Zitate weiter.
+**Zitate und Namen sind erfunden.** Gib Aussagen nie als echte Zitate weiter.
 
 ---
 
@@ -111,16 +121,16 @@ Die wichtigsten Vergleichsvarianten:
 
 - **Basis (immer dabei):** die volle Simulation mit allen Wechselwirkungen.
 - **Ohne Vernetzung:** Die Personen sehen die Beiträge der anderen nicht. Tritt etwas auch hier auf, lag es nicht an der Gruppendynamik.
-- **Ein einzelnes Sprachmodell (Nullmodell):** Hier schreibt nur ein Sprachmodell eine Geschichte – ohne Agenten. So siehst du, ob die aufwendige Simulation überhaupt etwas Neues zeigt.
+- **Ein einzelnes Sprachmodell (Nullmodell):** Zum Vergleich schreibt hier ein einziges Sprachmodell in einem Rutsch eine Geschichte, ohne dass viele Rollen miteinander diskutieren (ohne Agenten). Der Unterschied: In der Simulation reagieren viele Rollen aufeinander; im Nullmodell erzählt nur ein Text alles allein. So siehst du, ob der Aufwand der Simulation überhaupt etwas Neues zeigt. „Nullmodell“ ist der Begriff der App für diese Vergleichsbasis.
 
 ### Zusammenfassung und Spannen lesen
 
 In den Ergebnissen steht zum Beispiel: **„7 von 10 Läufen · Spanne 39–89 %“**.
 
 - **„7 von 10 Läufen“** heißt: In 7 von 10 Simulationsdurchgängen kam das Ereignis vor.
-- **Die Spanne** (Schwankungsbereich) zeigt, wie unsicher diese Zahl bei so wenigen Läufen ist. Sie ist **breit**, wenn du wenige Läufe hast. Das ist ehrlich so, kein Fehler.
-- Nenne nie nur „70 Prozent“, sondern immer **„7 von 10 Läufen, Spanne 39–89 %“**.
-- **Das sind keine Wahrscheinlichkeiten für die Wirklichkeit**, sondern nur Anteile der Läufe dieser Simulation.
+- **Die Spanne** (Schwankungsbereich) zeigt, wie unsicher diese Zahl bei so wenigen Läufen ist. Eine so breite Spanne wie 39–89 % ist bei 10 Läufen **normal** und kein Fehler: Sie sagt ehrlich, dass man aus so wenigen Durchgängen keine genaue Zahl ablesen kann.
+- Deshalb gehören solche Zahlen **nicht in eine Beschlussvorlage**. Nutze stattdessen die **Argumente und Verläufe** aus dem Bericht (siehe Abschnitt 9). Willst du eine Zahl intern nennen, dann nur als „7 von 10 Läufen, Spanne 39–89 %“.
+- Es sind keine Wahrscheinlichkeiten für die Wirklichkeit, sondern nur Anteile der Läufe dieser Simulation.
 - In der **Hauptfrage** sagt dir ein Satz, ob sich Simulation und Vergleichsvarianten unterscheiden. Steht dort „kein klarer Unterschied“, hat die Gruppendynamik nichts Besonderes beigetragen.
 - **„nicht messbar“** oder **„Auswerter uneinig – Zahl nicht deuten“** bedeutet: Die beiden automatischen Prüfungen kamen zu unterschiedlichen Urteilen. Lies die Zahl dann nicht als Ergebnis.
 - **„Stand schon im Material“** gilt auch hier: Das Ergebnis kam schon aus deinen Dokumenten.
@@ -133,10 +143,10 @@ In den Ergebnissen steht zum Beispiel: **„7 von 10 Läufen · Spanne 39–89 %
 Im fünften Schritt, **Nachfragen stellen**, kannst du im Gespräch tiefer gehen:
 
 - **Chat mit dem Berichts-Agenten:** Er beantwortet Fragen zum Bericht („Warum haben die Anwohner so reagiert?“) und recherchiert dafür in den Daten.
-- **Mit einer beliebigen Person der Welt chatten:** Wähle eine simulierte Person und frage nach ihrer Haltung. Das ist hilfreich, um Blickwinkel zu verstehen.
-- **Umfrage an simulierte Personen senden:** Du schickst dieselbe Frage an mehrere Personen auf einmal und siehst die Antworten nebeneinander.
+- **Mit einer beliebigen Person der Welt chatten:** Wähle eine simulierte Person und frage nach ihrer Haltung. Das ist ein Rollenspiel mit einer erfundenen Figur, hilfreich, um Blickwinkel zu verstehen.
+- **Umfrage an simulierte Personen senden:** Du schickst dieselbe Frage an mehrere erfundene Rollen auf einmal und siehst die Antworten nebeneinander. Das ist keine echte Umfrage.
 
-Wichtig: Die Antworten kommen von **simulierten Rollen**. Das ist Anschauung und Ideengeber, keine Meinungsumfrage. Gib Antworten nicht als „so denken die Bürger“ weiter.
+**Simulierte Rollen, keine Bürgerbeteiligung:** Die Antworten kommen vom Computer, nicht von Bürgerinnen und Bürgern. Gib sie nie als „so denken die Bürger“ weiter. Echte Beteiligung bleibt nötig.
 
 ---
 
@@ -150,11 +160,21 @@ Bevor du etwas an Gremium, Mitglieder, Presse oder Öffentlichkeit weitergibst:
 - [ ] **Vorgaben geprüft:** Hast du beachtet, was schon wörtlich in deinem Material stand („Stand schon im Material“)?
 - [ ] **Schwankungsbreite genannt:** Gibst du bei Mehrfachläufen die Spanne an (z. B. „7 von 10 Läufen, Spanne 39–89 %“) statt einer Einzelzahl?
 
-Hilfreich zusätzlich: Nenne die Frage, das Material und das Datum. Gib an, dass die Personen und ihre Zitate erfunden sind. Und: Dein Ergebnis ersetzt keine Beteiligung echter Menschen.
+Hilfreich zusätzlich: Nenne die Frage, das Material und das Datum.
 
 ---
 
-## 9. Alte Läufe wiederfinden und aufräumen
+## 9. So bringst du Ergebnisse seriös ein
+
+Zitiere keine Zahlen und keine „Aussagen“ der simulierten Personen. Nimm stattdessen die **Argumente und Verläufe**, die du für nachvollziehbar hältst, und mache die Herkunft transparent. Ein Mustertext für eine Beschlussvorlage oder Sitzungsunterlage:
+
+> „Zur Vorbereitung der Bürgerinformation wurde mit einer KI-gestützten Simulation (MiroFish, ein Durchlauf, [Datum]) auf Grundlage der öffentlich zugänglichen Unterlagen [Titel] durchgespielt, welche Einwände und Fragen auftreten könnten. Die Simulation arbeitet mit erfundenen Rollen und ist weder eine Prognose noch eine Bürgerbefragung. Sie hat unter anderem folgende Punkte aufgeworfen, die wir in der Information berücksichtigen: [Argument 1], [Argument 2]. Ob diese Punkte tatsächlich eine Rolle spielen, ist durch die Beteiligung der Bürgerinnen und Bürger zu klären.“
+
+Das schützt dich vor dem Eindruck, die Simulation „belege“ etwas: Du nutzt sie als Denkanstoß und sagst das offen.
+
+---
+
+## 10. Alte Läufe wiederfinden und aufräumen
 
 Unter **Verlauf** siehst du alle bisherigen Simulationen mit Bericht und **Export** (alles als ZIP). Mit **Löschen** entfernst du eine Simulation samt Bericht und Daten dauerhaft. Das ist wichtig, wenn du sicher gehen willst, dass nichts liegen bleibt.
 
