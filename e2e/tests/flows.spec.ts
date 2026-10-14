@@ -178,7 +178,7 @@ test.describe('Flows', () => {
 
     await sheet.getByRole('button', { name: /2 h je Runde/i }).click()
     await sheet.getByText('Feed ausgeblendet', { exact: true }).click()
-    await sheet.getByText('Nullmodell mit Rollen', { exact: true }).click()
+    await sheet.getByText('Einzelnes Sprachmodell: mit Rollenprofilen', { exact: true }).click()
 
     api!.reset()
     await sheet.getByRole('button', { name: /^Starten$/i }).click()

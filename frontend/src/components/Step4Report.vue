@@ -124,7 +124,7 @@
                 <li>{{ $t('step4.methodologyAgents', { count: methodology.agent_count ?? 0, types: agentTypesLabel }) }}</li>
                 <li>{{ $t('step4.methodologyTime', { hours: methodology.simulation_hours ?? 0, rounds: methodology.simulation_rounds ?? 0 }) }}</li>
                 <li v-for="(plat, name) in (methodology.platform_activity || {})" :key="name">
-                  {{ $t('step4.methodologyPlatform', { platform: name, posts: plat.posts ?? 0, comments: plat.comments ?? 0, actions: plat.actions ?? 0 }) }}
+                  {{ $t('step4.methodologyPlatform', { platform: name === 'twitter' ? $t('step3.infoPlaza') : name === 'reddit' ? $t('step3.topicCommunity') : name, posts: plat.posts ?? 0, comments: plat.comments ?? 0, actions: plat.actions ?? 0 }) }}
                 </li>
                 <li>{{ $t('step4.methodologyModels', { main: methodology.models?.main || '—', agents: methodology.models?.agents || '—' }) }}</li>
                 <li>{{ $t('step4.methodologyInitialPosts', { count: methodology.initial_posts_count ?? 0 }) }}</li>
