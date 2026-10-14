@@ -24,7 +24,7 @@
         <router-link class="meaning__link" to="/verlaesslichkeit">{{ t('reliability.link') }}</router-link>
       </aside>
 
-      <section class="progress" v-if="variants.length" :aria-label="t('ensemble.progressAria')">
+      <section v-if="variants.length && data.status !== 'completed'" class="progress" :aria-label="t('ensemble.progressAria')">
         <div v-for="v in variants" :key="v.key" class="prog">
           <div class="prog__row">
             <span class="prog__label">{{ variantLabel(v) }}</span>
@@ -35,6 +35,11 @@
           </div>
         </div>
       </section>
+      <p
+        v-else-if="variants.length && data.status === 'completed'"
+        class="progress-done"
+        data-testid="ensemble-progress-done"
+      >{{ t('ensemble.progressDone', { arms: variants.length, runs: progressRuns }) }}</p>
 
       <section
         v-if="primaryItem"
@@ -61,7 +66,12 @@
             <div class="summary__arm-row">
               <span class="summary__arm-label">{{ variantLabel(v) }}</span>
               <span v-if="isMechanismBlocked(primaryItem, v.key)" class="summary__arm-meta">{{ t('ensemble.mechanismUnavailable') }}</span>
-              <span v-else class="summary__arm-meta mono">{{ compactCell(cell(v.key, primaryItem.id)) }}</span>
+              <span v-else class="summary__arm-meta">
+                <template v-if="cell(v.key, primaryItem.id)">
+                  <span class="summary__arm-count">{{ compactCount(cell(v.key, primaryItem.id)) }}</span><span class="summary__arm-sep"> · </span><span class="summary__arm-range">{{ compactRange(cell(v.key, primaryItem.id)) }}</span>
+                </template>
+                <template v-else>—</template>
+              </span>
             </div>
             <div
               v-if="!isMechanismBlocked(primaryItem, v.key) && cell(v.key, primaryItem.id)"
@@ -429,6 +439,12 @@ const VARIANT_I18N = {
 }
 
 const variants = computed(() => data.value?.variants || [])
+const progressRuns = computed(() => {
+  const configured = Number(data.value?.runs)
+  if (Number.isFinite(configured) && configured > 0) return configured
+  const total = Number(variants.value[0]?.total)
+  return Number.isFinite(total) ? total : 0
+})
 const checklist = computed(() => data.value?.checklist || [])
 const comparisons = computed(() => data.value?.comparisons || [])
 const canCancel = computed(() => ['queued', 'running'].includes(data.value?.status))
@@ -592,11 +608,15 @@ function formatDuration(sec) {
   return t('ensemble.durationM', { m: Math.max(1, m) })
 }
 
-function compactCell(st) {
+function compactCount(st) {
   if (!st) return '—'
+  return t('ensemble.summaryCellCount', { yes: st.yes ?? '—', n: st.n ?? '—' })
+}
+function compactRange(st) {
+  if (!st) return ''
   const span = rateCiSpan(st)
-  if (!span) return t('ensemble.summaryCellNoRange', { yes: st.yes ?? '—', n: st.n ?? '—' })
-  return t('ensemble.summaryCell', { yes: st.yes, n: st.n, lo: span.lo, hi: span.hi })
+  if (!span) return t('ensemble.summaryCellRangeEmpty')
+  return t('ensemble.summaryCellRange', { lo: span.lo, hi: span.hi })
 }
 function barRangeStyle(st) {
   const span = rateCiSpan(st)
@@ -819,6 +839,13 @@ onUnmounted(clearTimer)
 }
 
 .progress { display: grid; gap: 12px; margin-bottom: 1.25rem; }
+.progress-done {
+  margin: 0 0 1.25rem;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
 .prog__row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
 .prog__label { font-weight: 600; }
 .prog__meta { color: var(--color-text-muted); }
@@ -848,9 +875,10 @@ onUnmounted(clearTimer)
 .summary__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
 .summary__title { font-family: var(--font-heading); font-size: 1.2rem; margin: 0; line-height: 1.3; }
 .summary__arms { list-style: none; margin: 0.85rem 0 0; padding: 0; display: grid; gap: 10px; }
-.summary__arm-row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
-.summary__arm-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
-.summary__arm-meta { font-size: 12px; color: var(--color-text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+.summary__arm-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.summary__arm-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); line-height: 1.35; }
+.summary__arm-meta { font-size: 13px; line-height: 1.35; color: var(--color-text-secondary); font-variant-numeric: tabular-nums; }
+.summary__arm-range { white-space: nowrap; }
 .summary__bar,
 :deep(.stat__bar) {
   position: relative;
