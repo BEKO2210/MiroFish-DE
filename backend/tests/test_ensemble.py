@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 import app.utils.llm_client as llm_module
+from app.services import ensemble as ensemble_module
 
 from app.config import Config
 from app.services.blind_feed import (
@@ -736,7 +737,8 @@ def test_resume_continues_incomplete_ensemble(tmp_path, monkeypatch):
     service.resume(ensemble_id)
     finished = _wait_ensemble(service, ensemble_id)
     assert finished["status"] == "completed", finished.get("error")
-    assert calls == [f"{ensemble_id}_baseline_2"]
+    # Ein altes Resultat ohne Laufbeiträge ist nach der Qualitätsprüfung nicht vollständig.
+    assert calls == [f"{ensemble_id}_baseline_1", f"{ensemble_id}_baseline_2"]
     assert finished["variants"][0]["done"] == 2
     assert finished["results"]["baseline"]["o1"]["n"] == 2
     assert finished["results"]["baseline"]["o1"]["yes"] == 2
@@ -818,8 +820,12 @@ def test_resume_records_run_stats_and_minutes_per_round(tmp_path, monkeypatch):
     assert rows[0] == {
         "run": 1,
         "post_count": 1,
+        "contribution_count": 1,
         "character_count": len(stored_text),
         "batch_count": 1,
+        "agent_action_count": 0,
+        "agent_error_count": 0,
+        "agent_error_rate": 0.0,
         "search_action_count": 0,
         "trend_action_count": 0,
         "foreign_interaction_count": 0,
@@ -1119,31 +1125,26 @@ def test_aggregate_excludes_disputes_and_flags_unreliable_comparison(tmp_path):
     assert state["comparisons"][0]["unreliable"] is True
 
 
-def test_failed_batch_retries_twice_then_stays_in_n(tmp_path):
+def test_failed_batch_retries_twice_then_fails_the_run(tmp_path):
     llm = BatchLLM(fail=True)
     service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
     checklist = [{
         "id": "o1", "text_de": "Ereignis", "definition": "sichtbar", "polarity": "presence",
     }]
     run_dir = tmp_path / "run"
-    classified = service._classify_posts(
-        {"checklist": checklist},
-        [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Text"}],
-        seed=1,
-        run_number=1,
-        run_dir=run_dir,
-    )
+    with pytest.raises(RuntimeError, match="vollständig ausgefallen"):
+        service._classify_posts(
+            {"checklist": checklist},
+            [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Text"}],
+            seed=1,
+            run_number=1,
+            run_dir=run_dir,
+        )
     audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
     assert audit["raters"]["a"]["batches"][0]["attempts"] == 3
     assert "error" in audit["raters"]["a"]["batches"][0]
     assert llm.calls == 6
-    state = {"variants": [{"key": "baseline"}], "checklist": checklist}
-    service._aggregate(state, {"baseline": [classified]})
-    outcome = state["results"]["baseline"]["o1"]
-    assert classified["o1"]["unclassified"] is False
-    assert outcome["yes"] == 0
-    assert outcome["n"] == 1
-    assert outcome["unclassified"] == 0
+    assert audit["result"]["o1"]["unclassified"] is True
 
 
 class NeverRunner:
@@ -1731,8 +1732,12 @@ def test_run_stats_and_markdown_table():
     )
     assert stats == {
         "post_count": 2,
+        "contribution_count": 2,
         "character_count": 6,
         "batch_count": 2,
+        "agent_action_count": 0,
+        "agent_error_count": 0,
+        "agent_error_rate": 0.0,
         "search_action_count": 0,
         "trend_action_count": 0,
         "foreign_interaction_count": 0,
@@ -1842,3 +1847,222 @@ def test_get_behaelt_restzeit_bei_laufendem_ensemble(tmp_path):
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"ensemble_id": "ens_dddddddddddd", "status": "running", "eta_seconds": 75}), encoding="utf-8")
     assert service.get("ens_dddddddddddd")["eta_seconds"] == 75
+
+
+def test_null_parse_error_is_unclassified_and_run_fails(tmp_path):
+    llm = BatchLLM(fail=True)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    run_dir = tmp_path / "null" / "run_1"
+    with pytest.raises(RuntimeError, match="vollständig ausgefallen"):
+        service._classify_narrative(
+            {"checklist": [{
+                "id": "o1", "text_de": "Ereignis", "definition": "sichtbar",
+                "polarity": "absence",
+            }]},
+            "Kein relevanter Text.", 4, 1, run_dir, "null_document",
+        )
+    audit = json.loads((run_dir / "classification.json").read_text(encoding="utf-8"))
+    assert audit["result"]["o1"] == {
+        "yes": False,
+        "evidence": [],
+        "unclassified": True,
+        "disputed": False,
+        "raters": {
+            "a": {"yes": False, "evidence": [], "unclassified": True},
+            "b": {"yes": False, "evidence": [], "unclassified": True},
+        },
+    }
+
+
+def test_completed_seed_rejects_stored_batch_failure(tmp_path):
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "classification.json").write_text(json.dumps({
+        "raters": {"a": {"batches": [{"error": "timeout"}]}},
+        "result": {"o1": {"yes": False, "unclassified": True}},
+    }), encoding="utf-8")
+    service = EnsembleService(root=tmp_path / "ensembles")
+    assert service._completed_seed_result(run_dir) is None
+    (run_dir / "classification.json").write_text(json.dumps({
+        "batches": [{"error": "parse_error"}],
+        "result": {"o1": {"yes": False, "unclassified": True}},
+    }), encoding="utf-8")
+    assert service._completed_seed_result(run_dir) is None
+
+
+def test_health_wait_does_not_consume_seed_attempt(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    checks = []
+
+    def health():
+        checks.append(1)
+        if len(checks) == 1:
+            raise OSError("Ollama startet neu")
+        return [Config.LLM_MODEL_NAME, Config.get_llm_config()["model"],
+                Config.ENSEMBLE_SECOND_RATER_MODEL]
+
+    service = EnsembleService(
+        runner_cls=FakeRunner, llm_factory=FakeLLM,
+        root=tmp_path / "ensembles", poll_interval=0.001,
+        health_check=health, sleep=lambda _seconds: None,
+    )
+    started = service.start("sim_test", 1, 2, ["baseline"])
+    state = _wait_ensemble(service, started["ensemble_id"])
+    assert state["status"] == "completed", state.get("error")
+    assert len(checks) >= 2
+    assert service._load(started["ensemble_id"])["seed_attempts"]["baseline:1"] == 1
+
+
+def test_models_are_recorded_per_role_and_arm(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    service = EnsembleService(
+        runner_cls=FakeRunner, llm_factory=FakeLLM,
+        root=tmp_path / "ensembles", poll_interval=0.001,
+    )
+    started = service.start(
+        "sim_test", 1, 2, ["baseline", "null_document"],
+        text_model="agent-model", arm_model="arm-model",
+    )
+    state = _wait_ensemble(service, started["ensemble_id"])
+    assert state["status"] == "completed", state.get("error")
+    assert state["arm_models"] == {
+        "baseline": "agent-model", "null_document": "arm-model",
+    }
+    assert {item["key"]: item["text_model"] for item in state["variants"]} == state["arm_models"]
+    config = json.loads((
+        tmp_path / "ensembles" / started["ensemble_id"] / "baseline" / "run_1"
+        / "simulation_config.json"
+    ).read_text(encoding="utf-8"))
+    assert config["llm_model"] == "agent-model"
+    manifest = json.loads((
+        tmp_path / "ensembles" / started["ensemble_id"] / "null_document" / "run_1"
+        / "manifest.json"
+    ).read_text(encoding="utf-8"))
+    assert manifest["model"] == "arm-model"
+
+
+def test_strict_second_rater_rejects_missing_model(tmp_path, monkeypatch):
+    monkeypatch.delenv("ENSEMBLE_SECOND_RATER_MODEL", raising=False)
+    monkeypatch.setattr(Config, "ENSEMBLE_SECOND_RATER_MODEL", "")
+    service = EnsembleService(root=tmp_path / "ensembles")
+    with pytest.raises(ValueError, match="Zweitmodell"):
+        service.start(
+            "sim_test", 1, 2, ["baseline"], strict_second_rater=True,
+        )
+
+
+def test_min_classified_marks_result_unmeasurable(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    state = {
+        "runs": 5, "min_classified": 4,
+        "variants": [{"key": "baseline"}],
+        "checklist": [{"id": "o1", "polarity": "presence"}],
+    }
+    classified = {"yes": False, "unclassified": False, "disputed": False}
+    missing = {"yes": False, "unclassified": True, "disputed": False}
+    service._aggregate(
+        state,
+        {"baseline": [{"o1": classified}] * 3 + [{"o1": missing}] * 2},
+    )
+    assert state["results"]["baseline"]["o1"]["measurable"] is False
+    assert state["measurement"]["measurable"] is False
+    assert state["unclassified_runs"] == 2
+
+
+def test_run_stats_agent_error_rate_and_quality_gate(tmp_path):
+    run_dir = tmp_path / "run"
+    log = run_dir / "twitter" / "actions.jsonl"
+    log.parent.mkdir(parents=True)
+    log.write_text("\n".join([
+        json.dumps({"action_type": "post", "success": False}),
+        json.dumps({"action_type": "post", "success": True}),
+    ]), encoding="utf-8")
+    stats = compute_run_stats([{"text": "Beitrag"}], run_dir=run_dir)
+    assert stats["agent_error_count"] == 1
+    assert stats["agent_error_rate"] == 0.5
+    service = EnsembleService(root=tmp_path / "ensembles")
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(service, "_stats_for_run", lambda _key, _run_dir: stats)
+    with pytest.raises(RuntimeError, match="Fehlerquote"):
+        service._validate_run_quality(
+            {"min_posts": 1, "max_agent_error_rate": 0.49}, "baseline", run_dir,
+        )
+    monkeypatch.undo()
+
+    empty = {**stats, "contribution_count": 0, "agent_error_rate": 0.0}
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(service, "_stats_for_run", lambda _key, _run_dir: empty)
+    with pytest.raises(RuntimeError, match="nur 0 Beiträge"):
+        service._validate_run_quality(
+            {"min_posts": 1, "max_agent_error_rate": 1.0}, "baseline", run_dir,
+        )
+    monkeypatch.undo()
+
+
+def test_disk_preflight_rejects_seed_start(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles", min_free_bytes=5 * 1024**3)
+    monkeypatch.setattr(
+        ensemble_module.shutil, "disk_usage",
+        lambda _path: SimpleNamespace(total=10, used=9, free=1024),
+    )
+    with pytest.raises(RuntimeError, match="Zu wenig freier Speicher"):
+        service.start("sim_test", 1, 2, ["baseline"])
+
+
+def test_strict_second_rater_rejects_model_missing_from_ollama(tmp_path, monkeypatch):
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    service = EnsembleService(
+        root=tmp_path / "ensembles",
+        health_check=lambda: [Config.LLM_MODEL_NAME, Config.get_llm_config()["model"]],
+    )
+    with pytest.raises(RuntimeError, match="Modelle fehlen"):
+        service.start(
+            "sim_test", 1, 2, ["baseline"], strict_second_rater=True,
+        )
+
+
+def test_stale_backend_restart_does_not_consume_attempt(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    path = tmp_path / "ensembles" / "ens_aaaaaaaaaaaa" / "ensemble.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({
+        "ensemble_id": "ens_aaaaaaaaaaaa", "status": "running",
+        "current": {"variant": "baseline", "run": 1, "attempt": 2},
+        "seed_attempts": {"baseline:1": 2},
+    }), encoding="utf-8")
+    assert service.mark_stale_runs() == 1
+    assert service._load("ens_aaaaaaaaaaaa")["seed_attempts"]["baseline:1"] == 1
+
+
+def test_resume_orphan_cleanup_only_targets_owned_run(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    ensemble_id = "ens_bbbbbbbbbbbb"
+    run_dir = tmp_path / "ensembles" / ensemble_id / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run_state.json").write_text(
+        json.dumps({"process_pid": 4321}), encoding="utf-8"
+    )
+    state = {
+        "ensemble_id": ensemble_id,
+        "current_runner_id": f"{ensemble_id}_baseline_1",
+        "current": {"variant": "baseline", "run": 1},
+    }
+    killed = []
+    monkeypatch.setattr(ensemble_module.os, "readlink", lambda _path: str(run_dir))
+    monkeypatch.setattr(Path, "read_bytes", lambda _path: b"python run_parallel_simulation.py\0")
+    monkeypatch.setattr(ensemble_module.os, "getpgid", lambda pid: pid)
+    monkeypatch.setattr(
+        ensemble_module.os, "killpg", lambda pgid, sig: killed.append((pgid, sig))
+    )
+    assert service._terminate_owned_orphan(state) is True
+    assert killed == [(4321, ensemble_module.signal.SIGTERM)]
+
+    killed.clear()
+    monkeypatch.setattr(ensemble_module.os, "readlink", lambda _path: str(tmp_path / "other"))
+    assert service._terminate_owned_orphan(state) is False
+    assert killed == []
