@@ -650,6 +650,43 @@ def test_failed_seed_is_retried_and_kept_in_n(tmp_path, monkeypatch):
     assert stored["seed_attempts"]["baseline:1"] == 2
 
 
+def test_exhausted_seed_refuses_further_resume(tmp_path, monkeypatch):
+    class DyingRunner:
+        calls = []
+
+        @classmethod
+        def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+            cls.calls.append(simulation_id)
+            raise RuntimeError("gpu tot")
+
+        @classmethod
+        def get_run_state(cls, simulation_id):
+            raise AssertionError(simulation_id)
+
+        @classmethod
+        def stop_simulation(cls, simulation_id):
+            return None
+
+    DyingRunner.calls = []
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    service = EnsembleService(
+        runner_cls=DyingRunner, llm_factory=FakeLLM,
+        root=tmp_path / "ensembles", poll_interval=0.001,
+    )
+    started = service.start("sim_test", 1, 2, ["baseline"])
+    state = _wait_ensemble(service, started["ensemble_id"])
+    assert state["status"] == "failed", state.get("error")
+    assert state["attempts_exhausted"] is True
+    stored = service._load(started["ensemble_id"])
+    assert stored["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
+    assert len(DyingRunner.calls) == SEED_ATTEMPTS
+    with pytest.raises(RuntimeError, match="Versuche erschöpft"):
+        service.resume(started["ensemble_id"])
+    assert len(DyingRunner.calls) == SEED_ATTEMPTS
+    assert service._load(started["ensemble_id"])["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
+
+
 def test_resume_continues_incomplete_ensemble(tmp_path, monkeypatch):
     FakeRunner.states = {}
     monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))

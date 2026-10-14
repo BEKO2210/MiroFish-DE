@@ -30,8 +30,10 @@ Fortbestehen). Kodierhinweise stehen nicht im Fragetext. Neuwied hat 6 scorebare
 
 **Felder in `ergebnisse.json`:** `kontaminiert` (Objekt mit `quelle` und `datum`) und `quellenluecke` (boolesch) stehen an der
 Frage, nicht am Ordnernamen. `kontaminiert` trägt nur Freiburg, mit Quelle und Datum der externen Kaltprüfung vom 2026-10-14.
-`quellenluecke: true` tragen Kehl, Niederkassel und Wanzleben. `backend/scripts/validate_case.py` liest beide Felder aus den
-Frageobjekten.
+`quellenluecke: true` tragen Kehl, Niederkassel und Wanzleben. `kaltfrage_ort` (Text, echter Ort und Jahr, zum Beispiel
+„Kehl 2017“) steht je Fall an der Primärfrage. Die Echtfall-Kaltfrage nutzt nur dieses Feld oder `--ort`; der Ordnername
+geht nicht an das Modell. Die Bogen-Frage erhält nur den Text von `ausgangslage.md`. `backend/scripts/validate_case.py`
+liest die Felder aus den Frageobjekten.
 
 **Basisrate:** Im Katalog aller acht Akten ist das Primärergebnis 5-mal „Ja“ (62,5 %; Wilson-95-%-Intervall etwa 31–86 %).
 Freiburg ist vorab kontaminiert und zählt nicht zur Primäranalyse. Primär bleiben 7 Fälle, davon 4 „Ja“ (Karlsfeld, Kuppenheim,

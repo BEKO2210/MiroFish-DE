@@ -1,0 +1,12 @@
+{
+  "id": "pilot-v5",
+  "status": "vorgeschlagen, Start erst nach Freigabe des Projektinhabers",
+  "cases": 7,
+  "arms": ["baseline", "null_document", "null_personas"],
+  "seeds": 5,
+  "minutes_per_round": 240,
+  "hours": 336,
+  "gpu_hours_low": 33,
+  "gpu_hours_high": 72,
+  "gpu_hours_mid": 50
+}

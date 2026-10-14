@@ -2,6 +2,7 @@
   {
     "id": "primaer",
     "primaer": true,
+    "kaltfrage_ort": "Niederkassel 2023",
     "polarity": "presence",
     "t0": "2023-02-14",
     "zeitfenster": "T0 bis T0+14 Tage (bis 28.02.2023)",

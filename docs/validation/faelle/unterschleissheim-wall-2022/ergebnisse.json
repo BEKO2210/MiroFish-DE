@@ -2,6 +2,7 @@
   {
     "id": "primaer",
     "primaer": true,
+    "kaltfrage_ort": "Unterschleißheim 2022",
     "polarity": "presence",
     "t0": "2022-11-30",
     "zeitfenster": "T0 bis T0+14 Tage (bis 14.12.2022)",

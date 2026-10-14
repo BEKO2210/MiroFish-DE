@@ -7,8 +7,8 @@ Stand (T0): Anfang März (Tag der Ratsentscheidung)
 Das Kommunalparlament von Waldfeld hat mit großer Mehrheit beschlossen, dass das gemeindeeigene Hallenbad dauerhaft geschlossen bleibt. Das mehrere Jahrzehnte alte Gebäude ist bereits seit dem Herbst des Vorjahres wegen statischer Probleme an der Dachkonstruktion außer Betrieb.
 
 Begründung laut Verwaltung in der Sitzung:
-- Kernsanierung mit Kosten im zweistelligen Millionenbereich (Größenordnung 10 bis 20 Millionen Euro), vollständig über Kredite zu finanzieren.
-- Jährliches Betriebsdefizit von voraussichtlich rund 1 Million Euro (in den Vorjahren etwa die Hälfte).
+- Kernsanierung mit Kosten in einem zweistelligen Millionenbetrag, vollständig über Kredite zu finanzieren.
+- Hohes sechsstelliges bis siebenstelliges jährliches Defizit (in den Vorjahren etwa die Hälfte).
 - Die Kommune hat im Haushalt ein Defizit in Millionenhöhe; ein genehmigungsfähiger Haushalt setzt Einsparungen bei freiwilligen Leistungen voraus.
 - Von Bundesebene wurde für die Sanierung eine Förderung in mittlerer einstelliger Millionenhöhe in Aussicht gestellt. Weitere Zuschüsse anderer staatlicher Ebenen scheiden wegen des Verbots der Doppelförderung aus; Zuschüsse zu laufenden Betriebskosten gibt es nicht.
 - Gespräche mit Nachbarkommunen über eine Kostenbeteiligung oder einen gemeinsamen Zweckverband sowie Gespräche mit Unternehmen über Sponsoring blieben ohne Ergebnis.

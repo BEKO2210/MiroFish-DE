@@ -1566,6 +1566,27 @@ class EnsembleService:
         thread.start()
         return {"ensemble_id": ensemble_id, "status": "queued"}
 
+    def _incomplete_seed_exhausted(self, state: Dict[str, Any]) -> bool:
+        """Ein unvollständiger Seed hat das Versuchslimit erreicht. Resume würde nichts mehr versuchen."""
+        if state.get("attempts_exhausted") is True:
+            return True
+        attempts = state.get("seed_attempts") or {}
+        if not isinstance(attempts, dict):
+            return False
+        ensemble_id = str(state.get("ensemble_id") or "")
+        for key, count in attempts.items():
+            if isinstance(count, bool) or not isinstance(count, (int, float)):
+                continue
+            if int(count) < SEED_ATTEMPTS:
+                continue
+            variant, _, run_number = str(key).partition(":")
+            if not variant or not run_number.isdigit():
+                return True
+            run_dir = self._path(ensemble_id) / variant / f"run_{run_number}"
+            if self._completed_seed_result(run_dir) is None:
+                return True
+        return False
+
     def resume(self, ensemble_id: str) -> Dict[str, Any]:
         """Fehlgeschlagenes oder unvollständiges Ensemble am letzten Seed fortsetzen."""
         state = self._load(ensemble_id)
@@ -1575,6 +1596,10 @@ class EnsembleService:
             return {"ensemble_id": ensemble_id, "status": "completed"}
         if state.get("status") == "cancelled":
             raise RuntimeError("Abgebrochenes Ensemble wird nicht fortgesetzt")
+        if self._incomplete_seed_exhausted(state):
+            raise RuntimeError(
+                f"Versuche erschöpft ({SEED_ATTEMPTS}), Resume abgebrochen: {state.get('error') or 'kein weiterer Versuch'}"
+            )
         with self._threads_lock:
             alive = self._threads.get(ensemble_id)
             if alive is not None and alive.is_alive():
@@ -2679,6 +2704,10 @@ class EnsembleService:
                                     shutil.rmtree(run_dir)
                                 self._save(state)
                         if classified is None:
+                            state["attempts_exhausted"] = True
+                            attempts[failure_key] = max(
+                                int(attempts.get(failure_key, 0) or 0), SEED_ATTEMPTS)
+                            self._save(state)
                             raise RuntimeError(
                                 f"Seed {key} Lauf {run_number} nach {SEED_ATTEMPTS} Versuchen "
                                 f"fehlgeschlagen: {last_error}"
