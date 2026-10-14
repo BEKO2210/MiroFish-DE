@@ -42,14 +42,29 @@ export const mix = (h1, h2, w) => { // w = Anteil von h1
 // Buntheit absolut (max-min): bei "Neutral"-Combos (fast schwarz + getöntes Pastell) gewinnt so das Pastell als Akzent
 const saturation = (hex) => { const [r, g, b] = hexToRgb(hex); return Math.max(r, g, b) - Math.min(r, g, b) }
 /** Farbe Richtung `towards` schieben, bis der Kontrast zu `bg` erreicht ist (für Fließtext 4.5:1). */
-const ensureContrast = (color, bg, min = 4.5) => {
-  const towards = luminance(bg) > 0.5 ? '#000000' : '#FFFFFF'
+const ensureContrast = (color, bg, min = 4.5, best = false) => {
+  const towards = best ? (contrast('#000000', bg) >= contrast('#FFFFFF', bg) ? '#000000' : '#FFFFFF') : luminance(bg) > 0.5 ? '#000000' : '#FFFFFF'
   let c = color
   for (let i = 0; i < 40 && contrast(c, bg) < min; i++) c = mix(c, towards, 0.93)
   return c
 }
 export const isValidHex = (s) => /^#?[0-9a-f]{6}$/i.test(s || '')
 const norm = (s) => ('#' + s.replace('#', '')).toUpperCase()
+
+// Statusfarben behalten ihre Bedeutung (Farbton), passen aber Kontrast/Flächen an die Combo an
+const STATUS_HUES = { success: '#15803D', warning: '#A16207', error: '#B91C1C', info: '#1D4ED8' }
+function statusVars(canvas) {
+  const vars = {}
+  for (const [name, hue] of Object.entries(STATUS_HUES)) {
+    const bg = mix(hue, canvas, 0.1)
+    vars[`--color-${name}-text`] = ensureContrast(hue, bg, 4.5, true)
+    vars[`--color-${name}-bg`] = bg
+    vars[`--color-${name}-border`] = mix(hue, canvas, 0.4)
+  }
+  const fill = vars['--color-error-text']
+  vars['--color-on-error'] = contrast(fill, '#FFFFFF') >= contrast(fill, '#0F172A') ? '#FFFFFF' : '#0F172A'
+  return vars
+}
 
 // ---- Ableitung der Variablen ---------------------------------------------
 export function deriveVars(theme) {
@@ -86,6 +101,7 @@ export function deriveVars(theme) {
     '--color-brand-border': mix(accent, canvas, 0.45),
     '--color-brand-on-primary': onAccent,
     '--color-focus-ring': accent,
+    ...statusVars(canvas),
     '--theme-light': light,
     '--theme-dark': dark
   }

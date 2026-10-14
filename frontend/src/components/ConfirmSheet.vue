@@ -34,9 +34,9 @@ defineEmits(['confirm', 'close'])
 .sheet__actions { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .btn { min-height: 48px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; font: inherit; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .btn--confirm { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }
-.btn--danger { background: var(--color-error-text); border-color: var(--color-error-text); color: #fff; }
+.btn--danger { background: var(--color-error-text); border-color: var(--color-error-text); color: var(--color-on-error); }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
-.spin { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; }
+.spin { width: 18px; height: 18px; border: 2px solid color-mix(in srgb, currentColor 40%, transparent); border-top-color: currentColor; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .sheet-enter-active, .sheet-leave-active { transition: opacity .2s; }
 .sheet-enter-active .sheet, .sheet-leave-active .sheet { transition: transform .25s cubic-bezier(.16,1,.3,1); }
