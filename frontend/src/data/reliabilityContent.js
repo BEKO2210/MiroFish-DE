@@ -37,7 +37,7 @@ MiroFish führt deshalb einen automatischen **Vorgabe-Abgleich** durch. Es gleic
 
 ### 5. Doppelte Prüfung: Warum der Auswerter kontrolliert wird
 
-Am Ende müssen Hunderte simulierte Beiträge ausgewertet werden. Ein Sprachmodell prüft dafür anhand einer Checkliste, ob bestimmte Ereignisse eingetreten sind.
+Am Ende müssen viele simulierte Beiträge ausgewertet werden. Ein Sprachmodell prüft dafür anhand einer Checkliste, ob bestimmte Ereignisse eingetreten sind.
 
 Weil auch Auswerte-Modelle Fehler machen, prüft MiroFish jedes Ergebnis **doppelt** – mit zwei verschiedenen Durchläufen oder Modellen. Zudem gilt ein „Ja“ nur, wenn das Modell einen konkreten Beitragsbeleg im Datenprotokoll nachweisen kann. Weichen die beiden Prüfungen deutlich voneinander ab, stuft MiroFish das Ergebnis als **„nicht messbar“** ein. Das System sortiert unsichere Urteile aus, statt Scheingenauigkeit vorzutäuschen.
 
@@ -109,7 +109,7 @@ That is why MiroFish performs an automatic **baseline check**. It compares the k
 
 ### 5. Double verification: Why the evaluator is checked
 
-At the end of a run, hundreds of simulated posts need to be evaluated. A language model uses a checklist to check whether specific events occurred.
+At the end of a run, many simulated posts need to be evaluated. A language model uses a checklist to check whether specific events occurred.
 
 Because evaluator models also make mistakes, MiroFish checks every result **twice**—using two separate runs or models. Furthermore, an event only counts as "Yes" if the model can cite concrete evidence from the message log. If the two reviews disagree substantially, MiroFish flags the result as **"unmeasurable"**. The system filters out uncertain judgments rather than faking false precision.
 

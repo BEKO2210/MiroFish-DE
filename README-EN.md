@@ -4,9 +4,9 @@
 
 <a href="https://trendshift.io/repositories/16144" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16144" alt="666ghj%2FMiroFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-Simple and versatile swarm intelligence engine, predicting everything
+Swarm simulation with AI agents – playing out possible scenarios
 </br>
-<em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
+<em>A Simple and Universal Swarm Intelligence Engine, Simulating Possible Scenarios</em>
 
 ## 🚀 New in this edition (October 2026)
 
@@ -37,23 +37,23 @@ Simple and versatile swarm intelligence engine, predicting everything
 
 ## ⚡ Overview
 
-**MiroFish** is a next-generation AI prediction engine powered by multi-agent technology. By extracting seed information from the real world (such as breaking news, policy drafts, or financial signals), it automatically constructs a high-fidelity parallel digital world. Within this space, thousands of intelligent agents with independent personalities, long-term memory, and behavioral logic freely interact and undergo social evolution. You can inject variables dynamically from a "God's-eye view" to precisely deduce future trajectories — **rehearse the future in a digital sandbox, and win decisions after countless simulations**.
+**MiroFish** is a swarm simulation powered by multi-agent technology. It gives no forecast, but one possible scenario (see [Reliability](docs/RELIABILITY.md)). By extracting seed information from the real world (such as breaking news, policy drafts, or financial signals), it automatically constructs a high-fidelity parallel digital world. Within this space, many AI agents (typically 10–30 when run locally) with independent personalities, long-term memory, and behavioral logic freely interact and undergo social evolution. You can inject variables dynamically from a "God's-eye view" to see how a scenario could unfold — **play out scenarios in a digital sandbox**.
 
-> You only need to: Upload seed materials (data analysis reports or interesting novel stories) and describe your prediction requirements in natural language</br>
-> MiroFish will return: A detailed prediction report and a deeply interactive high-fidelity digital world
+> You only need to: Upload seed materials (data analysis reports or interesting novel stories) and describe your question in natural language</br>
+> MiroFish will return: A detailed simulation report and a deeply interactive high-fidelity digital world
 
 ### Our Vision
 
-MiroFish is dedicated to creating a swarm intelligence mirror that maps reality. By capturing the collective emergence triggered by individual interactions, we break through the limitations of traditional prediction:
+MiroFish is dedicated to creating a swarm intelligence mirror that maps reality. By capturing the collective emergence triggered by individual interactions, we explore the limits of conventional models:
 
 - **At the Macro Level**: We are a rehearsal laboratory for decision-makers, allowing policies and public relations to be tested at zero risk
 - **At the Micro Level**: We are a creative sandbox for individual users — whether deducing novel endings or exploring imaginative scenarios, everything can be fun, playful, and accessible
 
-From serious predictions to playful simulations, we let every "what if" see its outcome, making it possible to predict anything.
+From serious scenario analysis to playful simulations, we let every "what if" play out. Results are thought experiments, not forecasts.
 
 ## 🌐 Live Demo
 
-Welcome to visit our online demo environment and experience a prediction simulation on trending public opinion events we've prepared for you: [mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
+Welcome to visit our online demo environment and experience a simulation of trending public opinion events we've prepared for you: [mirofish-live-demo](https://666ghj.github.io/mirofish-demo/)
 
 ## 📸 Screenshots
 
@@ -94,7 +94,7 @@ Welcome to visit our online demo environment and experience a prediction simulat
 <div align="center">
 <a href="https://www.bilibili.com/video/BV1VYBsBHEMY/" target="_blank"><img src="./static/image/wuda-demo-cover.png" alt="MiroFish Demo Video" width="75%"/></a>
 
-Click the image to watch the complete demo video for prediction using BettaFish-generated "Wuhan University Public Opinion Report"
+Click the image to watch the complete demo video of a simulation using BettaFish-generated "Wuhan University Public Opinion Report"
 </div>
 
 ### 2. Dream of the Red Chamber Lost Ending Simulation
@@ -102,16 +102,16 @@ Click the image to watch the complete demo video for prediction using BettaFish-
 <div align="center">
 <a href="https://www.bilibili.com/video/BV1cPk3BBExq" target="_blank"><img src="./static/image/hongloumeng-demo-cover.jpg" alt="MiroFish Demo Video" width="75%"/></a>
 
-Click the image to watch MiroFish's deep prediction of the lost ending based on hundreds of thousands of words from the first 80 chapters of "Dream of the Red Chamber"
+Click the image to watch MiroFish's simulation of a possible lost ending based on hundreds of thousands of words from the first 80 chapters of "Dream of the Red Chamber"
 </div>
 
-> **Financial Prediction**, **Political News Prediction** and more examples coming soon...
+> **Financial scenarios**, **Political news scenarios** and more examples coming soon...
 
 ## 🔄 Workflow
 
 1. **Graph Building**: Seed extraction & Individual/collective memory injection & GraphRAG construction
 2. **Environment Setup**: Entity relationship extraction & Persona generation & Agent configuration injection
-3. **Simulation**: Dual-platform parallel simulation & Auto-parse prediction requirements & Dynamic temporal memory updates
+3. **Simulation**: Dual-platform parallel simulation & Auto-parse simulation requirements & Dynamic temporal memory updates
 4. **Report Generation**: ReportAgent with rich toolset for deep interaction with post-simulation environment
 5. **Deep Interaction**: Chat with any agent in the simulated world & Interact with ReportAgent
 
@@ -182,7 +182,7 @@ For development with hot reload: `npm run dev` in the project root (interface on
 
 ### Using it
 
-1. **Home**: upload documents (PDF, Markdown, text), ask a question, press “Start forecast”.
+1. **Home**: upload documents (PDF, Markdown, text), ask a question, press “Start simulation”.
 2. The run shows every step live: reading documents → knowledge graph → agents → simulation → report.
    You can close the page; **History** has everything, with export (ZIP) and delete.
 3. To control every step yourself, switch off “Run through to the report”.
@@ -195,7 +195,7 @@ week, longer for extensive material.
 The app has no login and therefore only listens on `localhost`. For your phone or other computers use a protected
 route such as [Tailscale](https://tailscale.com) (`tailscale serve 5001`). You can also set an `API_TOKEN` in `.env` (before the first Docker start) or in `data/.env` (afterwards, then `docker compose restart`).
 The HTTP interface for your own scripts and AI agents is described in [docs/API.md](docs/API.md) – one call runs a
-complete forecast up to the report.
+complete simulation up to the report.
 
 ### Cloud models
 

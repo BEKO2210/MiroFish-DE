@@ -958,12 +958,12 @@ const parseInsightForge = (text) => {
     const queryMatch = text.match(/Analysefrage:\s*(.+?)(?:\n|$)/)
     if (queryMatch) result.query = queryMatch[1].trim()
     
-    // Vorhersageszenario extrahieren
-    const reqMatch = text.match(/Prognoseszenario:\s*(.+?)(?:\n|$)/)
+    // Simulationsszenario extrahieren (altes Format "Prognoseszenario" bleibt für ältere Berichte lesbar)
+    const reqMatch = text.match(/(?:Simulationsszenario|Prognoseszenario):\s*(.+?)(?:\n|$)/)
     if (reqMatch) result.simulationRequirement = reqMatch[1].trim()
     
-    // Statistikdaten extrahieren - Format "Relevante Prognose-Fakten: X" abgleichen
-    const factMatch = text.match(/Relevante Prognose-Fakten:\s*(\d+)/)
+    // Statistikdaten extrahieren - Format "Relevante Simulations-Fakten: X" (alt: "Prognose-Fakten")
+    const factMatch = text.match(/Relevante (?:Simulations|Prognose)-Fakten:\s*(\d+)/)
     const entityMatch = text.match(/Beteiligte Entitäten:\s*(\d+)/)
     const relMatch = text.match(/Beziehungsketten:\s*(\d+)/)
     if (factMatch) result.stats.facts = parseInt(factMatch[1])

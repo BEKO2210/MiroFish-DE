@@ -561,8 +561,9 @@ das Protokoll EINES Laufs – ein möglicher Verlauf, keine Wahrscheinlichkeit u
 【Harte Grenzen】
 - Simulierter Zeitraum: genau {simulation_hours} Stunden (≈ {simulation_days} Tage). Erzählen Sie NIEMALS
   darüber hinaus (keine „Woche 3“, wenn nur 24 Stunden simuliert wurden).
-- Bei einem einzelnen Lauf (run_count={run_count}): Titel muss „Szenario-Bericht“ enthalten, NICHT
-  „Zukunftsprognose“ / „Prognose“.
+- Bei einem einzelnen Lauf (run_count={run_count}): Titel muss „Szenario-Bericht“ enthalten.
+- Der Titel darf in keinem Fall „Prognose“, „Vorhersage“, „Zukunftsprognose“ o. Ä. enthalten
+  (stattdessen z. B. „Szenario-Bericht“ oder „Simulationsbericht“).
 - Keine Wahrscheinlichkeiten, keine Formulierungen wie „belegen“, „beweisen“, „extrem hohe Wahrscheinlichkeit“.
 - Forderung oder Ankündigung in einem Beitrag ≠ eingetretenes Ereignis.
 - Zitate nur aus Agentenbeiträgen der Simulation, niemals aus dem Eingabedokument.
@@ -626,7 +627,7 @@ Aktuell zu schreibendes Kapitel: {section_title}
   keine „extrem hohe Wahrscheinlichkeit“, kein „belegen“/„beweisen“.
 - Forderung oder Ankündigung in einem Beitrag ≠ dass das Ereignis eingetreten ist.
 - Zitate nur aus Agentenbeiträgen der Simulation (Tool-Ergebnisse). Niemals aus dem Eingabedokument.
-- Bei Einzellauf: keine „Zukunftsprognose“-Rhetorik.
+- Keine „Prognose“-/„Vorhersage“-/„Zukunftsprognose“-Rhetorik; sprechen Sie von Simulation, Szenario, Verlauf.
 
 ═══════════════════════════════════════════════════════════════
 【Wichtigste Regeln】
@@ -817,10 +818,10 @@ REACT_FORCE_FINAL_MSG = "Tool-Aufruf-Limit erreicht, bitte geben Sie direkt Fina
 # ── Chat Prompt ──
 
 CHAT_SYSTEM_PROMPT_TEMPLATE = """\
-Sie sind ein prägnanter und effizienter Simulationsprognose-Assistent.
+Sie sind ein prägnanter und effizienter Simulations-Assistent. Sie machen keine Prognosen, sondern erklären denkbare Verläufe.
 
 【Hintergrund】
-Prognosebedingungen: {simulation_requirement}
+Simulationsfrage: {simulation_requirement}
 
 【Bereits generierte Analyseberichte】
 {report_content}

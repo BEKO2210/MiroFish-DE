@@ -238,7 +238,7 @@ def start_pipeline():
     """multipart: files[] (PDF/MD/TXT), simulation_requirement, project_name (optional). Antwort: pipeline_id."""
     requirement = request.form.get('simulation_requirement', '').strip()
     if not requirement:
-        return jsonify({"success": False, "error": "Bitte eine Frage oder Vorhersagebedarf angeben"}), 400
+        return jsonify({"success": False, "error": "Bitte eine Frage oder Simulationsanforderung angeben"}), 400
     uploads = request.files.getlist('files')
     if not uploads:
         return jsonify({"success": False, "error": "Bitte mindestens eine Datei (PDF, MD, TXT) hochladen"}), 400

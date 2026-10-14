@@ -171,11 +171,11 @@ class InsightForgeResult:
     def to_text(self) -> str:
         """In detailliertes Textformat konvertieren für LLM-Verständnis und Berichtszitate"""
         text_parts = [
-            f"## Zukunftsprognose-Tiefenanalyse",
+            f"## Simulations-Tiefenanalyse",
             f"Analysefrage: {self.query}",
-            f"Prognoseszenario: {self.simulation_requirement}",
-            f"\n### Prognose-Datenstatistik",
-            f"- Relevante Prognose-Fakten: {self.total_facts}",
+            f"Simulationsszenario: {self.simulation_requirement}",
+            f"\n### Simulations-Datenstatistik",
+            f"- Relevante Simulations-Fakten: {self.total_facts}",
             f"- Beteiligte Entitäten: {self.total_entities}",
             f"- Beziehungsketten: {self.total_relationships}"
         ]
