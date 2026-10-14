@@ -1783,3 +1783,25 @@ def test_null_run_manifest_fields(tmp_path):
     assert written["temperature"] == 0.7
     assert written["model"] == "capture-model"
     assert written["prompt_sha256"]
+
+
+@pytest.mark.parametrize("status", ["completed", "failed", "cancelled"])
+def test_get_liefert_keine_restzeit_bei_beendeten_laeufen(tmp_path, status):
+    service = EnsembleService(llm_factory=lambda: None, root=tmp_path / "ensembles")
+    path = tmp_path / "ensembles" / "ens_cccccccccccc" / "ensemble.json"
+    path.parent.mkdir(parents=True)
+    raw = {"ensemble_id": "ens_cccccccccccc", "status": status, "eta_seconds": 75, "created_at": "2025-10-13"}
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    before = path.read_text(encoding="utf-8")
+
+    assert service.get("ens_cccccccccccc")["eta_seconds"] is None
+    assert service.list()[0]["eta_seconds"] is None
+    assert path.read_text(encoding="utf-8") == before
+
+
+def test_get_behaelt_restzeit_bei_laufendem_ensemble(tmp_path):
+    service = EnsembleService(llm_factory=lambda: None, root=tmp_path / "ensembles")
+    path = tmp_path / "ensembles" / "ens_dddddddddddd" / "ensemble.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"ensemble_id": "ens_dddddddddddd", "status": "running", "eta_seconds": 75}), encoding="utf-8")
+    assert service.get("ens_dddddddddddd")["eta_seconds"] == 75

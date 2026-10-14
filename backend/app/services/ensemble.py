@@ -1516,6 +1516,8 @@ class EnsembleService:
             state.pop("current_runner_id", None)
             state.pop("base_seed", None)
             state.pop("updated_at", None)
+            if state.get("status") in {"completed", "failed", "cancelled"}:
+                state["eta_seconds"] = None
         return state
 
     def reclassify(self, ensemble_id: str) -> Dict[str, Any]:
