@@ -145,60 +145,151 @@ import service from '../api/index'
 import { formatNumber } from '../utils/formatNumber'
 
 const { t, locale } = useI18n()
-const setLang = (l) => { locale.value = l; try { localStorage.setItem('lang', l) } catch (e) { /* privater Modus */ } document.documentElement.lang = l }
-const status = ref({ ready: false, llm_model: '', memory_provider: '' })
-const cfg = ref({ llm_provider: 'ollama', llm_api_key: '', llm_base_url: '', llm_model_name: '', local_llm_base_url: '', local_llm_model_name: '', local_llm_api_key: '', zep_api_key: '', memory_provider: 'obsidian' })
-const saving = ref(false), testing = ref(false), result = ref(null), showTheme = ref(false)
-const memoryLabel = computed(() => ({ obsidian: t('settings.wLocal'), zep: t('settings.wZep'), hybrid: t('settings.wHybrid') }[status.value.memory_provider] || status.value.memory_provider))
-const masked = computed(() => Object.values(cfg.value).some(v => typeof v === 'string' && v.includes('...****')))
 
-const models = ref([]), scanning = ref(false), scanned = ref(false)
-const baseUrl = () => (cfg.value.llm_provider === 'openai' ? cfg.value.llm_base_url : cfg.value.local_llm_base_url)
-// Installierte Modelle vom eingetragenen Server holen (auch vor dem Speichern)
-const scan = async () => {
+function setLang(lang) {
+  locale.value = lang
+  try {
+    localStorage.setItem('lang', lang)
+  } catch {
+    /* privater Modus */
+  }
+  document.documentElement.lang = lang
+}
+
+const status = ref({ ready: false, llm_model: '', memory_provider: '' })
+const cfg = ref({
+  llm_provider: 'ollama',
+  llm_api_key: '',
+  llm_base_url: '',
+  llm_model_name: '',
+  local_llm_base_url: '',
+  local_llm_model_name: '',
+  local_llm_api_key: '',
+  zep_api_key: '',
+  memory_provider: 'obsidian',
+})
+const saving = ref(false)
+const testing = ref(false)
+const result = ref(null)
+const showTheme = ref(false)
+const models = ref([])
+const scanning = ref(false)
+const scanned = ref(false)
+
+const memoryLabel = computed(() => {
+  const labels = {
+    obsidian: t('settings.wLocal'),
+    zep: t('settings.wZep'),
+    hybrid: t('settings.wHybrid'),
+  }
+  return labels[status.value.memory_provider] || status.value.memory_provider
+})
+const masked = computed(() =>
+  Object.values(cfg.value).some((v) => typeof v === 'string' && v.includes('...****')),
+)
+
+function baseUrl() {
+  return cfg.value.llm_provider === 'openai' ? cfg.value.llm_base_url : cfg.value.local_llm_base_url
+}
+/** Installierte Modelle vom eingetragenen Server holen (auch vor dem Speichern) */
+async function scan() {
   scanning.value = true
   try {
-    const res = await service.get('/api/graph/system/models', { params: { provider: cfg.value.llm_provider, base_url: baseUrl() } })
+    const res = await service.get('/api/graph/system/models', {
+      params: { provider: cfg.value.llm_provider, base_url: baseUrl() },
+    })
     models.value = res?.data?.models || []
-  } catch (e) { models.value = [] } finally { scanning.value = false; scanned.value = true }
+  } catch {
+    models.value = []
+  } finally {
+    scanning.value = false
+    scanned.value = true
+  }
 }
-// Gespeichertes Modell, das (noch) nicht installiert ist, trotzdem als Option zeigen
-const withCurrent = (list, cur) => (cur && !list.some(m => m.name === cur) ? [{ name: cur, missing: true }, ...list] : list)
-const optionLabel = (m) => {
+
+/** Gespeichertes Modell, das (noch) nicht installiert ist, trotzdem als Option zeigen */
+function withCurrent(list, cur) {
+  if (cur && !list.some((m) => m.name === cur)) {
+    return [{ name: cur, missing: true }, ...list]
+  }
+  return list
+}
+
+function optionLabel(m) {
   if (m.missing) return `${m.name} · ${t('settings.notInstalled')}`
   const parts = [m.name]
   if (m.size_gb) parts.push(`${formatNumber(m.size_gb)} GB`)
   if (m.loaded) parts.push(t('settings.loadedNow'))
   return parts.join(' · ')
 }
-const load = async () => {
+
+async function load() {
   try {
     const res = await service.get('/api/graph/system/status')
-    if (res?.success) {
-      const d = res.data
-      status.value = { ready: d.reachable && d.model_installed, llm_model: d.llm_model, memory_provider: d.memory_provider, loaded: (d.loaded_models || []).includes(d.llm_model) }
-      if (d.config) cfg.value = { ...cfg.value, ...d.config }
+    if (!res?.success) return
+    const d = res.data
+    status.value = {
+      ready: d.reachable && d.model_installed,
+      llm_model: d.llm_model,
+      memory_provider: d.memory_provider,
+      loaded: (d.loaded_models || []).includes(d.llm_model),
     }
-  } catch (e) { status.value.ready = false }
+    if (d.config) cfg.value = { ...cfg.value, ...d.config }
+  } catch {
+    status.value.ready = false
+  }
 }
-watch(() => [cfg.value.llm_provider, baseUrl()], () => { scanned.value = false; models.value = [] })
-const save = async () => {
-  saving.value = true; result.value = null
+
+watch(
+  () => [cfg.value.llm_provider, baseUrl()],
+  () => {
+    scanned.value = false
+    models.value = []
+  },
+)
+
+async function save() {
+  saving.value = true
+  result.value = null
   try {
     const res = await service.post('/api/graph/system/config', cfg.value)
-    if (res?.success) { result.value = { ok: true, text: t('settings.saved') }; await load(); scan() }
-  } catch (e) { result.value = { ok: false, text: t('settings.saveFailed', { msg: e.response?.data?.error || e.message }) } }
-  finally { saving.value = false }
+    if (res?.success) {
+      result.value = { ok: true, text: t('settings.saved') }
+      await load()
+      scan()
+    }
+  } catch (e) {
+    result.value = {
+      ok: false,
+      text: t('settings.saveFailed', { msg: e.response?.data?.error || e.message }),
+    }
+  } finally {
+    saving.value = false
+  }
 }
-const test = async () => {
-  testing.value = true; result.value = null
+
+async function test() {
+  testing.value = true
+  result.value = null
   try {
     const res = await service.post('/api/graph/system/test-llm')
-    if (res?.success) result.value = { ok: true, text: t('settings.testOk', { model: res.data.model }) }
-  } catch (e) { result.value = { ok: false, text: t('settings.testFailed', { msg: e.response?.data?.error || e.message }) } }
-  finally { testing.value = false }
+    if (res?.success) {
+      result.value = { ok: true, text: t('settings.testOk', { model: res.data.model }) }
+    }
+  } catch (e) {
+    result.value = {
+      ok: false,
+      text: t('settings.testFailed', { msg: e.response?.data?.error || e.message }),
+    }
+  } finally {
+    testing.value = false
+  }
 }
-onMounted(async () => { await load(); scan() })
+
+onMounted(async () => {
+  await load()
+  scan()
+})
 </script>
 
 <style scoped>
@@ -236,10 +327,10 @@ onMounted(async () => { await load(); scan() })
 .rowbtn__text small { color: var(--color-text-muted); font-size: 12px; }
 .rowbtn__chev { font-size: 22px; color: var(--color-text-muted); }
 .swatch { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--theme-light, #fff) 50%, var(--color-brand-primary) 50%); border: 1px solid var(--color-border-default); }
-.langrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; border-top: 1px solid var(--color-border-subtle); margin-top: 6px; }
-.langrow__label { font-weight: 600; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--color-bg-surface-subtle); border-radius: 12px; min-width: 200px; }
-.seg button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; font-size: 14px; color: var(--color-text-secondary); cursor: pointer; }
+.langrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; border-top: 1px solid var(--color-border-subtle); margin-top: 6px; flex-wrap: wrap; }
+.langrow__label { font-weight: 600; flex: none; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--color-bg-surface-subtle); border-radius: 12px; min-width: 0; flex: 1; }
+.seg button { min-height: 44px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; font-size: 14px; color: var(--color-text-secondary); cursor: pointer; }
 .seg button.on { background: var(--color-bg-surface-raised); color: var(--color-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .card--about { display: flex; gap: 14px; align-items: flex-start; }
 .card--about div { display: flex; flex-direction: column; gap: 4px; }

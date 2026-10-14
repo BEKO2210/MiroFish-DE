@@ -78,14 +78,14 @@ defineEmits(['primary-click', 'secondary-click', 'leading-click'])
 
   .mobile-sticky-bar__container {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
     max-width: 600px;
     margin: 0 auto;
   }
 
   .sticky-btn {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
     min-height: 48px;
     border-radius: var(--radius-lg, 12px);
@@ -95,19 +95,26 @@ defineEmits(['primary-click', 'secondary-click', 'leading-click'])
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    padding: 0 12px;
+    gap: 6px;
+    padding: 8px 10px;
     border: 1px solid transparent;
     cursor: pointer;
     touch-action: manipulation;
     transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
   }
 
+  /* Kein Ellipsis: Knopftext muss vollständig lesbar bleiben (schmale Viewports) */
   .sticky-btn span,
   .sticky-btn__label {
+    display: block;
+    width: 100%;
+    max-width: 100%;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+    hyphens: auto;
+    overflow-wrap: anywhere;
   }
 
   .sticky-btn:active:not(:disabled) {
@@ -135,24 +142,33 @@ defineEmits(['primary-click', 'secondary-click', 'leading-click'])
     box-shadow: none;
   }
 
-  .sticky-btn--leading {
-    flex: 0 0 auto;
+  .sticky-btn--leading,
+  .sticky-btn--secondary {
+    flex: 1 1 0;
     min-width: 44px;
-    max-width: 7.5rem;
-    padding: 0 12px;
     background: var(--color-bg-surface-raised);
-    color: var(--color-text-primary);
     border-color: var(--color-border-default);
   }
 
+  .sticky-btn--leading {
+    color: var(--color-text-primary);
+  }
+
   .sticky-btn--secondary {
-    flex: 0 0 auto;
-    min-width: 44px;
-    max-width: 7.5rem;
-    padding: 0 12px;
-    background: var(--color-bg-surface-raised);
     color: var(--color-text-secondary);
-    border-color: var(--color-border-default);
+  }
+
+  @media (max-width: 360px) {
+    .mobile-sticky-bar {
+      padding: 8px 10px;
+    }
+    .mobile-sticky-bar__container {
+      gap: 6px;
+    }
+    .sticky-btn {
+      font-size: 13px;
+      padding: 8px 6px;
+    }
   }
 
   .sticky-btn__spinner {

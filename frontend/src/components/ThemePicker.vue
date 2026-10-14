@@ -78,26 +78,74 @@ const busy = ref(false)
 const isDefault = computed(() => !current.value.id && current.value.b === DEFAULT_THEME.b && current.value.a === DEFAULT_THEME.a && current.value.mode !== 'full')
 const error = ref('')
 
-const swatchStyle = (t) => ({ background: `linear-gradient(135deg, ${t.a} 50%, ${t.b} 50%)` })
-const choose = (t) => {
-  current.value = { ...t, mode: t.mode || current.value.mode || 'soft' }
+function swatchStyle(theme) {
+  return { background: `linear-gradient(135deg, ${theme.a} 50%, ${theme.b} 50%)` }
+}
+
+function choose(theme) {
+  current.value = { ...theme, mode: theme.mode || current.value.mode || 'soft' }
   saveTheme(current.value)
   error.value = ''
 }
-const setMode = (m) => choose({ ...current.value, mode: m })
-const reset = () => { current.value = { ...DEFAULT_THEME }; resetTheme() }
-const chooseOwn = () => choose({ id: null, a: '#FFFFFF', aName: 'Weiß', b: ownColor.value.toUpperCase(), bName: t('theme.own') })
 
-const random = async () => {
-  busy.value = true; error.value = ''
-  try { choose(await fetchCombo(randomComboId())) } catch (e) { error.value = e.message } finally { busy.value = false }
+function setMode(mode) {
+  choose({ ...current.value, mode })
 }
-const submit = async () => {
-  const p = parseComboInput(input.value)
-  if (!p) { error.value = t('theme.badInput'); return }
-  if (p.pair) { choose({ id: null, a: p.pair[0], aName: p.pair[0], b: p.pair[1], bName: p.pair[1] }); input.value = ''; return }
-  busy.value = true; error.value = ''
-  try { choose(await fetchCombo(p.id)); input.value = '' } catch (e) { error.value = e.message } finally { busy.value = false }
+
+function reset() {
+  current.value = { ...DEFAULT_THEME }
+  resetTheme()
+}
+
+function chooseOwn() {
+  choose({
+    id: null,
+    a: '#FFFFFF',
+    aName: 'Weiß',
+    b: ownColor.value.toUpperCase(),
+    bName: t('theme.own'),
+  })
+}
+
+async function random() {
+  busy.value = true
+  error.value = ''
+  try {
+    choose(await fetchCombo(randomComboId()))
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
+}
+
+async function submit() {
+  const parsed = parseComboInput(input.value)
+  if (!parsed) {
+    error.value = t('theme.badInput')
+    return
+  }
+  if (parsed.pair) {
+    choose({
+      id: null,
+      a: parsed.pair[0],
+      aName: parsed.pair[0],
+      b: parsed.pair[1],
+      bName: parsed.pair[1],
+    })
+    input.value = ''
+    return
+  }
+  busy.value = true
+  error.value = ''
+  try {
+    choose(await fetchCombo(parsed.id))
+    input.value = ''
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    busy.value = false
+  }
 }
 </script>
 
@@ -120,7 +168,7 @@ const submit = async () => {
 .resetbtn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .resetbtn:active { transform: scale(.98); }
 .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 14px; padding: 4px; background: var(--color-bg-surface-subtle); border-radius: 12px; }
-.seg button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; }
+.seg button { min-height: 44px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-weight: 600; color: var(--color-text-secondary); cursor: pointer; }
 .seg button.on { background: var(--color-bg-surface-raised); color: var(--color-text-primary); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 10px; margin-top: 16px; }

@@ -67,7 +67,7 @@
               <button
                 v-if="isComplete && simulationId"
                 type="button"
-                class="report-action"
+                class="report-action report-action--ensemble"
                 @click="openEnsembleSheet"
               >{{ $t('ensemble.start') }}</button>
             </div>
@@ -6245,6 +6245,8 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title { font-family: var(--font-he
 
 @media (max-width: 768px) {
   .next-step-btn { display: none; }
+  /* Sticky-Leiste hat denselben Mehrfachlauf-Knopf – Doppel + Cover-Klicks vermeiden */
+  .report-action--ensemble { display: none; }
   .report-panel,
   .main-split-layout {
     height: auto;
