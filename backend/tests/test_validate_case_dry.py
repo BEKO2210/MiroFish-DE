@@ -1,6 +1,5 @@
 """Trockenlauf: validate_case.py über alle acht Akten gegen eine lokale API-Attrappe."""
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -9,6 +8,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 from werkzeug.serving import make_server
 
+from net_guard import subprocess_env
 from scripts.validate_case import BOOTSTRAP_SAMPLES, DEFAULT_ARMS, PILOT_V5_FRAME, QUESTION
 
 CASES = Path(__file__).resolve().parents[2] / "docs" / "validation" / "faelle"
@@ -244,19 +244,20 @@ class _Server:
         self.thread.join(timeout=5)
 
 
+def _llm_env(base: str, api_key: str) -> dict:
+    return subprocess_env({
+        "NO_PROXY": "*", "LLM_PROVIDER": "openai", "LLM_API_KEY": api_key,
+        "LLM_BASE_URL": f"{base}/v1", "LLM_MODEL_NAME": "dry-run",
+        "OPENAI_API_KEY": api_key, "OPENAI_BASE_URL": f"{base}/v1",
+    })
+
+
 def _run_case(case: Path, results: Path, base: str) -> subprocess.CompletedProcess:
-    env = os.environ.copy()
-    for key in list(env):
-        if key.lower().endswith("_proxy") or key.lower() == "no_proxy":
-            env.pop(key, None)
-    env.update({"NO_PROXY": "*", "LLM_PROVIDER": "openai", "LLM_API_KEY": "dry-run",
-                "LLM_BASE_URL": f"{base}/v1", "LLM_MODEL_NAME": "dry-run",
-                "OPENAI_API_KEY": "dry-run", "OPENAI_BASE_URL": f"{base}/v1"})
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(case), "--rahmen", "pilot-v5",
          "--base", base, "--results-dir", str(results)],
-        cwd=SCRIPT.parent.parent, env=env, capture_output=True, text=True, timeout=120,
-        check=False)
+        cwd=SCRIPT.parent.parent, env=_llm_env(base, "dry-run"),
+        capture_output=True, text=True, timeout=120, check=False)
 
 
 def test_dry_run_covers_all_eight_cases(tmp_path):
@@ -404,7 +405,7 @@ def test_probe_mode_runs_two_seeds_and_is_not_scored(tmp_path):
     server.start()
     base = f"http://127.0.0.1:{server.port}"
     results = tmp_path / "probe-out"
-    env = dict(os.environ, LLM_BASE_URL=base + "/v1", LLM_API_KEY="dry", LLM_MODEL_NAME="dry-run")
+    env = _llm_env(base, "dry")
     try:
         done = subprocess.run(
             [sys.executable, str(SCRIPT), "--probe", "--base", base, "--results-dir", str(results)],
