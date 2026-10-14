@@ -83,6 +83,7 @@ PILOT_V5_FRAME = {
         "cold_question_models": ["gemma4:e4b-it-qat", "gemma4:12b-it-qat"]},
     "probelauf": {"case": "synthetisch, nicht gewertet", "seeds": 2},
     "min_classified_per_arm": 4,
+    "min_posts": "agent_count",
     "valid_runs_per_case": 1,
     "decision_date": "2026-10-14",
 }
@@ -373,14 +374,24 @@ def _contamination_prompt(case_label: str, material: Optional[str],
     return prompts
 
 
-def hidden_terms(outcomes: Sequence[Dict[str, Any]], visible_text: str) -> Dict[str, List[str]]:
-    """Stichworte der versteckten Fakten (Datum, Zahl, Kürzel, lange Wörter) aus ergebnisse.json,
-    soweit sie nicht schon im sichtbaren Text stehen. Nichts davon wird an ein Modell gesendet."""
+def hidden_terms(outcomes: Sequence[Dict[str, Any]], visible_text: str, *,
+                 verlauf: str = "", quellen: str = "") -> Dict[str, List[str]]:
+    """Starke Treffer nur aus Verlauf, quellen.md und dem Feld quelle.
+
+    Zahlen, die schon in der versteckten Frage (text_de) stehen, zählen nicht:
+    die 14 aus „Innerhalb von 14 Tagen“ ist die Frage, kein Fakt. quellen.md
+    wird hier nur gelesen, nie an ein Modell geschickt."""
     visible = visible_text.casefold()
-    source = "\n".join(f"{item.get('text_de') or ''}\n{item.get('quelle') or ''}" for item in outcomes)
+    questions = "\n".join(str(item.get("text_de") or "") for item in outcomes)
+    question_numbers = set(_NUMBER_RE.findall(questions))
+    source = "\n".join(
+        [str(verlauf or ""), str(quellen or "")]
+        + [str(item.get("quelle") or "") for item in outcomes]
+    )
     dates = {match.group(0).replace(" ", "") for match in _DATE_RE.finditer(source)}
     rest = _DATE_RE.sub(" ", source)
-    strong = {term for term in dates | set(_NUMBER_RE.findall(rest)) | set(_ACRONYM_RE.findall(rest))
+    numbers = set(_NUMBER_RE.findall(rest)) - question_numbers
+    strong = {term for term in dates | numbers | set(_ACRONYM_RE.findall(rest))
               if term.casefold() not in visible}
     weak = {word.casefold() for word in _LONG_WORD_RE.findall(rest) if word.casefold() not in visible}
     weak -= {term.casefold() for term in strong}
@@ -403,11 +414,17 @@ def check_contamination(case_label: str, llm: Any = None,
                         *, material: Optional[str] = None,
                         forbidden: Optional[str] = None, topic: Optional[str] = None,
                         models: Optional[Sequence[str]] = None,
-                        hidden_outcomes: Sequence[Dict[str, Any]] = ()) -> Dict[str, Any]:
+                        hidden_outcomes: Sequence[Dict[str, Any]] = (),
+                        verlauf: str = "", quellen: str = "") -> Dict[str, Any]:
     """Freitext-Abruf des Falls bei jedem Modell, lokal gegen die versteckten Fakten abgeglichen.
     `llm` ist ein Aufrufbar (Modell, Prompt) -> Text; ohne Angabe wird der LLMClient genutzt."""
     chosen = list(models) if models else [None]
     prompts = _contamination_prompt(case_label, material, topic)
+    secret = str(quellen or "").strip()
+    if secret:
+        for _, prompt in prompts:
+            if secret in prompt:
+                raise ValueError("quellen.md darf nicht an das Modell gesendet werden")
     if forbidden:
         for _, prompt in prompts:
             if forbidden in prompt:
@@ -426,7 +443,9 @@ def check_contamination(case_label: str, llm: Any = None,
                     temperature=0, max_tokens=CONTAMINATION_MAX_TOKENS, seed=BOOTSTRAP_SEED))
             for kind, prompt in prompts:
                 answer = ask(prompt)
-                terms = hidden_terms(hidden_outcomes, f"{material or ''}\n{prompt}")
+                terms = hidden_terms(
+                    hidden_outcomes, f"{material or ''}\n{prompt}",
+                    verlauf=verlauf, quellen=quellen)
                 probes.append({"model": model or "configured-main-model", "kind": kind,
                                "prompt": prompt, "answer": answer,
                                "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -567,6 +586,8 @@ def ensemble_start_options(rahmen: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         options["strict_second_rater"] = True
     if isinstance(rahmen.get("min_classified_per_arm"), int):
         options["min_classified"] = rahmen["min_classified_per_arm"]
+    if rahmen.get("min_posts") is not None:
+        options["min_posts"] = rahmen["min_posts"]
     return options
 
 
@@ -1272,12 +1293,15 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
     state = load_or_create_state(state_path, case_dir.name, base, runs, hours, arms, minutes_per_round)
     if not state.get("contamination_check"):
         material = (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
+        verlauf = (case_dir / "verlauf.md").read_text(encoding="utf-8")
+        quellen_path = case_dir / "quellen.md"
+        quellen = quellen_path.read_text(encoding="utf-8") if quellen_path.is_file() else ""
         state["contamination_check"] = check_contamination(
             cold_case_label(outcomes, location=location, year=year),
             contamination_checker, material=material, forbidden=case_dir.name,
             topic=case_topic(case_dir, topic),
             models=((rahmen or {}).get("models") or {}).get("cold_question_models"),
-            hidden_outcomes=outcomes)
+            hidden_outcomes=outcomes, verlauf=verlauf, quellen=quellen)
         _save_state(state_path, state)
     if state["contamination_check"].get("known") is True:
         result = contaminated_case_result(

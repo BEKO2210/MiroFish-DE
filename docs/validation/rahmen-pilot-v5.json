@@ -38,6 +38,7 @@
     "seeds": 2
   },
   "min_classified_per_arm": 4,
+  "min_posts": "agent_count",
   "valid_runs_per_case": 1,
   "decision_date": "2026-10-14"
 }
