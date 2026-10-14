@@ -245,18 +245,18 @@
                         <span class="param-label">{{ $t('step2.aktivitatsgrad') }}</span>
                         <span class="param-value with-bar">
                           <span class="mini-bar" :style="{ width: (agent.activity_level * 100) + '%' }"></span>
-                          {{ (agent.activity_level * 100).toFixed(0) }}%
+                          {{ formatNumber(agent.activity_level * 100, { maximumFractionDigits: 0 }) }}%
                         </span>
                       </div>
                       <div class="param-item">
                         <span class="param-label">{{ $t('step2.stimmungstendenz') }}</span>
                         <span class="param-value" :class="agent.sentiment_bias > 0 ? 'positive' : agent.sentiment_bias < 0 ? 'negative' : 'neutral'">
-                          {{ agent.sentiment_bias > 0 ? '+' : '' }}{{ agent.sentiment_bias?.toFixed(1) }}
+                          {{ agent.sentiment_bias > 0 ? '+' : '' }}{{ formatNumber(agent.sentiment_bias, one) }}
                         </span>
                       </div>
                       <div class="param-item">
                         <span class="param-label">{{ $t('step2.einfluss') }}</span>
-                        <span class="param-value highlight">{{ agent.influence_weight?.toFixed(1) }}</span>
+                        <span class="param-value highlight">{{ formatNumber(agent.influence_weight, one) }}</span>
                       </div>
                     </div>
                   </div>
@@ -636,6 +636,8 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatNumber } from '../utils/formatNumber'
+const one = { minimumFractionDigits: 1, maximumFractionDigits: 1 }
 import MobileStickyBar from './MobileStickyBar.vue'
 import { 
   prepareSimulation, 

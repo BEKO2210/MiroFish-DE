@@ -425,7 +425,7 @@ def build_graph():
                 task_manager.update_task(
                     task_id, 
                     status=TaskStatus.PROCESSING,
-                    message="Graph-Aufbau-Dienst wird initialisiert..."
+                    message="Aufbau wird vorbereitet..."
                 )
                 
                 # Graph-Aufbau-Dienst erstellen
@@ -447,7 +447,7 @@ def build_graph():
                 # Graph erstellen
                 task_manager.update_task(
                     task_id,
-                    message="Zep-Graph wird erstellt...",
+                    message="Wissensnetz wird angelegt...",
                     progress=10
                 )
                 graph_id = builder.create_graph(name=graph_name)
@@ -459,7 +459,7 @@ def build_graph():
                 # Ontologie festlegen
                 task_manager.update_task(
                     task_id,
-                    message="Ontologie-Definition wird festgelegt...",
+                    message="Arten von Beteiligten und Beziehungen werden festgelegt...",
                     progress=15
                 )
                 builder.set_ontology(graph_id, ontology)
@@ -475,7 +475,7 @@ def build_graph():
                 
                 task_manager.update_task(
                     task_id,
-                    message=f"Beginne mit dem Hinzufügen von {total_chunks} Textblöcken...",
+                    message=f"{total_chunks} Textabschnitte werden eingelesen...",
                     progress=15
                 )
                 
@@ -489,7 +489,7 @@ def build_graph():
                 # Auf Abschluss der Zep-Verarbeitung warten (Status jeder Episode prüfen)
                 task_manager.update_task(
                     task_id,
-                    message="Warte auf Zep-Datenverarbeitung...",
+                    message="Texte werden ausgewertet...",
                     progress=55
                 )
                 
@@ -506,7 +506,7 @@ def build_graph():
                 # Graphdaten abrufen
                 task_manager.update_task(
                     task_id,
-                    message="Graphdaten werden abgerufen...",
+                    message="Ergebnis wird abgerufen...",
                     progress=95
                 )
                 graph_data = builder.get_graph_data(graph_id)
@@ -523,7 +523,7 @@ def build_graph():
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.COMPLETED,
-                    message="Graph-Aufbau abgeschlossen",
+                    message="Wissensnetz fertig aufgebaut",
                     progress=100,
                     result={
                         "project_id": project_id,

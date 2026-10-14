@@ -210,9 +210,9 @@ test.describe('Flows', () => {
     await expect(page.getByText('7 von 10 Läufen', { exact: false }).first()).toBeVisible()
     await expect(page.getByText(/Rundentakt:\s*60 Min/i)).toBeVisible()
     const arms = page.getByTestId('ensemble-summary').locator('.summary__arms')
-    await expect(arms.getByText('Feed ausgeblendet (blinder Feed)', { exact: true })).toBeVisible()
-    await expect(arms.getByText('Nur Dokument (Nullmodell Dokument)', { exact: true })).toBeVisible()
-    await expect(arms.getByText('Mit Rollen (Nullmodell Personas)', { exact: true })).toBeVisible()
+    await expect(arms.getByText('Feed ausgeblendet', { exact: true })).toBeVisible()
+    await expect(arms.getByText('Einzelnes Sprachmodell: nur Dokumente', { exact: true })).toBeVisible()
+    await expect(arms.getByText('Einzelnes Sprachmodell: mit Rollenprofilen', { exact: true })).toBeVisible()
 
     await page.getByRole('button', { name: /Sicherheitsdebatte zwischen Medien und Politik/i }).click()
     await expect(page.locator('#outcome-o3 .mechanism-blocked__text').first()).toContainText(

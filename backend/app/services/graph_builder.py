@@ -112,7 +112,7 @@ class GraphBuilderService:
                 task_id,
                 status=TaskStatus.PROCESSING,
                 progress=5,
-                message="Graph-Aufbau wird gestartet..."
+                message="Wissensnetz wird aufgebaut..."
             )
             
             # 1. Graph erstellen
@@ -120,7 +120,7 @@ class GraphBuilderService:
             self.task_manager.update_task(
                 task_id,
                 progress=10,
-                message=f"Graph erstellt: {graph_id}"
+                message="Wissensnetz angelegt"
             )
             
             # 2. Ontologie setzen
@@ -154,7 +154,7 @@ class GraphBuilderService:
             self.task_manager.update_task(
                 task_id,
                 progress=60,
-                message="Warten auf Zep-Datenverarbeitung..."
+                message="Texte werden ausgewertet..."
             )
             
             self._wait_for_episodes(
@@ -170,7 +170,7 @@ class GraphBuilderService:
             self.task_manager.update_task(
                 task_id,
                 progress=90,
-                message="Graph-Informationen werden abgerufen..."
+                message="Ergebnis wird abgerufen..."
             )
             
             graph_info = self._get_graph_info(graph_id)
@@ -290,7 +290,7 @@ class GraphBuilderService:
             if progress_callback:
                 progress = (i + len(batch_chunks)) / total_chunks
                 progress_callback(
-                    f"Batch {batch_num}/{total_batches} wird gesendet...",
+                    f"Textpaket {batch_num} von {total_batches} wird gesendet...",
                     progress
                 )
             
@@ -327,13 +327,13 @@ class GraphBuilderService:
         total_episodes = len(episode_uuids)
         
         if progress_callback:
-            progress_callback(f"Warten auf Verarbeitung von {total_episodes} Textblöcken...", 0)
+            progress_callback(f"Warten auf die Auswertung von {total_episodes} Textabschnitten...", 0)
         
         while pending_episodes:
             if time.time() - start_time > timeout:
                 if progress_callback:
                     progress_callback(
-                        f"Einige Textblöcke haben Timeout, {completed_count}/{total_episodes} abgeschlossen",
+                        f"Einige Textabschnitte brauchen zu lange, {completed_count} von {total_episodes} ausgewertet",
                         completed_count / total_episodes
                     )
                 break
@@ -350,7 +350,7 @@ class GraphBuilderService:
             elapsed = int(time.time() - start_time)
             if progress_callback:
                 progress_callback(
-                    f"Zep-Verarbeitung... {completed_count}/{total_episodes} abgeschlossen ({elapsed}s)",
+                    f"Auswertung läuft... {completed_count} von {total_episodes} Textabschnitten fertig ({elapsed} s)",
                     completed_count / total_episodes if total_episodes > 0 else 0
                 )
             
@@ -358,7 +358,7 @@ class GraphBuilderService:
                 time.sleep(3)
         
         if progress_callback:
-            progress_callback(f"Verarbeitung abgeschlossen: {completed_count}/{total_episodes}", 1.0)
+            progress_callback(f"Auswertung abgeschlossen: {completed_count} von {total_episodes} Textabschnitten", 1.0)
     
     def _get_graph_info(self, graph_id: str) -> GraphInfo:
         """Graph-Informationen abrufen via Provider"""

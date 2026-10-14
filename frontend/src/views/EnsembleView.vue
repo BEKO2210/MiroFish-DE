@@ -403,6 +403,7 @@ import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
+import { formatNumber } from '../utils/formatNumber'
 import { getEnsemble, cancelEnsemble, deleteEnsemble } from '../api/ensemble'
 import { getSimulationHistory } from '../api/simulation'
 
@@ -532,8 +533,8 @@ function hasPValues(c) {
 }
 function formatP(value) {
   const p = Number(value)
-  if (p < 0.001) return '< 0.001'
-  return p.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
+  if (p < 0.001) return `< ${formatNumber(0.001, { minimumFractionDigits: 3 })}`
+  return formatNumber(p, { maximumFractionDigits: 3 })
 }
 function formatPValues(c) {
   const values = []
@@ -552,7 +553,7 @@ function fmtPp(x) {
   if (x == null || Number.isNaN(x)) return '—'
   const p = Math.round(x * 100)
   if (p === 0) return '0'
-  return (p > 0 ? '+' : '−') + Math.abs(p)
+  return (p > 0 ? '+' : '−') + formatNumber(Math.abs(p))
 }
 function fmtDiff(d) {
   if (d == null) return '—'
@@ -631,7 +632,7 @@ const ReliabilityBadge = {
             h('summary', p.t('ensemble.reliabilityKappaSummary')),
             h('p', { class: 'rel-details__body' }, [
               rel.kappa != null
-                ? h('span', { class: 'mono' }, p.t('ensemble.reliabilityKappa', { kappa: Number(rel.kappa).toFixed(2) }))
+                ? h('span', { class: 'mono' }, p.t('ensemble.reliabilityKappa', { kappa: formatNumber(rel.kappa, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }))
                 : null,
               ' ',
               p.t('ensemble.reliabilityKappaHelp'),
@@ -650,9 +651,9 @@ const CellStat = {
     return () => {
       const st = p.stat
       if (!st) return h('span', { class: 'muted' }, '—')
-      const rate = Math.round((st.rate ?? 0) * 100)
-      const lo = Math.round((st.ci_low ?? 0) * 100)
-      const hi = Math.round((st.ci_high ?? 0) * 100)
+      const rate = formatNumber(Math.round((st.rate ?? 0) * 100))
+      const lo = formatNumber(Math.round((st.ci_low ?? 0) * 100))
+      const hi = formatNumber(Math.round((st.ci_high ?? 0) * 100))
       const disputed = Number(st.disputed) || 0
       return h('div', { class: 'stat' }, [
         h('div', { class: 'stat__text' }, [
