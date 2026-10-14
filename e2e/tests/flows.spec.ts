@@ -241,6 +241,50 @@ test.describe('Flows', () => {
     await expect(summary.getByRole('heading', { name: 'Dominanz-Narrativ' })).toBeVisible()
     await expect(page.getByTestId('ensemble-summary-plain')).toContainText(/kein klarer Unterschied/i)
     await expect(summary.getByText(/7 von 10 Läufen/i).first()).toBeVisible()
+    await expect(page.locator('.progress [role="progressbar"]')).toHaveCount(0)
+    await expect(page.getByTestId('ensemble-progress-done')).toHaveText('Alle Läufe abgeschlossen (5 Arme × 10)')
+
+    for (const width of [412, 360, 320]) {
+      await page.setViewportSize({ width, height: width === 412 ? 915 : 740 })
+      await settle(page)
+      const layout = await summary.locator('.summary__arm').evaluateAll((els) =>
+        els.map((el) => {
+          const label = el.querySelector('.summary__arm-label') as HTMLElement | null
+          const meta = el.querySelector('.summary__arm-meta') as HTMLElement | null
+          const range = el.querySelector('.summary__arm-range') as HTMLElement | null
+          const lr = label?.getBoundingClientRect()
+          const mr = meta?.getBoundingClientRect()
+          const issues: string[] = []
+          const name = (label?.textContent || '').trim()
+          if (!lr || !mr) issues.push(`${name}: Zeile fehlt`)
+          else if (mr.top < lr.bottom - 1) issues.push(`${name}: Werte nicht unter dem Armnamen`)
+          if (meta) {
+            const cs = getComputedStyle(meta)
+            if (/mono/i.test(cs.fontFamily)) issues.push(`${name}: Monospace`)
+            if (!cs.fontVariantNumeric.includes('tabular-nums')) issues.push(`${name}: keine tabular-nums`)
+          }
+          if (range) {
+            const text = (range.textContent || '').trim()
+            const rects = range.getClientRects()
+            const rr = range.getBoundingClientRect()
+            if (rects.length !== 1) issues.push(`${text}: ${rects.length} Zeilen`)
+            if (!text.endsWith('%') && !text.endsWith('—')) issues.push(`${text}: Spanne unvollständig`)
+            if (rr.right > window.innerWidth + 1 || rr.left < -1) {
+              issues.push(`${text}: außerhalb ${Math.round(rr.left)}–${Math.round(rr.right)} / ${window.innerWidth}`)
+            }
+          }
+          return issues
+        }),
+      )
+      expect(layout.flat(), `${width}px`).toEqual([])
+    }
+    await page.setViewportSize({ width: 412, height: 915 })
+    await page.evaluate(() => window.scrollTo(0, 0))
+    const title = await summary.getByRole('heading', { name: 'Dominanz-Narrativ' }).boundingBox()
+    const fold = await page.locator('.mobile-sticky-bar').boundingBox()
+    expect(title, 'Hauptfrage fehlt').not.toBeNull()
+    expect((title?.y ?? 9999) + (title?.height ?? 0), 'Hauptfrage unter der Falz').toBeLessThanOrEqual((fold?.y ?? 915) + 1)
+
     expect(await page.evaluate(() => document.body.scrollHeight)).toBeLessThan(4500)
 
     const expertBtn = page.getByRole('button', { name: 'Details für Fachleute' })
@@ -625,6 +669,7 @@ test.describe('Flows', () => {
 
     await openCase('ens_sum_unclear')
     await expect(plain()).toContainText(/kein klarer Unterschied/i)
+    await expect(page.getByTestId('ensemble-progress-done')).toHaveText('Alle Läufe abgeschlossen (3 Arme × 10)')
 
     await openCase('ens_sum_differs')
     await expect(plain()).toContainText(/unterscheiden sich/i)
@@ -638,6 +683,8 @@ test.describe('Flows', () => {
     await openCase('ens_sum_running')
     await expect(plain()).toHaveCount(0)
     await expect(page.getByTestId('ensemble-summary')).not.toContainText(/kein klarer Unterschied/i)
+    await expect(page.locator('.progress [role="progressbar"]')).toHaveCount(3)
+    await expect(page.getByTestId('ensemble-progress-done')).toHaveCount(0)
 
     await openCase('ens_sum_fallback')
     await expect(plain()).toContainText(/unterscheiden sich/i)
