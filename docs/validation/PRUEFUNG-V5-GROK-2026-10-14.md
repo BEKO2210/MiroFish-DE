@@ -1,6 +1,6 @@
 # Prüfung V5-Realitätsabgleich vor dem GPU-Pilot
 
-Stand der gelesenen Dateien: 14.10.2026, Arbeitsbaum `/home/belkis/MiroFish-DE`. Nur gelesen, nichts im Repo geändert. Der Primärsatz ist in allen acht `ergebnisse.json` bereits der einheitliche Wortlaut (Copilot-Stand zum Lesezeitpunkt).
+Stand der gelesenen Dateien: 14.10.2026, Arbeitsbaum des Repositorys. Nur gelesen, nichts im Repo geändert. Der Primärsatz ist in allen acht `ergebnisse.json` bereits der einheitliche Wortlaut (Copilot-Stand zum Lesezeitpunkt).
 
 ## Freigabe
 
