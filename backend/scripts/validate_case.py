@@ -559,6 +559,10 @@ def ensemble_start_options(rahmen: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     models = rahmen.get("models") or {}
     if models.get("agent_model"):
         options["text_model"] = models["agent_model"]
+        # Der Dienst unterscheidet das Agentenmodell des Schwarms (`text_model`)
+        # vom Textmodell der Nullarme (`arm_model`). Im V5-Rahmen müssen S, D und
+        # P ausdrücklich dasselbe Modell verwenden.
+        options["arm_model"] = models["agent_model"]
     if models.get("seed_fallback") is False:
         options["strict_second_rater"] = True
     if isinstance(rahmen.get("min_classified_per_arm"), int):

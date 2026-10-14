@@ -9,6 +9,13 @@ ensemble_bp = Blueprint("ensemble", __name__)
 logger = get_logger("mirofish.api.ensemble")
 service = EnsembleService()
 
+START_FIELDS = {
+    "simulation_id", "runs", "hours", "variants", "start_hour",
+    "minutes_per_round", "custom_outcomes", "primary_outcome_id",
+    "text_model", "arm_model", "strict_second_rater", "min_classified",
+    "min_posts", "max_agent_error_rate",
+}
+
 
 def _error(message: str, status: int):
     return jsonify({"success": False, "error": message}), status
@@ -18,6 +25,11 @@ def _error(message: str, status: int):
 def start_ensemble():
     data = request.get_json(silent=True) or {}
     try:
+        if not isinstance(data, dict):
+            raise TypeError("JSON-Anfrage muss ein Objekt sein")
+        unknown = sorted(set(data) - START_FIELDS)
+        if unknown:
+            raise ValueError("Unbekannte Startparameter: " + ", ".join(unknown))
         result = service.start(
             simulation_id=data.get("simulation_id"),
             runs=data.get("runs", 10),
