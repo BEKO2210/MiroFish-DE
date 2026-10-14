@@ -108,7 +108,7 @@ const submit = async () => {
 .sheet__title { font-family: var(--font-heading); font-size: 20px; margin: 0; }
 .sheet__sub { margin: 4px 0 0; font-size: 13px; color: var(--color-text-muted); }
 .sheet__sub a { color: var(--color-brand-primary); }
-.sheet__close { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--color-bg-surface-subtle); color: var(--color-text-secondary); font-size: 22px; cursor: pointer; flex: none; }
+.sheet__close { width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--color-bg-surface-subtle); color: var(--color-text-secondary); font-size: 22px; cursor: pointer; flex: none; }
 
 .current { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 10px 12px; border: 1px solid var(--color-border-subtle); border-radius: 12px; }
 .current__text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
