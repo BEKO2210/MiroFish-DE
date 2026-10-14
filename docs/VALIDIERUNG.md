@@ -317,15 +317,19 @@ python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --rahmen pilot
 
 `--rahmen pilot-v5` liest `docs/validation/rahmen-pilot-v5.json` und setzt 5 Seeds, 336 Stunden, Rundentakt 240 Minuten
 und die Arme `baseline`, `null_document`, `null_personas`. Der Rahmen ist vorgeschlagen; ein echter Start erst nach
-Freigabe des Projektinhabers. Weicht ein Einzelwert auf der Kommandozeile ab, bricht das Werkzeug ab. Ohne `--rahmen`
+Freigabe des Projektinhabers. Der Rahmen legt zusätzlich die 7 Fälle (`case_ids`), die Modelle je Rolle und die Mindestzahl klassifizierter Läufe je Arm (4 von 5) fest; die gewertete Fallmenge muss exakt diesen 7 Fällen entsprechen, sonst „nicht prüfbar“. Je Fall gilt ein gültiger Lauf, Wiederholung nur bei technischem Ausfall, alle `ensemble_id` werden protokolliert. Vor dem Pilot läuft ein Probelauf mit einem synthetischen, nicht gewerteten Fall (2 Seeds) zur Prüfung von Varianz und Kappa. Weicht ein Einzelwert auf der Kommandozeile ab, bricht das Werkzeug ab. Ohne `--rahmen`
 bleiben die Defaults 10 Läufe, 336 Stunden und Rundentakt 60. `--base` zeigt standardmäßig auf `http://127.0.0.1:5002`.
 
-Die Echtfall-Kaltfrage nennt nur das Feld `kaltfrage_ort` aus `ergebnisse.json` (echter Ort und Jahr, zum Beispiel
+Alle Textarme (S-Agenten, D, P) nutzen im Pilot dasselbe Agentenmodell (`gemma4:e4b-it-qat`); die Klassifikation nutzt für alle Arme Hauptbewerter `gemma4:12b-it-qat` und Zweitbewerter `qwen3.5:9b` (anderes Modell, kein `seed_fallback`). Das ist eine Doppelklassifikation durch zwei Sprachmodelle, keine blinde menschliche Kodierung; zusätzlich prüft eine Person mindestens 10 % von `classification.json` per Stichprobe. Ein Fall ist je Arm erst ab 4 von 5 klassifizierten Läufen messbar. Degeneriertes Kappa (keine Varianz) heißt „Instrument nicht prüfbar“, nicht „widerlegt“.
+
+Betrieb: Preflight vor jedem Fall (Plattenplatz, Modelle in Ollama geladen, Busy-Check ohne laufende oder verwaiste Prozesse), Wiederanlauf mit identischem State nach Neustart und ein dokumentierter manueller Reset bei erschöpften Versuchen stehen im Abschnitt „Betrieb“ des Protokolls.
+
+Das Kaltfragen-Verfahren des Pilots (Entscheidung 14.10.2026) ist ein Freitext-Abruf (was geschah, welche Akteure) gegen versteckte Fakten, mit beiden Modellen (Agenten- und Hauptmodell), Prompt und Antwort protokolliert; die folgende Beschreibung der Ja/Nein-Kaltfrage ist dafür die technische Vorstufe und genügt allein nicht. Die Echtfall-Kaltfrage nennt nur das Feld `kaltfrage_ort` aus `ergebnisse.json` (echter Ort und Jahr, zum Beispiel
 „Kehl 2017“) oder `--ort`. Ohne `--ort` geht der Ordnername nicht in die Kaltfrage und auch sonst nicht an das Modell.
 Die Bogen-Frage enthält nur den Text von `ausgangslage.md`.
 
 Die Standardarme sind `baseline` (S), `null_document` (D) und `null_personas` (P). Mit
-`--arms baseline,null_document,null_personas,isolated` kommt der explorative Isolationsarm hinzu. Ein älteres Backend,
+`--arms baseline,null_document,null_personas,isolated` kommt außerhalb des Pilotrahmens der explorative Isolationsarm hinzu; `blind_feed` ist nicht Teil des Pilot-Protokolls. Ein älteres Backend,
 das D oder P noch nicht unterstützt, führt zu einer verständlichen Aktualisierungsfehlermeldung; die Namen werden
 nicht still auf das frühere, methodisch nicht vergleichbare `null_model` zurückgebogen.
 
@@ -379,11 +383,7 @@ die Seed-Häufigkeit des messbaren Primärergebnisses ein. Ausgegeben werden Bri
 niemals Fragen oder Seeds. Kontaminierte Fälle bilden eine eigene Gruppe.
 
 Die Kalibrierungssteigung wird ohne Statistikbibliothek per logistischer Regression von Ereignissen auf den Logit der
-Arm-Häufigkeit geschätzt und nur ausgewiesen. Im Pilot (unter 25 gewerteten Fällen) gilt die Aussage nur als bestanden,
-wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das
-95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält und Kappa für jedes gewertete
-Primärergebnis mindestens 0,6 beträgt. Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, auch
-wenn Abstand, Kappa oder die Steigung fehlen. Die Kalibrierungssteigung wird nur ausgewiesen. Unter 25 gewerteten Fällen steht der feste Hinweis „Pilot, keine
+Arm-Häufigkeit geschätzt und nur ausgewiesen. Im Pilot (unter 25 gewerteten Fällen, Entscheidung 14.10.2026) gilt die Aussage nur als bestanden, wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das von Skill(S,P) = 1 − BS_S/BS_P vollständig über 0 liegt (S genauer als P), Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt und alle 7 Fälle des Rahmens gewertet sind. Liegt das Skill(S,D)-Intervall ganz unter 0, lautet der Status nicht bestanden. Fehlende Größen oder eine abweichende Fallmenge ergeben „nicht prüfbar“. Die Kalibrierungssteigung wird nur ausgewiesen; es gilt der feste Hinweis „Pilot, keine
 Kalibrierungsaussage“. Sie ist kein Bestehenskriterium. Ab 25 gewerteten Fällen kommt die Kalibrierungssteigung von S
 im Intervall [0,5; 1,5] als zusätzliche Bedingung hinzu. Fälle, deren Primärergebnis wegen Kappa unter 0,6 oder ohne
 numerisches Kappa aus der Wertung fällt, zählt `GESAMT`. Ist ihr Anteil größer als 0, lautet das Urteil „nicht

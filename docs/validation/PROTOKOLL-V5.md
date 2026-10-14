@@ -2,6 +2,8 @@
 
 Status: Vorregistrierung des Piloten, festgeschrieben vor dem ersten Simulationslauf (14.10.2026). Bis zu diesem Stand wurde kein Lauf für V5 ausgeführt. Spätere Änderungen werden datiert nachgetragen und nicht rückwirkend eingearbeitet.
 
+**Nachtrag 14.10.2026 (Entscheidungen des Orchestrators nach der Freigabeprüfung, vor jedem Lauf):** Die Abschnitte Kaltfrage, Kodierbuch/Zweitbewertung, Arme, Rahmen, Entscheidungsregel und Betrieb sind in diesem Stand überarbeitet (gerichtete Regel, feste Fallmenge, ein Lauf je Fall, gleiches Modell für alle Textarme, Doppelklassifikation ohne Fallback, Probelauf, Freitext-Kaltabruf, Wegfall von `blind_feed`, Betriebsteil). Maßgeblich ist dieser Stand; er wurde vor dem ersten Lauf festgeschrieben.
+
 ## Einordnung des Piloten
 
 - **Pilot zur Falsifikation.** Der Pilot prüft Ablauf, Messbarkeit und ob die Nutzenbehauptung grob widerlegt wird. Er liefert **keine Kalibrierungsaussage**; belastbare Kalibrierung setzt mindestens 25 Fälle voraus (konfirmatorische Studie). Fälle sind die statistisch unabhängigen Einheiten; Seeds sind Wiederholungen innerhalb eines Falls.
@@ -41,7 +43,7 @@ Genau dieser Satz ist in jeder `ergebnisse.json` die einzige Frage mit `"primaer
 
 Anonymisierung: In `ausgangslage.md` sind Eigennamen, Ortsnamen und einmalige Zahlen entfernt oder gerundet (Größenordnungen statt exakter Werte, „Nachbarland“ statt Ortsnamen), damit das Modell den Fall nicht über Fingerabdrücke erinnert. Die Originalwerte stehen in `quellen.md`. Anonymisierung ersetzt die Kontaminationsprüfung nicht.
 
-Vor jedem Lauf wird das konfigurierte Hauptmodell bei Temperatur 0 und ohne Werkzeuge zweimal kalt gefragt. Die Echtfall-Frage nennt nur `kaltfrage_ort` aus `ergebnisse.json` (echter Ort und Jahr, zum Beispiel „Kehl 2017“) oder den Wert von `--ort`; der Ordnername geht nicht an das Modell. Die Bogen-Frage enthält nur den Text von `ausgangslage.md`. Der Ausgang wird nicht genannt. Anfrage, Modell, Zeitpunkt und vollständige Antwort werden protokolliert. Bejaht das Modell eine der beiden Fragen, erhält der Fall `contaminated: true`. Kontaminierte Fälle werden nicht mit der Hauptstichprobe vermischt, sondern in `GESAMT.json` und `GESAMT.md` getrennt ausgewiesen.
+Vor jedem Lauf wird eine **Kaltprüfung als Freitext-Abruf** gegen versteckte Fakten ausgeführt (Entscheidung 14.10.2026; eine Ja/Nein-Selbstauskunft allein genügt nicht, weil sie bei kleinen Modellen schlecht kalibriert ist und ein „Nein“ keine Entwarnung bedeutet). Beide Modelle werden bei Temperatur 0 und ohne Werkzeuge gefragt: das Agentenmodell (`gemma4:e4b-it-qat`) und das Hauptmodell (`gemma4:12b-it-qat`). Je Modell zwei Fragen: (1) Echtfall-Abruf mit `kaltfrage_ort` aus `ergebnisse.json` (echter Ort und Jahr) und dem Thema der Maßnahme: „Was geschah nach diesem Beschluss, welche Akteure äußerten sich, an welchen Daten?“; (2) Bogen-Abruf nur mit dem Text von `ausgangslage.md` und derselben Freitextfrage. Der Ausgang wird nicht genannt, der Ordnername geht nicht an das Modell. Die Freitextantwort wird gegen die versteckten Fakten (Ausgang, Akteure, Daten aus `ergebnisse.json` und `quellen.md`) abgeglichen; trifft sie den Ausgang, benennt sie den Akteur oder das Datum richtig, erhält der Fall `contaminated: true`. Ein „Nein“ oder „weiß nicht“ eines kleinen Modells gilt nicht als Entwarnung, sondern nur als nicht widerlegte Unkenntnis. Prompt, Modell, Zeitpunkt und vollständige Antwort werden je Frage und Modell protokolliert. Kontaminierte Fälle werden nicht mit der Hauptstichprobe vermischt, sondern in `GESAMT.json` und `GESAMT.md` getrennt ausgewiesen.
 
 Externe Kaltprüfung vor dem Start (14.10.2026, Gemini 3.8 Flash, ohne Websuche, nur Bogentext): Freiburg wurde auch nach
 zweiter Anonymisierung erkannt (95 %, Ausgang bekannt), weil Konfliktstruktur und Gebührenmodell selbst der
@@ -54,7 +56,11 @@ Die Erstkodierung der realen Akte erfolgte durch die Autoren, die die Ausgänge 
 
 **Zweitkodierung:** Sie liegt unter `docs/validation/zweitkodierung/` (je Fall `t0.txt`, `quellen-urls.txt`, `kodierung.json`, Übersicht in `uebersicht.md`). Zweitkodierer ist ein **KI-System (GitHub Copilot)**, das blind gegen die Erstkodierung nur T0, die Primärfrage und die Quellenliste erhielt. Ergebnis: Übereinstimmung in 8 von 8 Fällen, Cohen's Kappa 1,0. **Es gab keine zweite menschliche Person.** Der Wert belegt die Reproduzierbarkeit der Kodierung bei vorgegebenen Quellen, nicht eine menschliche Interrater-Reliabilität; die Quellenliste stammt von der Erstkodierung, und die Nein-Fälle (Kehl, Niederkassel, Wanzleben) bleiben Quellenlücken. Eine zweite menschliche Kodierung bleibt für die konfirmatorische Studie erforderlich.
 
-Die Simulationsausgaben werden blind gegen Arm und reale Akte kodiert; die Zuordnung von Fällen, Armen und Seeds wird erst nach Abschluss der Kodierung aufgedeckt. Bei Kappa unter 0,6 gilt das Ergebnis als nicht hinreichend messbar.
+**Klassifikation der Simulationsausgaben (Entscheidung 14.10.2026):** Es gibt **keine blinde menschliche Kodierung**, sondern eine **Doppelklassifikation durch zwei Sprachmodelle**: Hauptbewerter `gemma4:12b-it-qat`, Zweitbewerter `qwen3.5:9b`. Beide sehen weder Arm noch reale Akte. Übereinstimmung der Modelle ist keine Validität. Der Zweitbewerter muss ein anderes Modell als der Hauptbewerter sein und vor dem Start geladen sein; ein Rückfall auf das Hauptmodell mit anderem Seed (`seed_fallback`) ist im Pilot ausgeschlossen, ein Lauf mit Fallback wird nicht gewertet. Für alle Arme (S, D, P) gilt dasselbe Klassifikationsinstrument (Haupt- plus Zweitbewerter).
+
+**Messbarkeit je Fall:** Ein Fall ist je Arm erst messbar, wenn mindestens 4 von 5 Läufen klassifiziert sind (kein Dissens, kein Ausfall). Strittige und unklassifizierte Läufe zählen nicht zu `n` und werden je Arm ausgewiesen. Bei Kappa unter 0,6 gilt das Ergebnis als nicht hinreichend messbar. **Menschliche Stichprobenprüfung:** Nach dem Lauf prüft eine Person eine Stichprobe von mindestens 10 % der Einzelklassifikationen aus `classification.json` (zufällig, vorab nach Arm geschichtet, Arm erst nach der Prüfung aufgedeckt) und berichtet die Abweichungsquote; sie ersetzt keine menschliche Zweitkodierung.
+
+**Degeneriertes Kappa:** Haben beide Bewerter über alle Läufe eines Primärergebnisses keine Varianz (durchweg „Ja“ oder durchweg „Nein“), ist Kappa nicht definiert. Das heißt „Instrument nicht prüfbar“, nicht „widerlegt“, und wird nicht als Beleg gegen die Nutzenbehauptung gewertet; das Urteil lautet dann „nicht prüfbar“ (siehe Entscheidungsregel).
 
 Kodierbuch-Vorlage:
 
@@ -98,9 +104,11 @@ Primär ausgewertet werden drei Arme:
 - `null_document` (D): einzelnes Modell mit Dokument und Frage;
 - `null_personas` (P): einzelnes Modell zusätzlich mit denselben Personas und Startbeiträgen.
 
-`isolated` (isolierte Agenten) und `blind_feed` (voller Aktionsraum, leerer Feed) sind **ausschließlich explorativ**. Ein Unterschied zu S darf **nicht als Vernetzungseffekt gelesen werden**, weil sich die Arme in mehr als einem Merkmal unterscheiden (z. B. Aktionsraum, Feed, Interaktion). Sie gehen weder in die Entscheidungsregel noch in die Falsifikationskriterien ein.
+`isolated` (isolierte Agenten) ist **nicht Teil des Pilotrahmens**; mit `--rahmen pilot-v5` sind keine Zusatzarme erlaubt. Eine spätere explorative Ausführung ginge nicht in die Entscheidungsregel ein, und ein Unterschied zu S dürfte **nicht als Vernetzungseffekt gelesen werden**, weil sich die Arme in mehr als einem Merkmal unterscheiden. `blind_feed` wurde am 14.10.2026 aus dem Pilot-Protokoll entfernt; er ist nicht Teil des Rahmens.
 
-Der Standardaufruf des Werkzeugs umfasst S, D und P; explorative Arme werden über `--arms` ergänzt. Die Prognose eines Falls ist je Arm die Häufigkeit des Primärergebnisses über Seeds, nicht ein einzelner Seed. Seeds werden innerhalb eines Falls zwischen Armen gepaart.
+**Modelle je Rolle (Entscheidung 14.10.2026):** Alle Textarme (die Agenten von S sowie D und P) nutzen dasselbe Modell, das Agentenmodell `gemma4:e4b-it-qat`. Damit trennt Skill(S,D) Schwarm gegen Einzelmodell, nicht kleines gegen großes Modell. Die Klassifikation nutzt für alle Arme dasselbe Instrument (Haupt- und Zweitbewerter, siehe Kodierbuch). Die Modelle je Rolle stehen im Rahmen (`rahmen-pilot-v5.json`) und werden in `GESAMT` ausgewiesen.
+
+Der Aufruf mit `--rahmen pilot-v5` umfasst genau S, D und P. Die Prognose eines Falls ist je Arm die Häufigkeit des Primärergebnisses über Seeds, nicht ein einzelner Seed. Seeds werden innerhalb eines Falls zwischen Armen gepaart.
 
 ## Rahmen
 
@@ -114,6 +122,13 @@ Vorgeschlagen, Start erst nach Freigabe des Projektinhabers. Bis zu dieser Freig
 | `minutes_per_round` | 240 |
 | `hours` | 336 |
 | GPU-Schätzung | 33–72 h, Mitte rund 50 |
+| Modelle | Textarme `gemma4:e4b-it-qat`; Klassifikation `gemma4:12b-it-qat` plus `qwen3.5:9b`, kein `seed_fallback` |
+| Gültige Läufe je Fall | 1 (siehe unten) |
+| Probelauf | 1 synthetischer, nicht gewerteter Fall, 2 Seeds |
+
+**Fallmenge und Läufe (Entscheidung 14.10.2026):** Die gewertete Fallmenge muss exakt den 7 Fällen des Rahmens entsprechen (`case_ids` im Rahmen); fehlt ein Fall, ist ein Fremdfall enthalten oder weicht Rahmen oder Armmenge ab, lautet das Urteil „nicht prüfbar“. Je Fall gibt es **einen gültigen Lauf**. Eine Wiederholung ist nur bei technischem Ausfall zulässig (Backend- oder Ollama-Ausfall, Plattenfehler, Abbruch ohne Ergebnis), nie wegen des Ergebnisses; ein Fall wird nicht mit neuem State neu gewürfelt. Alle `ensemble_id` (auch verworfene Läufe, mit Grund) werden im Protokoll geführt.
+
+**Probelauf (Entscheidung 14.10.2026):** Vor dem Pilot läuft ein Probelauf mit einem synthetischen Fall, der nicht zu den 7 gehört und nicht gewertet wird, mit kleinem Rahmen (2 Seeds). Er prüft Varianz der Klassifikation und Kappa. Zeigt er keine Varianz (degeneriertes Kappa), ist das Instrument nicht prüfbar; das ist vor dem Pilotstart zu klären und kein Ergebnis über die Nutzenbehauptung.
 
 Der Aufruf erzwingt diese Werte über `--rahmen pilot-v5`. Die Datei `docs/validation/rahmen-pilot-v5.json` enthält genau dieselben Zahlen. Weicht ein Einzelwert per CLI ab, bricht das Werkzeug mit einer Meldung ab. `GESAMT` protokolliert den Rahmen.
 
@@ -125,30 +140,41 @@ Herleitung der GPU-Schätzung auf einer RTX 3070: 336 Stunden bei 240 Minuten si
 
 **Vorab fixierte Sensitivitätsanalyse:** nur die 4 nicht kontaminierten Fälle ohne Quellenlücke (Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Ausgeschlossen werden Kehl, Niederkassel und Wanzleben, deren „Nein“ auf Quellenlücken beruht. Weitere Sensitivitätsanalysen (z. B. ohne kontaminierte Fälle) werden getrennt ausgewiesen; nachträgliche Analysen gelten als explorativ.
 
-Primäre Zielgröße ist der Brier-Score der Fallhäufigkeiten gegen die adjudizierte reale Kodierung. Berichtet werden der Brier-Score je Arm sowie `Skill(S,D) = 1 − BS_S / BS_D` und `Skill(P,D) = 1 − BS_P / BS_D`. Das 95-%-Intervall entsteht durch 10.000 Bootstrap-Ziehungen ganzer Fälle mit Zurücklegen. Weder Fragen noch Seeds werden als unabhängige Einheiten resampelt.
+Primäre Zielgröße ist der Brier-Score der Fallhäufigkeiten gegen die adjudizierte reale Kodierung. Berichtet werden der Brier-Score je Arm sowie `Skill(S,D) = 1 − BS_S / BS_D`, `Skill(S,P) = 1 − BS_S / BS_P` und `Skill(P,D) = 1 − BS_P / BS_D`. Das 95-%-Intervall entsteht durch 10.000 Bootstrap-Ziehungen ganzer Fälle mit Zurücklegen. Weder Fragen noch Seeds werden als unabhängige Einheiten resampelt.
 
 Zusätzlich wird die Kalibrierungssteigung aus einer logistischen Regression des Ereignisses auf den Logit der prognostizierten Häufigkeit berechnet. Unter 25 auswertbaren Fällen lautet der feste Hinweis „Pilot, keine Kalibrierungsaussage“.
 
 ## Entscheidungsregel
 
-Im Pilot (unter 25 gewerteten Fällen) gilt die Aussage nur als bestanden, wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält und Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt. Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, auch wenn Abstand, Kappa oder die Steigung fehlen. Die Kalibrierungssteigung wird nur ausgewiesen. Unter 25 gewerteten Fällen steht der feste Hinweis „Pilot, keine Kalibrierungsaussage“. Sie ist kein Bestehenskriterium.
+Festgeschrieben am 14.10.2026 vor jedem Lauf (gerichtete Regel). Im Pilot (unter 25 gewerteten Fällen) gilt die Aussage nur als bestanden, wenn gleichzeitig alle vier Bedingungen erfüllt sind:
 
-Dieselben drei Bedingungen, einzeln:
+1. das 95-%-Fall-Bootstrap-Intervall von `Skill(S,D) = 1 − BS_S / BS_D` liegt vollständig über 0;
+2. das 95-%-Fall-Bootstrap-Intervall von `Skill(S,P) = 1 − BS_S / BS_P` liegt vollständig über 0 (S ist im Brier-Sinn genauer als P; ein bloß von 0 verschiedener Abstand der Ja-Anteile genügt nicht);
+3. Kappa beträgt für jedes gewertete Primärergebnis mindestens 0,6 (die KI-Zweitkodierung der realen Akte liefert 1,0, ersetzt aber keine menschliche Zweitkodierung);
+4. alle 7 Fälle des Rahmens sind gewertet (Fallmenge exakt wie im Rahmen, ein gültiger Lauf je Fall, Messbarkeit mindestens 4 von 5 klassifizierte Läufe je Arm).
 
-- das 95-%-Fall-Bootstrap-Intervall von `Skill(S,D)` vollständig über 0 liegt;
-- das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P (Anteil S minus Anteil P) die 0 nicht enthält;
-- Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt (die KI-Zweitkodierung liefert 1,0, ersetzt aber keine menschliche Zweitkodierung).
+Liegt das Intervall von `Skill(S,D)` vollständig unter 0, lautet der Status „nicht bestanden“, auch wenn andere Größen fehlen. Ist eine andere prüfbare Bedingung verletzt (insbesondere Intervall von `Skill(S,P)` nicht ganz über 0 oder Kappa unter 0,6), lautet das Urteil „nicht bestanden“. Fehlt eine Größe, ist die Fallmenge nicht exakt die des Rahmens oder ist das Instrument nicht prüfbar (degeneriertes Kappa ohne Varianz, Fälle nicht messbar), lautet das Urteil „nicht prüfbar“. „bestanden“ wird nicht nachträglich aufgeweicht. Wird mindestens ein Primärergebnis wegen Kappa unter 0,6 aus der Wertung genommen, zählt `GESAMT` diese Fälle mit Anteil; ist der Anteil größer als 0, lautet das Pilot-Urteil „nicht bestanden (Instrument unzuverlässig)“. Ein nicht definiertes Kappa wegen fehlender Varianz ist davon ausgenommen und führt zu „nicht prüfbar“ (siehe Kodierbuch, degeneriertes Kappa). Die Kalibrierungssteigung wird nur ausgewiesen, mit dem festen Hinweis „Pilot, keine Kalibrierungsaussage“, und ist kein Bestehenskriterium.
 
-„bestanden“ wird nicht nachträglich aufgeweicht. Fehlt eine der drei Größen, lautet das Urteil „nicht prüfbar“. Ist mindestens eine prüfbare Bedingung verletzt, „nicht bestanden“. Wird mindestens ein Primärergebnis wegen Kappa unter 0,6 oder ohne numerisches Kappa aus der Wertung genommen, zählt `GESAMT` diese Fälle mit Anteil. Ist der Anteil größer als 0, lautet das Pilot-Urteil „nicht bestanden (Instrument unzuverlässig)“.
+Ab 25 gewerteten Fällen (konfirmatorische Studie, eigener Rahmen) gelten dieselben Bedingungen 1 bis 3, Bedingung 4 mit der Fallmenge des dann festgeschriebenen Rahmens, und zusätzlich liegt die Kalibrierungssteigung von S im Intervall [0,5; 1,5].
 
-Ab 25 gewerteten Fällen gilt die Aussage nur als bestanden, wenn gleichzeitig das 95-%-Fall-Bootstrap-Intervall von Skill(S,D) vollständig über 0 liegt, das 95-%-Fall-Bootstrap-Intervall des mittleren Abstands S gegen P die 0 nicht enthält, Kappa für jedes gewertete Primärergebnis mindestens 0,6 beträgt und die Kalibrierungssteigung von S im Intervall [0,5; 1,5] liegt. Liegt das Skill-Intervall ganz unter 0, lautet der Status nicht bestanden, auch wenn andere Größen fehlen. Die drei Bedingungen des Piloten bleiben; die Steigung kommt hinzu.
-
-S gegen `isolated` und S gegen `blind_feed` bleiben sekundäre, explorative Kontraste und gehen nicht in die Entscheidungsregel ein. Wegen des Pilotcharakters kann auch ein „bestanden“ keine Kalibrierung belegen.
+Alle Vergleiche mit `isolated` sind nicht Teil des Rahmens und gehen nicht in die Entscheidungsregel ein. Wegen des Pilotcharakters kann auch ein „bestanden“ keine Kalibrierung belegen.
 
 ## Falsifikationskriterien
 
-Bereits der Pilot widerspricht der Nutzenbehauptung, wenn der Skill klar negativ ist, S von P praktisch nicht unterscheidbar ist und damit über Rollenzerlegung hinaus kein Schwarmbeitrag sichtbar wird, oder Kappa unter 0,6 liegt. Ein nicht bestandenes oder nicht prüfbares Vorab-Kriterium darf nicht als Bestätigung umgedeutet werden. Kontaminierte Fälle und nachträglich ergänzte Ergebnisse werden nur als Sensitivitätsanalyse berichtet. Die Ergebnisse der Sensitivitätsanalysen dürfen das Urteil der Primäranalyse über 7 Fälle nicht ersetzen.
+Bereits der Pilot widerspricht der Nutzenbehauptung, wenn der Skill klar negativ ist, `Skill(S,P)` nicht über 0 liegt, S also nicht genauer als P ist und damit über Rollenzerlegung hinaus kein Schwarmbeitrag sichtbar wird, oder ein definiertes Kappa unter 0,6 liegt (degeneriertes Kappa ohne Varianz widerlegt nicht, es macht das Instrument nicht prüfbar). Ein nicht bestandenes oder nicht prüfbares Vorab-Kriterium darf nicht als Bestätigung umgedeutet werden. Kontaminierte Fälle und nachträglich ergänzte Ergebnisse werden nur als Sensitivitätsanalyse berichtet. Die Ergebnisse der Sensitivitätsanalysen dürfen das Urteil der Primäranalyse über 7 Fälle nicht ersetzen.
 
 ## Rechenaufwand
 
-Der vorgeschlagene Pilotrahmen steht im Abschnitt Rahmen: 33–72 GPU-Stunden, Mitte rund 50. Start erst nach Freigabe des Projektinhabers. Hinzu kommen Ontologie- und Profilvorbereitung, die blinde Kodierung der Simulationsausgaben, Adjudikation und Wiederholungen technisch fehlgeschlagener Läufe. Für mindestens 25 konfirmatorische Fälle ist der Aufwand entsprechend hochzurechnen.
+Der vorgeschlagene Pilotrahmen steht im Abschnitt Rahmen: 33–72 GPU-Stunden, Mitte rund 50. Start erst nach Freigabe des Projektinhabers. Hinzu kommen Ontologie- und Profilvorbereitung, die Doppelklassifikation und menschliche Stichprobenprüfung der Simulationsausgaben, den Probelauf, Adjudikation und Wiederholungen technisch fehlgeschlagener Läufe. Für mindestens 25 konfirmatorische Fälle ist der Aufwand entsprechend hochzurechnen.
+
+## Betrieb (Nachtrag 14.10.2026)
+
+**Preflight vor jedem Fall und vor dem Probelauf:**
+
+- Plattenplatz: freier Platz auf dem Datenträger der Laufordner mindestens so groß, dass alle erwarteten Läufe passen (ca. 105 Laufordner mit OASIS-DB, Transkripten und Audit-JSON); der konkrete Mindestwert wird im Treiber festgelegt und im Lauf protokolliert. Unterschreitung bedeutet Abbruch vor dem Start.
+- Modelle geladen: `gemma4:e4b-it-qat`, `gemma4:12b-it-qat` und `qwen3.5:9b` sind in Ollama vorhanden und ansprechbar (`/api/tags`). Fehlt der Zweitbewerter, startet der Fall nicht (kein `seed_fallback`).
+- Busy-Check: kein anderer laufender Ensemble-, Simulations- oder OASIS-Prozess, keine Waisenprozesse einer früheren Sitzung, GPU nicht anderweitig belegt.
+
+**Neustartverhalten:** Ein Aufruf mit identischem State setzt am letzten dauerhaften Schritt wieder auf; bereits abgeschlossene Seeds werden übersprungen. Ein Backend- oder Ollama-Neustart gilt als technischer Ausfall und rechtfertigt eine Wiederholung nur für den betroffenen, nicht abgeschlossenen Lauf. Vor dem Wiederanlauf sind Preflight und Prüfung auf Waisenprozesse zu wiederholen; die Versuche sind mit `ensemble_id` und Grund zu protokollieren. Ein Lauf mit ausgefallener Klassifikation oder Agentenfehlern wird nicht als gültig mit „Nein“ gezählt, sondern als unklassifiziert ausgewiesen.
+
+**Manueller Reset:** Sind Seed-Versuche oder Resume-Limit ausgeschöpft (`attempts_exhausted`) und der Fall damit gesperrt, ist nach Behebung der Ursache ein manueller Reset nötig: die Ursache beheben (Ollama, Platte), Waisenprozesse beenden, den betroffenen Ensemble-Ordner und `docs/validation/ergebnisse/<fall>.state.json` sichern, die Sperrmarke im Ensemble-Zustand zurücksetzen und den Fall wie ein technisch ausgefallenen Lauf wiederholen. Der Reset wird mit Datum, Grund und allen betroffenen `ensemble_id` in diesem Protokoll nachgetragen; er darf nie dazu dienen, ein unerwünschtes Ergebnis zu ersetzen.
