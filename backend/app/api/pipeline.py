@@ -19,7 +19,7 @@ from flask import Blueprint, jsonify, request
 
 from ..config import Config
 from ..utils.logger import get_logger
-from ..utils.security import InvalidIdentifier, safe_upload_name
+from ..utils.security import InvalidIdentifier, safe_display_name, safe_upload_name
 
 pipeline_bp = Blueprint('pipeline', __name__)
 logger = get_logger('mirofish.pipeline')
@@ -253,7 +253,8 @@ def start_pipeline():
     prepared = []
     for upload in uploads:
         try:
-            name, extension = safe_upload_name(upload.filename, Config.ALLOWED_EXTENSIONS)
+            safe_upload_name(upload.filename, Config.ALLOWED_EXTENSIONS)
+            name, extension = safe_display_name(upload.filename), os.path.splitext(upload.filename)[1].lower().lstrip('.')
         except InvalidIdentifier:
             return jsonify({"success": False, "error": "Nicht erlaubter Dateityp"}), 400
         prepared.append((upload, name, extension))

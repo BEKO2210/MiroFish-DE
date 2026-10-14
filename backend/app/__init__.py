@@ -6,6 +6,7 @@ import hmac
 import ipaddress
 import os
 import warnings
+from urllib.parse import urlencode
 
 # Unterdrückt Warnungen vom multiprocessing resource_tracker (aus Bibliotheken von Drittanbietern wie transformers)
 # Muss vor allen anderen Importen gesetzt werden
@@ -24,7 +25,9 @@ def create_app(config_class=Config):
     app.config.from_object(config_class)
     # Tailscale/Reverse-Proxies uebermitteln HTTPS per X-Forwarded-Proto. Das ist
     # insbesondere fuer das Secure-Flag des Token-Cookies relevant.
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+    # X-Forwarded-For wird bewusst NICHT vertraut (x_for=0): die Zugriffspruefung
+    # nutzt die echte Peer-Adresse und laesst sich nicht per Header faelschen.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=0, x_proto=1, x_host=1)
     
     # JSON-Kodierung einstellen: Stellt sicher, dass Chinesisch direkt angezeigt wird (nicht im \uXXXX-Format)
     # Flask >= 2.3 verwendet app.json.ensure_ascii, ältere Versionen verwenden die JSON_ASASCII-Konfiguration
@@ -58,12 +61,14 @@ def create_app(config_class=Config):
 
     @app.before_request
     def require_api_token():
-        if not api_token:
+        if not api_token or request.method == 'OPTIONS':
             return None
         if not request.path.startswith('/api/'):
             given = request.args.get('token', '')
             if given and token_ok(given):
-                resp = redirect(request.path)  # Token aus der Adresszeile entfernen
+                rest = [(k, v) for k, v in request.args.items(multi=True) if k != 'token']
+                target = request.path + ('?' + urlencode(rest) if rest else '')
+                resp = redirect(target)  # Token aus der Adresszeile entfernen
                 resp.set_cookie('mirofish_token', given, max_age=365 * 24 * 3600, httponly=True,
                                 samesite='Strict', secure=request.is_secure, path='/')
                 return resp
@@ -92,7 +97,9 @@ def create_app(config_class=Config):
         }
         if not api_token and request.endpoint in sensitive_system_endpoints:
             try:
-                is_local = ipaddress.ip_address(request.remote_addr or '').is_loopback
+                # Echte Peer-Adresse; private/Docker-Bridge-Netze zaehlen als lokal.
+                peer = ipaddress.ip_address(request.environ.get('REMOTE_ADDR') or '')
+                is_local = peer.is_loopback or peer.is_private
             except ValueError:
                 is_local = False
             if not is_local:
@@ -139,8 +146,17 @@ def create_app(config_class=Config):
         # Von Route-Handlern gefangene Exceptions duerfen weder Tracebacks noch
         # lokale Pfade oder Provider-Schluessel an Clients zurueckgeben.
         if request.path.startswith('/api/') and response.status_code >= 500:
-            response = jsonify({"success": False, "error": "Interner Serverfehler"})
-            response.status_code = 500
+            from .utils.security import scrub_text
+            payload = response.get_json(silent=True) if response.is_json else None
+            message = payload.get('error') if isinstance(payload, dict) else None
+            status_code = response.status_code
+            if status_code in (502, 503, 504) and isinstance(message, str) and message:
+                # Gezielt erzeugte Gateway-/Verfuegbarkeitsfehler behalten ihre bereinigte Meldung.
+                response = jsonify({"success": False, "error": scrub_text(message)})
+                response.status_code = status_code
+            else:
+                response = jsonify({"success": False, "error": "Interner Serverfehler"})
+                response.status_code = 500
         elif request.path.startswith('/api/') and response.is_json:
             from .utils.security import sanitize_public_data
             payload = response.get_json(silent=True)

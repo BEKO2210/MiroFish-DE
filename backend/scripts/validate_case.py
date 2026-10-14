@@ -6,6 +6,7 @@ import argparse
 import copy
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -133,6 +134,10 @@ class ApiClient:
                  retry_seconds: float = TRANSIENT_RETRY_SECONDS,
                  log: Optional[Callable[[str], None]] = None) -> None:
         self.base, self.session = base.rstrip("/"), session or requests.Session()
+        token = os.environ.get("API_TOKEN", "").strip()
+        headers = getattr(self.session, "headers", None)
+        if token and headers is not None:
+            headers["Authorization"] = f"Bearer {token}"
         self.sleep, self.retry_seconds, self.log = sleep, retry_seconds, log
 
     @staticmethod

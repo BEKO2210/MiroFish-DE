@@ -19,7 +19,7 @@ from ..utils.logger import get_logger
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
 from ..utils.llm_client import LLMResponseError
-from ..utils.security import InvalidIdentifier, safe_upload_name
+from ..utils.security import InvalidIdentifier, safe_display_name, safe_upload_name
 
 # Logger abrufen
 logger = get_logger('mirofish.api')
@@ -189,10 +189,11 @@ def generate_ontology():
             if file and file.filename and allowed_file(file.filename):
                 # Datei im Projektverzeichnis speichern
                 upload_name, _extension = safe_upload_name(file.filename, Config.ALLOWED_EXTENSIONS)
+                display_name = safe_display_name(file.filename)
                 file_info = ProjectManager.save_file_to_project(
                     project.project_id, 
                     file, 
-                    upload_name
+                    display_name
                 )
                 project.files.append({
                     "filename": file_info["original_filename"],

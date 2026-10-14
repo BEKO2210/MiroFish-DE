@@ -20,8 +20,10 @@ ID_PATTERNS = {
         r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z",
         re.IGNORECASE,
     ),
+    # Zep: UUID; Obsidian: sha1[:16] oder der Dateiname als ID.
     "entity_uuid": re.compile(
-        r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z",
+        r"(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|"
+        r"[0-9a-f]{16}|(?!\.+\Z)[\w.-]{1,128})\Z",
         re.IGNORECASE,
     ),
     # Zep erzeugt mirofish_<hex>; Obsidian nutzt derzeit eine UUID (alte
@@ -36,10 +38,11 @@ ID_PATTERNS = {
 _ALIASES = {"pid": "run_id"}
 
 _SECRET_RE = re.compile(
-    r"(?i)(?:bearer\s+)[A-Za-z0-9._~+/-]+=*|"
-    r"(?:sk|key|token|secret)[-_][A-Za-z0-9._-]{8,}|"
-    r"(?:API_TOKEN|LLM_API_KEY|ZEP_API_KEY)\s*=\s*[^\s,;]+"
+    r"\b(?:sk-[A-Za-z0-9_-]{20,}|Bearer\s+[A-Za-z0-9._~+/=-]{20,})|"
+    r"\b(?:API_TOKEN|LLM_API_KEY|ZEP_API_KEY)\s*=\s*[^\s,;]+"
 )
+_ERROR_FIELDS = {"error", "message"}
+_TRANSLIT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss"})
 _PATH_RE = re.compile(
     r"(?<![:A-Za-z0-9])(?:/(?:home|tmp|root|etc|var|opt)/[^\s\"'<>]*|"
     r"[A-Za-z]:\\[^\r\n\"'<>]*)"
@@ -93,37 +96,42 @@ def safe_child(root: str | os.PathLike[str], name: str) -> Path:
     return resolved
 
 
+def safe_display_name(filename: str) -> str:
+    """Anzeigename: nur Verzeichnisanteile und Steuerzeichen entfernen, Unicode bleibt."""
+    name = filename.replace("\\", "/").rsplit("/", 1)[-1]
+    name = "".join(ch for ch in name if ch.isprintable()).strip()[:200]
+    return name or "dokument"
+
+
 def safe_upload_name(filename: Any, allowed_extensions: set[str]) -> tuple[str, str]:
-    """Normalisiert einen Anzeigenamen und prueft seine Endung."""
+    """Liefert einen ASCII-sicheren Namen und die Endung (aus dem Originalnamen)."""
     if not isinstance(filename, str) or not filename:
         raise InvalidIdentifier("Ungueltiger Dateiname")
-    # Werkzeug ist im Backend vorhanden; der kleine Fallback haelt die reine
-    # Validierungsbibliothek auch in den schlanken Offline-Tests importierbar.
-    try:
-        from werkzeug.utils import secure_filename
-        name = secure_filename(filename)
-    except ImportError:
-        normalized = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode()
-        name = re.sub(r"[^A-Za-z0-9_.-]", "_", normalized).strip("._")
-    extension = os.path.splitext(name)[1].lower().lstrip('.')
-    if not name or not extension or extension not in allowed_extensions:
+    stem, dot_ext = os.path.splitext(safe_display_name(filename))
+    extension = dot_ext.lower().lstrip(".")
+    if not extension or extension not in allowed_extensions:
         raise InvalidIdentifier("Nicht erlaubter Dateityp")
-    return name, extension
+    ascii_stem = unicodedata.normalize("NFKD", stem.translate(_TRANSLIT)).encode("ascii", "ignore").decode()
+    ascii_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", ascii_stem).strip("._")
+    return f"{ascii_stem or 'dokument'}{dot_ext}", extension
+
+
+def scrub_text(value: str) -> str:
+    if "Traceback (most recent call last)" in value:
+        return "Interner Fehler"
+    value = _SECRET_RE.sub("[GEHEIMNIS ENTFERNT]", value)
+    return _PATH_RE.sub("[PFAD ENTFERNT]", value)
 
 
 def sanitize_public_data(value: Any) -> Any:
-    """Entfernt Tracebacks, lokale Pfade und typische Geheimnisse aus JSON-Daten."""
+    """Entfernt Tracebacks sowie Pfade/Schluessel aus Fehlerfeldern; Inhalte bleiben unveraendert."""
     if isinstance(value, dict):
         return {
-            key: sanitize_public_data(child)
+            key: (scrub_text(child) if str(key).lower() in _ERROR_FIELDS and isinstance(child, str)
+                  else sanitize_public_data(child))
             for key, child in value.items()
             if str(key).lower() not in {"traceback", "stacktrace"}
         }
     if isinstance(value, list):
         return [sanitize_public_data(child) for child in value]
-    if isinstance(value, str):
-        if "Traceback (most recent call last)" in value:
-            return "Interner Fehler"
-        value = _SECRET_RE.sub("[GEHEIMNIS ENTFERNT]", value)
-        return _PATH_RE.sub("[PFAD ENTFERNT]", value)
     return value
