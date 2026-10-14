@@ -345,6 +345,7 @@ class SimulationRunner:
         seed: int = None,  # Reproduzierbarkeits-Seed (optional; sonst zufällig)
         simulation_dir: str = None,  # Optionaler externer Laufordner (Ensemble)
         keep_alive: bool = True,  # Nach Lauf für Interviews offen halten
+        llm_model: str = None,  # Modell-Override für diesen Ensemble-Lauf
     ) -> SimulationRunState:
         """
         Simulation starten
@@ -496,6 +497,8 @@ class SimulationRunner:
             env['PYTHONIOENCODING'] = 'utf-8'  # Sicherstellen, dass stdout/stderr UTF-8 verwenden
             env['MIROFISH_SIM_SEED'] = str(seed)
             env['OASIS_LLM_TEMPERATURE'] = str(temperature)
+            if llm_model:
+                env['LLM_MODEL_NAME'] = str(llm_model)
             
             # Arbeitsverzeichnis auf Simulationsverzeichnis setzen (Datenbanken etc. werden hier erstellt)
             # Verwendet start_new_session=True, um neue Prozessgruppe zu erstellen, damit alle Unterprozesse über os.killpg beendet werden können

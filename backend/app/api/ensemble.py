@@ -27,6 +27,12 @@ def start_ensemble():
             minutes_per_round=data.get("minutes_per_round", 60),
             custom_outcomes=data.get("custom_outcomes"),
             primary_outcome_id=data.get("primary_outcome_id"),
+            text_model=data.get("text_model"),
+            arm_model=data.get("arm_model"),
+            strict_second_rater=data.get("strict_second_rater", False),
+            min_classified=data.get("min_classified"),
+            min_posts=data.get("min_posts", 1),
+            max_agent_error_rate=data.get("max_agent_error_rate", 0.5),
         )
         return jsonify({"success": True, "data": result})
     except FileNotFoundError as error:

@@ -10,9 +10,11 @@ import os
 import random
 import re
 import shutil
+import signal
 import sqlite3
 import threading
 import time
+import urllib.request
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -53,6 +55,13 @@ NULL_ARMS = NULL_DOCUMENT_ARMS | NULL_PERSONA_ARMS
 MAX_ENSEMBLE_HOURS = 336
 MAX_CUSTOM_OUTCOMES = 20
 ALLOWED_MINUTES_PER_ROUND = frozenset({60, 120, 240})
+DEFAULT_MIN_FREE_BYTES = 5 * 1024**3
+DEFAULT_MAX_AGENT_ERROR_RATE = 0.5
+OLLAMA_WAIT_SECONDS = 30 * 60
+
+
+class ModelServiceUnavailable(RuntimeError):
+    """Temporärer Modell-Dienstausfall; darf kein Seed-Versuch sein."""
 
 
 def wilson_interval(yes: int, n: int, z: float = Z_95) -> Tuple[float, float]:
@@ -695,6 +704,7 @@ def prepare_run_directory(
     hours: int,
     start_hour: int = 7,
     minutes_per_round: Optional[int] = 60,
+    text_model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Vorbereitete Profile/Config kopieren und nur die Variante anwenden."""
     run_dir.mkdir(parents=True, exist_ok=False)
@@ -717,6 +727,8 @@ def prepare_run_directory(
         time_config["minutes_per_round"] = minutes_per_round
     config["ensemble_variant"] = variant
     config["simulation_id"] = run_dir.name
+    if text_model:
+        config["llm_model"] = str(text_model)
 
     _write_json_atomic(run_dir / "simulation_config.json", config)
     with (run_dir / "reddit_profiles.json").open("w", encoding="utf-8") as handle:
@@ -1005,7 +1017,7 @@ def compute_run_stats(
     narrative: str = "",
     audit: Optional[Dict[str, Any]] = None,
     run_dir: Optional[Path] = None,
-) -> Dict[str, int]:
+) -> Dict[str, Any]:
     """Textmengen, Klassifikationsstapel und beobachtbare Feed-Lecks je Lauf."""
     texts = [str(post.get("text") or "") for post in posts]
     if narrative:
@@ -1024,10 +1036,35 @@ def compute_run_stats(
         "trend_action_count": 0,
         "foreign_interaction_count": 0,
     }
+    action_count = agent_error_count = 0
+    if run_dir:
+        for platform in ("twitter", "reddit"):
+            log_path = Path(run_dir) / platform / "actions.jsonl"
+            if not log_path.is_file():
+                continue
+            try:
+                lines = log_path.read_text(encoding="utf-8").splitlines()
+                for line in lines:
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if not isinstance(row, dict) or "action_type" not in row:
+                        continue
+                    action_count += 1
+                    if row.get("success") is False:
+                        agent_error_count += 1
+            except OSError:
+                logger.warning("Agentenfehlerquote konnte nicht aus %s gelesen werden", log_path)
+    contribution_count = 1 if narrative.strip() else post_count
     return {
         "post_count": int(post_count),
+        "contribution_count": int(contribution_count),
         "character_count": int(character_count),
         "batch_count": int(len(batches)),
+        "agent_action_count": action_count,
+        "agent_error_count": agent_error_count,
+        "agent_error_rate": _round(agent_error_count / action_count if action_count else 0.0),
         **leak_stats,
     }
 
@@ -1310,11 +1347,19 @@ class EnsembleService:
         llm_factory: Optional[Callable[[], Any]] = None,
         root: Optional[Path] = None,
         poll_interval: float = 1.0,
+        health_check: Optional[Callable[[], Sequence[str]]] = None,
+        sleep: Callable[[float], None] = time.sleep,
+        min_free_bytes: int = DEFAULT_MIN_FREE_BYTES,
+        ollama_wait_seconds: float = OLLAMA_WAIT_SECONDS,
     ):
         self.runner_cls = runner_cls
         self.llm_factory = llm_factory
         self.root = Path(root or Path(Config.UPLOAD_FOLDER) / "ensembles")
         self.poll_interval = poll_interval
+        self.health_check = health_check
+        self.sleep = sleep
+        self.min_free_bytes = int(min_free_bytes)
+        self.ollama_wait_seconds = float(ollama_wait_seconds)
         self._io_lock = threading.RLock()
         self.root.mkdir(parents=True, exist_ok=True)
 
@@ -1331,6 +1376,30 @@ class EnsembleService:
         from ..utils.llm_client import LLMClient
 
         return LLMClient()
+
+    def _llm_for_model(self, model: Optional[str]):
+        if not model:
+            return self._llm()
+        if self.llm_factory is not None:
+            try:
+                return self.llm_factory(
+                    api_key=Config.LOCAL_LLM_API_KEY,
+                    base_url=Config.LOCAL_LLM_BASE_URL,
+                    model=model,
+                )
+            except TypeError:
+                client = self.llm_factory()
+                try:
+                    client.model = model
+                except (AttributeError, TypeError):
+                    pass
+                return client
+        from ..utils.llm_client import LLMClient
+        return LLMClient(
+            api_key=Config.LOCAL_LLM_API_KEY,
+            base_url=Config.LOCAL_LLM_BASE_URL,
+            model=model,
+        )
 
     @staticmethod
     def _llm_model(llm: Any) -> str:
@@ -1352,7 +1421,12 @@ class EnsembleService:
                 ), False
             except TypeError:
                 # Test-/Integrations-Factories ohne Modellparameter bilden beide Bewerter ab.
-                return self.llm_factory(), False
+                client = self.llm_factory()
+                try:
+                    client.model = model
+                except (AttributeError, TypeError):
+                    pass
+                return client, False
         from ..utils.llm_client import LLMClient
 
         client = LLMClient(
@@ -1362,6 +1436,83 @@ class EnsembleService:
         )
         client.provider = "local"
         return client, False
+
+    @staticmethod
+    def _ollama_enabled() -> bool:
+        return str(getattr(Config, "LLM_PROVIDER", "")).lower() == "ollama"
+
+    def _ollama_models(self) -> Sequence[str]:
+        if self.health_check is not None:
+            return self.health_check()
+        base = str(Config.LOCAL_LLM_BASE_URL).rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        request = urllib.request.Request(base + "/api/tags", method="GET")
+        with urllib.request.urlopen(request, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return [
+            str(item.get("name") or item.get("model") or "")
+            for item in payload.get("models", [])
+            if isinstance(item, dict)
+        ]
+
+    @staticmethod
+    def _model_present(required: str, available: Sequence[str]) -> bool:
+        wanted = str(required).strip()
+        return any(name == wanted or name.split(":", 1)[0] == wanted for name in available)
+
+    def _required_models(self, state: Dict[str, Any]) -> List[str]:
+        models = state.get("models") or {}
+        required = [
+            models.get("agents") or Config.LLM_MODEL_NAME,
+            models.get("null_arms") or Config.get_llm_config()["model"],
+            models.get("classification_primary") or Config.get_llm_config()["model"],
+        ]
+        if state.get("strict_second_rater"):
+            required.append(
+                models.get("classification_secondary")
+                or str(os.environ.get(
+                    "ENSEMBLE_SECOND_RATER_MODEL", Config.ENSEMBLE_SECOND_RATER_MODEL
+                ) or "").strip()
+            )
+        return list(dict.fromkeys(str(value) for value in required if value))
+
+    def _check_models_once(self, state: Dict[str, Any]) -> None:
+        if not self._ollama_enabled() and self.health_check is None:
+            return
+        try:
+            available = self._ollama_models()
+        except Exception as error:
+            raise ModelServiceUnavailable(f"Ollama /api/tags nicht erreichbar: {error}") from error
+        missing = [m for m in self._required_models(state) if not self._model_present(m, available)]
+        if missing:
+            raise ModelServiceUnavailable(
+                "Benötigte Ollama-Modelle fehlen: " + ", ".join(missing)
+            )
+
+    def _wait_for_models(self, state: Dict[str, Any]) -> None:
+        deadline = time.monotonic() + self.ollama_wait_seconds
+        delay = 1.0
+        while True:
+            try:
+                self._check_models_once(state)
+                return
+            except ModelServiceUnavailable:
+                if time.monotonic() >= deadline:
+                    raise
+                if state.get("ensemble_id") and self._cancelled(state):
+                    raise InterruptedError
+                self.sleep(min(delay, max(0.0, deadline - time.monotonic())))
+                delay = min(delay * 2, 60.0)
+
+    def _check_disk_space(self) -> None:
+        free = shutil.disk_usage(self.root).free
+        if free < self.min_free_bytes:
+            raise RuntimeError(
+                f"Zu wenig freier Speicher im Ensemble-Datenverzeichnis: "
+                f"{free / 1024**3:.2f} GiB frei, mindestens "
+                f"{self.min_free_bytes / 1024**3:.2f} GiB erforderlich"
+            )
 
     def _path(self, ensemble_id: str) -> Path:
         suffix = ensemble_id[4:] if ensemble_id.startswith("ens_") else ""
@@ -1394,7 +1545,14 @@ class EnsembleService:
         minutes_per_round: int = 60,
         custom_outcomes: Any = None,
         primary_outcome_id: Optional[str] = None,
+        text_model: Optional[str] = None,
+        arm_model: Optional[str] = None,
+        strict_second_rater: bool = False,
+        min_classified: Optional[int] = None,
+        min_posts: int = 1,
+        max_agent_error_rate: float = DEFAULT_MAX_AGENT_ERROR_RATE,
     ) -> Dict[str, Any]:
+        self._check_disk_space()
         if not isinstance(simulation_id, str) or not simulation_id.startswith("sim_"):
             raise ValueError("simulation_id muss mit sim_ beginnen")
         if isinstance(runs, bool) or not isinstance(runs, int) or not 1 <= runs <= 100:
@@ -1423,6 +1581,28 @@ class EnsembleService:
                 f"({minutes_per_round // 60}) teilbar sein; sonst würden Stunden abgeschnitten"
             )
         variants = validate_variants(variants)
+        if not isinstance(strict_second_rater, bool):
+            raise ValueError("strict_second_rater muss boolesch sein")
+        if min_classified is None:
+            min_classified = runs
+        if (
+            isinstance(min_classified, bool) or not isinstance(min_classified, int)
+            or not 1 <= min_classified <= runs
+        ):
+            raise ValueError("min_classified muss zwischen 1 und runs liegen")
+        if isinstance(min_posts, bool) or not isinstance(min_posts, int) or min_posts < 1:
+            raise ValueError("min_posts muss mindestens 1 sein")
+        if (
+            isinstance(max_agent_error_rate, bool)
+            or not isinstance(max_agent_error_rate, (int, float))
+            or not 0 <= max_agent_error_rate <= 1
+        ):
+            raise ValueError("max_agent_error_rate muss zwischen 0 und 1 liegen")
+        second_model = str(os.environ.get(
+            "ENSEMBLE_SECOND_RATER_MODEL", Config.ENSEMBLE_SECOND_RATER_MODEL
+        ) or "").strip()
+        if strict_second_rater and not second_model:
+            raise ValueError("strict_second_rater verlangt ein konfiguriertes Zweitmodell")
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
         if primary_outcome_id is not None:
             if not isinstance(primary_outcome_id, str) or not primary_outcome_id.strip():
@@ -1483,6 +1663,14 @@ class EnsembleService:
                     "status": "queued",
                     "done": 0,
                     "total": runs,
+                    "text_model": str(
+                        (arm_model or Config.get_llm_config()["model"])
+                        if null_arm(key) else (text_model or Config.LLM_MODEL_NAME)
+                    ),
+                    "classification_models": {
+                        "primary": str(Config.get_llm_config()["model"]),
+                        "secondary": second_model or None,
+                    },
                 }
                 for key in variants
             ],
@@ -1499,7 +1687,26 @@ class EnsembleService:
             "base_seed": random.SystemRandom().randint(0, 2**31 - runs - 1),
             "cancel_requested": False,
             "current_runner_id": None,
+            "strict_second_rater": bool(strict_second_rater),
+            "min_classified": min_classified,
+            "min_posts": min_posts,
+            "max_agent_error_rate": float(max_agent_error_rate),
+            "models": {
+                "agents": str(text_model or Config.LLM_MODEL_NAME),
+                "null_arms": str(arm_model or Config.get_llm_config()["model"]),
+                "classification_primary": str(Config.get_llm_config()["model"]),
+                "classification_secondary": second_model or None,
+            },
+            "arm_models": {
+                key: str(
+                    (arm_model or Config.get_llm_config()["model"])
+                    if null_arm(key) else (text_model or Config.LLM_MODEL_NAME)
+                )
+                for key in variants
+            },
         }
+        if strict_second_rater:
+            self._check_models_once(state)
         self._path(ensemble_id).mkdir(parents=True, exist_ok=False)
         self._save(state)
         thread = threading.Thread(target=self._run_ensemble, args=(ensemble_id,), daemon=True)
@@ -1600,10 +1807,12 @@ class EnsembleService:
             raise RuntimeError(
                 f"Versuche erschöpft ({SEED_ATTEMPTS}), Resume abgebrochen: {state.get('error') or 'kein weiterer Versuch'}"
             )
+        self._check_disk_space()
         with self._threads_lock:
             alive = self._threads.get(ensemble_id)
             if alive is not None and alive.is_alive():
                 raise RuntimeError("Ensemble wird bereits verarbeitet")
+        self._terminate_owned_orphan(state)
         state["status"] = "queued"
         state["error"] = None
         state["finished_at"] = None
@@ -1619,6 +1828,36 @@ class EnsembleService:
             self._threads[ensemble_id] = thread
         thread.start()
         return {"ensemble_id": ensemble_id, "status": "queued"}
+
+    def _terminate_owned_orphan(self, state: Dict[str, Any]) -> bool:
+        """Beendet ausschließlich den per Laufzustand belegten Prozess im eigenen Laufordner."""
+        runner_id = str(state.get("current_runner_id") or "")
+        if not runner_id.startswith(str(state.get("ensemble_id") or "") + "_"):
+            return False
+        current = state.get("current") or {}
+        variant = str(current.get("variant") or "")
+        run_number = current.get("run")
+        if not variant or not isinstance(run_number, int):
+            return False
+        run_dir = self._path(str(state["ensemble_id"])) / variant / f"run_{run_number}"
+        run_state = _read_json(run_dir / "run_state.json")
+        pid = run_state.get("process_pid") if isinstance(run_state, dict) else None
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
+            return False
+        proc = Path("/proc") / str(pid)
+        try:
+            cwd = Path(os.readlink(proc / "cwd")).resolve()
+            command = (proc / "cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+        except (OSError, ValueError):
+            return False
+        if cwd != run_dir.resolve() or "run_parallel_simulation.py" not in command:
+            return False
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            return False
+        logger.warning("Verwaisten Ensemble-Prozess %s (PID %s) beendet", runner_id, pid)
+        return True
 
     def list(self, simulation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         result = []
@@ -1662,6 +1901,11 @@ class EnsembleService:
                 continue
             state["status"] = "failed"
             state["error"] = "Backend wurde neu gestartet, Ensemble abgebrochen"
+            current = state.get("current") or {}
+            attempt_key = f"{current.get('variant')}:{current.get('run')}"
+            attempts = state.get("seed_attempts") or {}
+            if current.get("attempt") and attempt_key in attempts:
+                attempts[attempt_key] = max(0, int(attempts[attempt_key]) - 1)
             state["finished_at"] = datetime.now().isoformat()
             state["current"] = None
             self._save(state)
@@ -1712,7 +1956,9 @@ class EnsembleService:
                 if isinstance(post, dict)
             ),
         ])
-        llm = self._llm()
+        llm = self._llm_for_model(
+            (state.get("models") or {}).get("classification_primary")
+        )
         prompt = (
             "Erzeuge 5 bis 8 konkrete, beobachtbare Ja/Nein-Ergebnisse für die Frage. "
             f"Jedes Ergebnis muss innerhalb der simulierten {state['hours']} Stunden beobachtbar "
@@ -1804,7 +2050,7 @@ class EnsembleService:
         if resolved == "null_personas" and target_characters is not None:
             max_tokens = max(1, math.ceil(int(target_characters) / 3))
         temperature = 0.7
-        llm = self._llm()
+        llm = self._llm_for_model((state.get("models") or {}).get("null_arms"))
         narrative = llm.chat(
             [
                 {"role": "system", "content": "Schreibe eine plausible Verlaufserzählung, keine Analyse der Simulation."},
@@ -1980,7 +2226,9 @@ class EnsembleService:
             audit["raw_response"] = raw
             if payload is None:
                 verified = {
-                    str(item["id"]): {"yes": False, "evidence": []}
+                    str(item["id"]): {
+                        "yes": False, "evidence": [], "unclassified": True,
+                    }
                     for item in checklist_items
                 }
                 audit["error"] = errors[-1] if errors else "Stapel fehlgeschlagen"
@@ -2082,13 +2330,17 @@ class EnsembleService:
         run_number: int,
         run_dir: Optional[Path] = None,
     ) -> Dict[str, Dict[str, Any]]:
-        primary = self._llm()
+        primary = self._llm_for_model(
+            (state.get("models") or {}).get("classification_primary")
+        )
         result_a, audit_a = self._classify_posts_once(
             state, posts, seed, run_number, run_dir, primary
         )
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
+            if state.get("strict_second_rater"):
+                raise RuntimeError(f"Zweitmodell konnte nicht initialisiert werden: {error}") from error
             secondary, seed_fallback = primary, True
             secondary_setup_error = str(error)
         else:
@@ -2106,6 +2358,8 @@ class EnsembleService:
             batch.get("error") for batch in audit_b["batches"]
         )
         if unavailable and secondary is not primary:
+            if state.get("strict_second_rater"):
+                raise RuntimeError("Zweitmodell nicht erreichbar; strikter Zweitbewerter aktiv")
             secondary = primary
             seed_fallback = True
             result_b, audit_b = self._classify_posts_once(
@@ -2129,6 +2383,8 @@ class EnsembleService:
         }
         if run_dir is not None:
             _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
+        if combined and all(value.get("unclassified") for value in combined.values()):
+            raise RuntimeError("Klassifikationsstapel des Laufs vollständig ausgefallen")
         return combined
 
     def _classify_narrative_once(
@@ -2186,7 +2442,7 @@ class EnsembleService:
             interaction = kind == "interaction"
             # Ein geparster Stapel ohne Zeile bleibt unklassifiziert. Nach ausgeschöpften
             # Wiederholungen zählt der Lauf weiter, nur ohne Beleg.
-            if not parse_error and (
+            if parse_error or (
                 not isinstance(raw_row, dict)
                 or (counter and not isinstance(by_id.get(counter), dict))
             ):
@@ -2235,13 +2491,17 @@ class EnsembleService:
         run_dir: Optional[Path] = None,
         variant_key: str = "null_model",
     ) -> Dict[str, Dict[str, Any]]:
-        primary = self._llm()
+        primary = self._llm_for_model(
+            (state.get("models") or {}).get("classification_primary")
+        )
         result_a, audit_a = self._classify_narrative_once(
             state, narrative, seed, run_number, primary, variant_key
         )
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
+            if state.get("strict_second_rater"):
+                raise RuntimeError(f"Zweitmodell konnte nicht initialisiert werden: {error}") from error
             secondary, seed_fallback = primary, True
             secondary_setup_error = str(error)
         else:
@@ -2256,6 +2516,8 @@ class EnsembleService:
                 + secondary_setup_error
             )
         if audit_b["batches"][0].get("error") and secondary is not primary:
+            if state.get("strict_second_rater"):
+                raise RuntimeError("Zweitmodell nicht erreichbar; strikter Zweitbewerter aktiv")
             secondary = primary
             seed_fallback = True
             result_b, audit_b = self._classify_narrative_once(
@@ -2263,8 +2525,7 @@ class EnsembleService:
             )
             audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
         combined = combine_rater_results(result_a, result_b, state["checklist"])
-        if run_dir is not None:
-            _write_json_atomic(Path(run_dir) / "classification.json", {
+        audit_document = {
                 "run": run_number,
                 "post_count": 1,
                 "raters": {
@@ -2275,7 +2536,11 @@ class EnsembleService:
                     },
                 },
                 "result": combined,
-            })
+            }
+        if run_dir is not None:
+            _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
+        if combined and all(value.get("unclassified") for value in combined.values()):
+            raise RuntimeError("Klassifikationsstapel des Laufs vollständig ausgefallen")
         return combined
 
     def _aggregate(self, state: Dict[str, Any], per_run: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -2334,12 +2599,35 @@ class EnsembleService:
                     "ci_low": _round(low),
                     "ci_high": _round(high),
                     "evidence": evidence,
+                    "measurable": n >= int(state.get("min_classified", state.get("runs", 1))),
                 }
                 if any("mechanism_edges" in (row.get(oid) or {}) for row in runs):
                     results[key][oid]["mechanism_edge_runs"] = sum(
                         1 for row in classified_runs if row.get(oid, {}).get("mechanism_edges")
                     )
         state["results"] = results
+        state["unclassified_runs_by_variant"] = {
+            key: sum(
+                1 for row in runs
+                if any(
+                    isinstance(value, dict) and value.get("unclassified")
+                    for value in row.values()
+                )
+            )
+            for key, runs in per_run.items()
+        }
+        state["unclassified_runs"] = sum(state["unclassified_runs_by_variant"].values())
+        unmeasurable = [
+            {"variant": key, "outcome_id": oid, "classified": value["n"]}
+            for key, outcomes in results.items()
+            for oid, value in outcomes.items()
+            if not value["measurable"]
+        ]
+        state["measurement"] = {
+            "min_classified": int(state.get("min_classified", state.get("runs", 1))),
+            "measurable": not unmeasurable,
+            "unmeasurable": unmeasurable,
+        }
         state["consistency_warnings"] = consistency_warnings
         reliability = {}
         for outcome in state["checklist"]:
@@ -2419,6 +2707,11 @@ class EnsembleService:
                     },
                     "unreliable": reliability.get(oid, {}).get("label") == "nicht messbar",
                 })
+                comparisons[-1]["unreliable"] = bool(
+                    comparisons[-1]["unreliable"]
+                    or not value.get("measurable")
+                    or not base.get("measurable")
+                )
         family = [
             comparison for comparison in comparisons
             if comparison["role"] == "exploratory" and comparison["table"]["n_pairs"] > 0
@@ -2457,6 +2750,7 @@ class EnsembleService:
                 self._save(state)
                 per_run: Dict[str, List[Dict[str, Any]]] = {}
                 run_stats: Dict[str, List[Dict[str, Any]]] = {}
+                state["run_stats"] = run_stats
                 for variant in state["variants"]:
                     key = variant["key"]
                     variant["status"] = "running"
@@ -2534,13 +2828,64 @@ class EnsembleService:
             with self._threads_lock:
                 self._threads.pop(ensemble_id, None)
 
-    def _completed_seed_result(self, run_dir: Path) -> Optional[Dict[str, Any]]:
+    @staticmethod
+    def _audit_has_batch_failure(payload: Dict[str, Any]) -> bool:
+        raters = payload.get("raters")
+        documents = list(raters.values()) if isinstance(raters, dict) and raters else [payload]
+        return any(
+            batch.get("error")
+            for document in documents if isinstance(document, dict)
+            for batch in (document.get("batches") or []) if isinstance(batch, dict)
+        )
+
+    def _completed_seed_result(
+        self,
+        run_dir: Path,
+        state: Optional[Dict[str, Any]] = None,
+        key: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         path = run_dir / "classification.json"
         if not path.is_file():
             return None
         payload = _read_json(path)
         result = payload.get("result") if isinstance(payload, dict) else None
-        return result if isinstance(result, dict) else None
+        if not isinstance(result, dict) or not result or self._audit_has_batch_failure(payload):
+            return None
+        if result and all(
+            isinstance(value, dict) and value.get("unclassified")
+            for value in result.values()
+        ):
+            return None
+        if state is not None and key is not None:
+            stats = self._stats_for_run(key, run_dir)
+            if not self._run_quality_ok(state, stats):
+                return None
+        return result
+
+    @staticmethod
+    def _run_quality_ok(state: Dict[str, Any], stats: Dict[str, Any]) -> bool:
+        return (
+            int(stats.get("contribution_count", stats.get("post_count", 0)) or 0)
+            >= int(state.get("min_posts", 1) or 1)
+            and float(stats.get("agent_error_rate", 0.0) or 0.0)
+            <= float(state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
+        )
+
+    def _validate_run_quality(self, state: Dict[str, Any], key: str, run_dir: Path) -> None:
+        stats = self._stats_for_run(key, run_dir)
+        if int(stats.get("contribution_count", 0)) < int(state.get("min_posts", 1)):
+            raise RuntimeError(
+                f"Technischer Fehlschlag: nur {stats.get('contribution_count', 0)} Beiträge "
+                f"(Minimum {state.get('min_posts', 1)})"
+            )
+        if float(stats.get("agent_error_rate", 0.0)) > float(
+            state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE)
+        ):
+            raise RuntimeError(
+                f"Technischer Fehlschlag: Agenten-Fehlerquote "
+                f"{float(stats['agent_error_rate']):.3f} über Grenzwert "
+                f"{float(state.get('max_agent_error_rate', DEFAULT_MAX_AGENT_ERROR_RATE)):.3f}"
+            )
 
     def _stats_for_run(self, key: str, run_dir: Path) -> Dict[str, int]:
         """run_stats aus dem gespeicherten Lauf, auch wenn der Seed nur fortgesetzt wird."""
@@ -2582,9 +2927,11 @@ class EnsembleService:
                 state, context, seed, key, target_characters, run_dir
             )
             (run_dir / "narrative.txt").write_text(narrative, encoding="utf-8")
-            return self._classify_narrative(
+            result = self._classify_narrative(
                 state, narrative, seed, run_number, run_dir, key
             )
+            self._validate_run_quality(state, key, run_dir)
+            return result
         config = prepare_run_directory(
             source,
             run_dir,
@@ -2592,6 +2939,7 @@ class EnsembleService:
             state["hours"],
             state.get("start_hour", 7),
             state.get("minutes_per_round"),
+            (state.get("models") or {}).get("agents"),
         )
         runner_id = f"{ensemble_id}_{key.replace(':', '_')}_{run_number}"
         state["current_runner_id"] = runner_id
@@ -2602,6 +2950,7 @@ class EnsembleService:
             seed=seed,
             simulation_dir=str(run_dir),
             keep_alive=False,
+            llm_model=(state.get("models") or {}).get("agents"),
         )
         while _runner_status(runner_state) not in TERMINAL_RUNNER_STATES:
             if self._cancelled(state):
@@ -2620,7 +2969,9 @@ class EnsembleService:
             )
         initial = (config.get("event_config") or {}).get("initial_posts") or []
         posts = load_simulation_posts(run_dir, initial)
-        return self._classify_posts(state, posts, seed, run_number, run_dir)
+        result = self._classify_posts(state, posts, seed, run_number, run_dir)
+        self._validate_run_quality(state, key, run_dir)
+        return result
 
     def _run_ensemble(self, ensemble_id: str) -> None:
         state = self._load(ensemble_id)
@@ -2645,6 +2996,7 @@ class EnsembleService:
                 variant_by_key = {item["key"]: item for item in state["variants"]}
 
                 run_stats: Dict[str, List[Dict[str, Any]]] = {}
+                state["run_stats"] = run_stats
                 for key in execution_variant_keys([item["key"] for item in state["variants"]]):
                     variant = variant_by_key[key]
                     variant["status"] = "running"
@@ -2659,7 +3011,7 @@ class EnsembleService:
                         run_dir = self._path(ensemble_id) / key / f"run_{run_number}"
                         state["current"] = {"variant": key, "run": run_number, "round": 0}
                         self._save(state)
-                        completed = self._completed_seed_result(run_dir)
+                        completed = self._completed_seed_result(run_dir, state, key)
                         if completed is not None:
                             run_stats[key].append({
                                 "run": run_number,
@@ -2677,6 +3029,8 @@ class EnsembleService:
                         while int(attempts.get(failure_key, 0)) < SEED_ATTEMPTS:
                             if self._cancelled(state):
                                 raise InterruptedError
+                            self._check_disk_space()
+                            self._wait_for_models(state)
                             attempts[failure_key] = int(attempts.get(failure_key, 0)) + 1
                             state["current"] = {
                                 "variant": key,
@@ -2694,6 +3048,18 @@ class EnsembleService:
                             except InterruptedError:
                                 raise
                             except Exception as error:
+                                try:
+                                    self._check_models_once(state)
+                                except ModelServiceUnavailable as outage:
+                                    attempts[failure_key] = max(
+                                        0, int(attempts.get(failure_key, 1)) - 1
+                                    )
+                                    last_error = outage
+                                    state["current_runner_id"] = None
+                                    if run_dir.exists():
+                                        shutil.rmtree(run_dir)
+                                    self._save(state)
+                                    continue
                                 last_error = error
                                 logger.warning(
                                     f"Ensemble {ensemble_id} Seed {key} Lauf {run_number} "
@@ -2785,6 +3151,12 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         ) +
         "Die Anteile sind Anteile der Seeds dieses Aufbaus.",
         f"Primärergebnis (konfirmatorisch): {primary_text}.",
+        f"Unklassifizierte Arm-Läufe: {int(state.get('unclassified_runs', 0))}.",
+        (
+            f"Messbarkeit: {'gegeben' if (state.get('measurement') or {}).get('measurable', True) else 'nicht gegeben'} "
+            f"(mindestens {(state.get('measurement') or {}).get('min_classified', state.get('runs', 0))} "
+            "klassifizierte Läufe je Ergebnis)."
+        ),
         "",
         "| Variante | Ergebnis | Ja / N | Strittig | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
         "|---|---|---:|---:|---:|---:|",
