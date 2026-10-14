@@ -206,18 +206,48 @@ test.describe('Flows', () => {
     await settle(page)
 
     await expect(page.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
-    await expect(page.getByText('7 von 10 Läufen dieser Simulation', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('nicht als Beleg verwenden (explorativ)', { exact: false })).toBeVisible()
-    await expect(page.getByText('Vorab festgelegte Hauptfrage (konfirmatorisch)', { exact: true })).toBeVisible()
-    await expect(page.locator('.results:visible .mechanism-blocked__text').first()).toContainText(
+    await expect(page.getByTestId('ensemble-summary')).toBeVisible()
+    await expect(page.getByText('7 von 10 Läufen', { exact: false }).first()).toBeVisible()
+    await expect(page.getByText(/Rundentakt:\s*60 Min/i)).toBeVisible()
+    const arms = page.getByTestId('ensemble-summary').locator('.summary__arms')
+    await expect(arms.getByText('Feed ausgeblendet (blinder Feed)', { exact: true })).toBeVisible()
+    await expect(arms.getByText('Nur Dokument (Nullmodell Dokument)', { exact: true })).toBeVisible()
+    await expect(arms.getByText('Mit Rollen (Nullmodell Personas)', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: /Sicherheitsdebatte zwischen Medien und Politik/i }).click()
+    await expect(page.locator('#outcome-o3 .mechanism-blocked__text').first()).toContainText(
       'Diese Variante kann diese Wechselwirkung technisch nicht erzeugen',
     )
-    await expect(page.getByText(/Rundentakt:\s*60 Min/i)).toBeVisible()
+
+    await page.getByRole('button', { name: 'Details für Fachleute' }).click()
+    await expect(page.getByText('nicht als Beleg verwenden (explorativ)', { exact: false })).toBeVisible()
+    await expect(page.getByText('Vorab festgelegte Hauptfrage (konfirmatorisch)', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Textmengen je Lauf' })).toBeVisible()
-    await expect(page.getByText('Feed ausgeblendet (blinder Feed)', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('Nur Dokument (Nullmodell Dokument)', { exact: false }).first()).toBeVisible()
-    await expect(page.getByText('Mit Rollen (Nullmodell Personas)', { exact: false }).first()).toBeVisible()
     await expect(page.locator('.run-stats--list:visible .run-stats__run, .run-stats--table:visible tbody tr').first()).toBeVisible()
+  })
+
+  test('Mehrfachlauf: Zusammenfassung und Aufklappen auf dem Handy', async ({ page }) => {
+    await preparePage(page)
+    await page.setViewportSize({ width: 412, height: 915 })
+    await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    const summary = page.getByTestId('ensemble-summary')
+    await expect(summary.getByRole('heading', { name: 'Dominanz-Narrativ' })).toBeVisible()
+    await expect(page.getByTestId('ensemble-summary-plain')).toContainText(/kein klarer Unterschied/i)
+    await expect(summary.getByText(/7 von 10 Läufen/i).first()).toBeVisible()
+    expect(await page.evaluate(() => document.body.scrollHeight)).toBeLessThan(4500)
+
+    const expertBtn = page.getByRole('button', { name: 'Details für Fachleute' })
+    await expect(expertBtn).toHaveAttribute('aria-expanded', 'false')
+    await expertBtn.click()
+    await expect(expertBtn).toHaveAttribute('aria-expanded', 'true')
+    await expect(page.getByRole('heading', { name: 'Textmengen je Lauf' })).toBeVisible()
+    await expect(page.getByText('Vorab festgelegte Hauptfrage (konfirmatorisch)', { exact: true })).toBeVisible()
+
+    await page.getByRole('button', { name: /^Polarisierung/i }).click()
+    await expect(page.locator('#outcome-o2 .stat__text').first()).toContainText(/von \d+ Läufen/i)
+    expect((await expertBtn.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44)
   })
 
   test('eigene Frage hinzufügen und Mehrfachlauf starten', async ({ page }) => {
@@ -276,7 +306,7 @@ test.describe('Flows', () => {
     await expect(ensHint).toContainText(/keine Wahrscheinlichkeiten für die Realität/i)
     await expect(ensHint.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
     await expect(ensHint.getByRole('link', { name: /Wie verlässlich ist das/i })).toBeVisible()
-    await expect(page.locator('.results:visible .material-in-hint').first()).toBeVisible()
+    await expect(page.getByTestId('ensemble-summary').locator('.material-in-hint').first()).toBeVisible()
     await expectNoHorizontalScroll(page)
 
     await page.goto('/settings', { waitUntil: 'domcontentloaded' })

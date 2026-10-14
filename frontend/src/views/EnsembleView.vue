@@ -36,153 +36,304 @@
         </div>
       </section>
 
-      <section v-if="runStatsGroups.length" class="run-stats" :aria-label="t('ensemble.runStatsAria')">
-        <h2 class="section-title">{{ t('ensemble.runStatsTitle') }}</h2>
-        <div class="run-stats--table">
-          <table class="grid run-stats__grid">
-            <thead>
-              <tr>
-                <th scope="col">{{ t('ensemble.runStatsVariant') }}</th>
-                <th scope="col">{{ t('ensemble.runStatsRun') }}</th>
-                <th scope="col">{{ t('ensemble.runStatsPosts') }}</th>
-                <th scope="col">{{ t('ensemble.runStatsChars') }}</th>
-                <th scope="col">{{ t('ensemble.runStatsBatches') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="g in runStatsGroups" :key="'rst-' + g.key">
-                <tr v-for="row in g.rows" :key="'rst-' + g.key + '-' + row.run">
-                  <th scope="row">{{ g.label }}</th>
-                  <td class="mono">{{ row.run }}</td>
-                  <td class="mono">{{ row.post_count }}</td>
-                  <td class="mono">{{ row.character_count }}</td>
-                  <td class="mono">{{ row.batch_count }}</td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
+      <section
+        v-if="primaryItem"
+        class="summary"
+        data-testid="ensemble-summary"
+        aria-labelledby="summary-h"
+      >
+        <p class="summary__eyebrow">{{ t('ensemble.summaryEyebrow') }}</p>
+        <div class="summary__head">
+          <h2 id="summary-h" class="summary__title">{{ outcomeLabel(primaryItem) }}</h2>
+          <span v-if="primaryItem.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+          <span v-if="primaryItem.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
         </div>
-        <ul class="run-stats--list">
-          <li v-for="g in runStatsGroups" :key="'rsl-' + g.key" class="run-stats__group">
-            <h3 class="run-stats__variant">{{ g.label }}</h3>
-            <ul class="run-stats__runs">
-              <li v-for="row in g.rows" :key="'rsl-' + g.key + '-' + row.run" class="run-stats__run">
-                <span class="run-stats__run-label">{{ t('ensemble.runStatsRun') }} {{ row.run }}</span>
-                <dl class="run-stats__dl">
-                  <div><dt>{{ t('ensemble.runStatsPosts') }}</dt><dd class="mono">{{ row.post_count }}</dd></div>
-                  <div><dt>{{ t('ensemble.runStatsChars') }}</dt><dd class="mono">{{ row.character_count }}</dd></div>
-                  <div><dt>{{ t('ensemble.runStatsBatches') }}</dt><dd class="mono">{{ row.batch_count }}</dd></div>
-                </dl>
-              </li>
-            </ul>
+        <ReliabilityBadge :rel="reliabilityFor(primaryItem.id)" :t="t" />
+        <p v-if="primaryItem.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
+
+        <ul class="summary__arms" :aria-label="t('ensemble.summaryArmsAria')">
+          <li
+            v-for="v in variants"
+            :key="'sum-' + v.key"
+            class="summary__arm"
+            :class="{ 'mechanism-blocked': isMechanismBlocked(primaryItem, v.key) }"
+          >
+            <div class="summary__arm-row">
+              <span class="summary__arm-label">{{ variantLabel(v) }}</span>
+              <span v-if="isMechanismBlocked(primaryItem, v.key)" class="summary__arm-meta">{{ t('ensemble.mechanismUnavailable') }}</span>
+              <span v-else class="summary__arm-meta mono">{{ compactCell(cell(v.key, primaryItem.id)) }}</span>
+            </div>
+            <div
+              v-if="!isMechanismBlocked(primaryItem, v.key) && cell(v.key, primaryItem.id)"
+              class="summary__bar"
+              aria-hidden="true"
+            >
+              <i :style="barRangeStyle(cell(v.key, primaryItem.id))"></i>
+            </div>
           </li>
         </ul>
+
+        <p class="summary__plain" data-testid="ensemble-summary-plain">{{ plainLanguageDiff }}</p>
+
+        <div class="fold">
+          <button
+            type="button"
+            class="fold__btn"
+            :aria-expanded="primaryOpen"
+            :aria-controls="'primary-details'"
+            @click="primaryOpen = !primaryOpen"
+          >
+            {{ t('ensemble.summaryDetails') }}
+            <span class="fold__chev" aria-hidden="true" />
+          </button>
+          <div
+            id="primary-details"
+            class="fold__panel"
+            :class="{ 'fold__panel--open': primaryOpen }"
+            role="region"
+            :hidden="!primaryOpen"
+          >
+            <details v-if="primaryItem.in_material" class="material" open>
+              <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
+              <p v-if="primaryItem.material_snippet" class="snippet">{{ primaryItem.material_snippet }}</p>
+            </details>
+            <div
+              v-for="v in variants"
+              :key="'pd-' + v.key"
+              class="card__row"
+              :class="{ 'mechanism-blocked': isMechanismBlocked(primaryItem, v.key) }"
+            >
+              <span class="card__var">{{ variantLabel(v) }}</span>
+              <p v-if="isMechanismBlocked(primaryItem, v.key)" class="mechanism-blocked__text">
+                {{ t('ensemble.mechanismUnavailable') }}
+              </p>
+              <CellStat v-else :stat="cell(v.key, primaryItem.id)" :t="t" />
+            </div>
+          </div>
+        </div>
       </section>
 
-      <!-- Desktop table -->
-      <section v-if="checklist.length" class="results results--table" :aria-label="t('ensemble.resultsAria')">
-        <table class="grid">
-          <thead>
-            <tr>
-              <th scope="col">{{ t('ensemble.outcome') }}</th>
-              <th v-for="v in variants" :key="'h-' + v.key" scope="col">{{ variantLabel(v) }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in checklist" :key="item.id" :class="{ 'row--material': item.in_material }">
-              <th scope="row" class="outcome">
-                <div class="outcome__head">
-                  <span>{{ outcomeLabel(item) }}</span>
-                  <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
-                  <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
-                </div>
-                <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
-                <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
-                <details v-if="item.in_material" class="material">
-                  <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
-                  <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
-                </details>
-              </th>
-              <td
+      <section v-if="exploratoryItems.length" class="more" aria-labelledby="more-h">
+        <h2 id="more-h" class="section-title">{{ t('ensemble.moreTitle') }}</h2>
+        <ul class="more__list">
+          <li
+            v-for="item in exploratoryItems"
+            :key="'m-' + item.id"
+            class="more__item"
+            :class="{ 'more__item--material': item.in_material }"
+          >
+            <button
+              type="button"
+              class="more__toggle"
+              :aria-expanded="isOutcomeOpen(item.id)"
+              :aria-controls="'outcome-' + item.id"
+              @click="toggleOutcome(item.id)"
+            >
+              <span class="more__toggle-text">
+                <span class="more__name">{{ outcomeLabel(item) }}</span>
+                <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+                <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
+                <span class="more__shares mono">{{ compactSharesLine(item) }}</span>
+              </span>
+              <span class="fold__chev" aria-hidden="true" />
+            </button>
+            <div
+              :id="'outcome-' + item.id"
+              class="fold__panel more__panel"
+              :class="{ 'fold__panel--open': isOutcomeOpen(item.id) }"
+              role="region"
+              :hidden="!isOutcomeOpen(item.id)"
+            >
+              <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
+              <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
+              <details v-if="item.in_material" class="material">
+                <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
+                <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
+              </details>
+              <div
                 v-for="v in variants"
-                :key="item.id + '-' + v.key"
+                :key="'mv-' + item.id + v.key"
+                class="card__row"
                 :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
               >
+                <span class="card__var">{{ variantLabel(v) }}</span>
                 <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
                   {{ t('ensemble.mechanismUnavailable') }}
                 </p>
                 <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <!-- Mobile cards (no horizontal table scroll) -->
-      <section v-if="checklist.length" class="results results--cards" :aria-label="t('ensemble.resultsAria')">
-        <article v-for="item in checklist" :key="'c-' + item.id" class="card" :class="{ 'card--material': item.in_material }">
-          <div class="card__head">
-            <h2 class="card__title">{{ outcomeLabel(item) }}</h2>
-            <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
-            <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
-          </div>
-          <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
-          <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
-          <details v-if="item.in_material" class="material">
-            <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
-            <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
-          </details>
-          <div
-            v-for="v in variants"
-            :key="'cv-' + item.id + v.key"
-            class="card__row"
-            :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
-          >
-            <span class="card__var">{{ variantLabel(v) }}</span>
-            <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
-              {{ t('ensemble.mechanismUnavailable') }}
-            </p>
-            <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
-          </div>
-        </article>
-      </section>
-
-      <section v-if="comparisons.length" class="compare" aria-labelledby="cmp-h">
-        <h2 id="cmp-h" class="section-title">{{ t('ensemble.diffTitle') }}</h2>
-        <ul class="compare__list">
-          <li
-            v-for="(c, i) in comparisons"
-            :key="i"
-            class="compare__item"
-            :class="{
-              'compare__item--unreliable': c.unreliable,
-              'compare__item--confirmatory': isConfirmatory(c),
-              'compare__item--exploratory': !isConfirmatory(c),
-              'compare__item--blocked': isComparisonBlocked(c),
-            }"
-          >
-            <div class="compare__heading">
-              <strong>{{ compareVariantLabel(c.variant) }}</strong>
-              <span>· {{ outcomeText(c.outcome_id) }}</span>
-              <span v-if="isComparisonBlocked(c)" class="compare__badge">{{ t('ensemble.mechanismTag') }}</span>
-              <span v-else-if="isConfirmatory(c)" class="compare__badge compare__badge--confirmatory">{{ t('ensemble.confirmatory') }}</span>
-              <span v-else class="compare__badge">{{ t('ensemble.exploratory') }}</span>
+              </div>
             </div>
-            <p v-if="isComparisonBlocked(c)" class="compare__body">{{ t('ensemble.mechanismUnavailable') }}</p>
-            <p v-else class="compare__body">
-              <span>{{ fmtDiff(c.diff) }} · {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
-              — {{ interpretDiff(c) }}
-              <span v-if="!isConfirmatory(c)" class="compare__warning"> · {{ t('ensemble.exploratoryWarning') }}</span>
-              <span v-if="hasPValues(c)" class="compare__tests"> · {{ formatPValues(c) }}</span>
-            </p>
           </li>
         </ul>
       </section>
 
-      <aside class="help">
-        <h2 class="section-title">{{ t('ensemble.ciHelpTitle') }}</h2>
-        <p>{{ t('ensemble.ciHelpBody') }}</p>
-      </aside>
+      <section class="expert" data-testid="ensemble-expert">
+        <button
+          type="button"
+          id="expert-h"
+          class="fold__btn expert__toggle"
+          :aria-expanded="expertOpen"
+          aria-controls="expert-panel"
+          @click="expertOpen = !expertOpen"
+        >
+          {{ t('ensemble.expertTitle') }}
+          <span class="fold__chev" aria-hidden="true" />
+        </button>
+        <div
+          id="expert-panel"
+          class="fold__panel expert__panel"
+          :class="{ 'fold__panel--open': expertOpen }"
+          role="region"
+          aria-labelledby="expert-h"
+          :hidden="!expertOpen"
+        >
+          <section v-if="runStatsGroups.length" class="run-stats" :aria-label="t('ensemble.runStatsTitle')">
+            <h2 class="section-title">{{ t('ensemble.runStatsTitle') }}</h2>
+            <div class="run-stats--table">
+              <table class="grid run-stats__grid">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ t('ensemble.runStatsVariant') }}</th>
+                    <th scope="col">{{ t('ensemble.runStatsRun') }}</th>
+                    <th scope="col">{{ t('ensemble.runStatsPosts') }}</th>
+                    <th scope="col">{{ t('ensemble.runStatsChars') }}</th>
+                    <th scope="col">{{ t('ensemble.runStatsBatches') }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template v-for="g in runStatsGroups" :key="'rst-' + g.key">
+                    <tr v-for="row in g.rows" :key="'rst-' + g.key + '-' + row.run">
+                      <th scope="row">{{ g.label }}</th>
+                      <td class="mono">{{ row.run }}</td>
+                      <td class="mono">{{ row.post_count }}</td>
+                      <td class="mono">{{ row.character_count }}</td>
+                      <td class="mono">{{ row.batch_count }}</td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <ul class="run-stats--list">
+              <li v-for="g in runStatsGroups" :key="'rsl-' + g.key" class="run-stats__group">
+                <h3 class="run-stats__variant">{{ g.label }}</h3>
+                <ul class="run-stats__runs">
+                  <li v-for="row in g.rows" :key="'rsl-' + g.key + '-' + row.run" class="run-stats__run">
+                    <span class="run-stats__run-label">{{ t('ensemble.runStatsRun') }} {{ row.run }}</span>
+                    <dl class="run-stats__dl">
+                      <div><dt>{{ t('ensemble.runStatsPosts') }}</dt><dd class="mono">{{ row.post_count }}</dd></div>
+                      <div><dt>{{ t('ensemble.runStatsChars') }}</dt><dd class="mono">{{ row.character_count }}</dd></div>
+                      <div><dt>{{ t('ensemble.runStatsBatches') }}</dt><dd class="mono">{{ row.batch_count }}</dd></div>
+                    </dl>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </section>
+
+          <section v-if="checklist.length" class="results results--table" :aria-label="t('ensemble.resultsAria')">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th scope="col">{{ t('ensemble.outcome') }}</th>
+                  <th v-for="v in variants" :key="'h-' + v.key" scope="col">{{ variantLabel(v) }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="item in checklist" :key="item.id" :class="{ 'row--material': item.in_material }">
+                  <th scope="row" class="outcome">
+                    <div class="outcome__head">
+                      <span>{{ outcomeLabel(item) }}</span>
+                      <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+                      <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
+                    </div>
+                    <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
+                    <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
+                    <details v-if="item.in_material" class="material">
+                      <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
+                      <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
+                    </details>
+                  </th>
+                  <td
+                    v-for="v in variants"
+                    :key="item.id + '-' + v.key"
+                    :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
+                  >
+                    <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
+                      {{ t('ensemble.mechanismUnavailable') }}
+                    </p>
+                    <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section v-if="checklist.length" class="results results--cards" :aria-label="t('ensemble.resultsAria')">
+            <article v-for="item in checklist" :key="'c-' + item.id" class="card" :class="{ 'card--material': item.in_material }">
+              <div class="card__head">
+                <h3 class="card__title">{{ outcomeLabel(item) }}</h3>
+                <span v-if="item.source === 'user'" class="tag-user">{{ t('ensemble.yourQuestion') }}</span>
+                <span v-if="item.kind === 'interaction'" class="tag-mechanism">{{ t('ensemble.mechanismTag') }}</span>
+              </div>
+              <ReliabilityBadge :rel="reliabilityFor(item.id)" :t="t" />
+              <p v-if="item.in_material" class="material-in-hint">{{ t('reliability.inMaterialHint') }}</p>
+              <details v-if="item.in_material" class="material">
+                <summary>{{ t('ensemble.alreadyInMaterial') }}</summary>
+                <p v-if="item.material_snippet" class="snippet">{{ item.material_snippet }}</p>
+              </details>
+              <div
+                v-for="v in variants"
+                :key="'cv-' + item.id + v.key"
+                class="card__row"
+                :class="{ 'mechanism-blocked': isMechanismBlocked(item, v.key) }"
+              >
+                <span class="card__var">{{ variantLabel(v) }}</span>
+                <p v-if="isMechanismBlocked(item, v.key)" class="mechanism-blocked__text">
+                  {{ t('ensemble.mechanismUnavailable') }}
+                </p>
+                <CellStat v-else :stat="cell(v.key, item.id)" :t="t" />
+              </div>
+            </article>
+          </section>
+
+          <section v-if="comparisons.length" class="compare" aria-labelledby="cmp-h">
+            <h2 id="cmp-h" class="section-title">{{ t('ensemble.diffTitle') }}</h2>
+            <ul class="compare__list">
+              <li
+                v-for="(c, i) in comparisons"
+                :key="i"
+                class="compare__item"
+                :class="{
+                  'compare__item--unreliable': c.unreliable,
+                  'compare__item--confirmatory': isConfirmatory(c),
+                  'compare__item--exploratory': !isConfirmatory(c),
+                  'compare__item--blocked': isComparisonBlocked(c),
+                }"
+              >
+                <div class="compare__heading">
+                  <strong>{{ compareVariantLabel(c.variant) }}</strong>
+                  <span>· {{ outcomeText(c.outcome_id) }}</span>
+                  <span v-if="isComparisonBlocked(c)" class="compare__badge">{{ t('ensemble.mechanismTag') }}</span>
+                  <span v-else-if="isConfirmatory(c)" class="compare__badge compare__badge--confirmatory">{{ t('ensemble.confirmatory') }}</span>
+                  <span v-else class="compare__badge">{{ t('ensemble.exploratory') }}</span>
+                </div>
+                <p v-if="isComparisonBlocked(c)" class="compare__body">{{ t('ensemble.mechanismUnavailable') }}</p>
+                <p v-else class="compare__body">
+                  <span>{{ fmtDiff(c.diff) }} · {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
+                  — {{ interpretDiff(c) }}
+                  <span v-if="!isConfirmatory(c)" class="compare__warning"> · {{ t('ensemble.exploratoryWarning') }}</span>
+                  <span v-if="hasPValues(c)" class="compare__tests"> · {{ formatPValues(c) }}</span>
+                </p>
+              </li>
+            </ul>
+          </section>
+
+          <aside class="help">
+            <h2 class="section-title">{{ t('ensemble.ciHelpTitle') }}</h2>
+            <p>{{ t('ensemble.ciHelpBody') }}</p>
+          </aside>
+        </div>
+      </section>
 
       <footer v-if="canCancel || canGoReport || canDelete" class="foot">
         <button
@@ -264,6 +415,9 @@ const loadError = ref('')
 const busy = ref(false)
 const confirmDelete = ref(false)
 const confirmCancel = ref(false)
+const primaryOpen = ref(false)
+const expertOpen = ref(false)
+const openOutcomes = ref(new Set())
 let timer = null
 
 const VARIANT_I18N = {
@@ -310,6 +464,24 @@ const runStatsGroups = computed(() => {
   })
 })
 
+const primaryItem = computed(() => {
+  const id = data.value?.primary_outcome_id
+  if (!id) return checklist.value[0] || null
+  return checklist.value.find((x) => x.id === id) || null
+})
+const exploratoryItems = computed(() => {
+  const pid = primaryItem.value?.id
+  return checklist.value.filter((x) => x.id !== pid)
+})
+const plainLanguageDiff = computed(() => {
+  const clear = comparisons.value.some((c) => {
+    if (!isConfirmatory(c) || isComparisonBlocked(c) || c.unreliable) return false
+    if (c.ci_low == null || c.ci_high == null) return false
+    return c.ci_low > 0 || c.ci_high < 0
+  })
+  return t(clear ? 'ensemble.summaryDiffers' : 'ensemble.summaryUnclear')
+})
+
 function pickLocale(de, en, fallback) {
   return locale.value === 'en' ? (en || de || fallback) : (de || en || fallback)
 }
@@ -338,7 +510,7 @@ function reliabilityFor(outcomeId) {
 }
 function isMechanismBlocked(item, variantKey) {
   if (item?.kind !== 'interaction') return false
-  return variantKey === 'isolated' || variantKey === 'null_model' || variantKey?.startsWith('null_')
+  return variantKey === 'isolated' || !!variantKey?.startsWith('null_')
 }
 function isComparisonBlocked(c) {
   const item = checklist.value.find((x) => x.id === c?.outcome_id)
@@ -365,8 +537,10 @@ function formatP(value) {
 }
 function formatPValues(c) {
   const values = []
-  if (validP(mcnemarP(c))) values.push(t('ensemble.pMcnemar', { value: formatP(mcnemarP(c)) }))
-  if (validP(holmP(c))) values.push(t('ensemble.pHolm', { value: formatP(holmP(c)) }))
+  const mcnemar = mcnemarP(c)
+  const holm = holmP(c)
+  if (validP(mcnemar)) values.push(t('ensemble.pMcnemar', { value: formatP(mcnemar) }))
+  if (validP(holm)) values.push(t('ensemble.pHolm', { value: formatP(holm) }))
   return values.join(' · ')
 }
 function pct(v) {
@@ -401,10 +575,41 @@ function formatDuration(sec) {
   return t('ensemble.durationM', { m: Math.max(1, m) })
 }
 
+function compactCell(st) {
+  if (!st) return '—'
+  const lo = Math.round((st.ci_low ?? 0) * 100)
+  const hi = Math.round((st.ci_high ?? 0) * 100)
+  return t('ensemble.summaryCell', { yes: st.yes, n: st.n, lo, hi })
+}
+function barRangeStyle(st) {
+  if (!st) return {}
+  const lo = Math.max(0, Math.min(100, Math.round((st.ci_low ?? 0) * 100)))
+  const hi = Math.max(lo, Math.min(100, Math.round((st.ci_high ?? 0) * 100)))
+  return { left: lo + '%', width: Math.max(2, hi - lo) + '%' }
+}
+function compactSharesLine(item) {
+  return variants.value
+    .map((v) => {
+      if (isMechanismBlocked(item, v.key)) return null
+      const st = cell(v.key, item.id)
+      if (!st) return null
+      return `${st.yes}/${st.n}`
+    })
+    .filter(Boolean)
+    .join(' · ')
+}
+function isOutcomeOpen(id) {
+  return openOutcomes.value.has(id)
+}
+function toggleOutcome(id) {
+  const next = new Set(openOutcomes.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  openOutcomes.value = next
+}
+
 function relKey(label) {
-  if (label === 'messbar') return 'messbar'
-  if (label === 'unsicher') return 'unsicher'
-  return 'nichtMessbar'
+  return label === 'messbar' || label === 'unsicher' ? label : 'nichtMessbar'
 }
 
 const ReliabilityBadge = {
@@ -448,8 +653,6 @@ const CellStat = {
       const rate = Math.round((st.rate ?? 0) * 100)
       const lo = Math.round((st.ci_low ?? 0) * 100)
       const hi = Math.round((st.ci_high ?? 0) * 100)
-      const barLo = Math.max(0, Math.min(100, lo))
-      const barHi = Math.max(barLo, Math.min(100, hi))
       const disputed = Number(st.disputed) || 0
       return h('div', { class: 'stat' }, [
         h('div', { class: 'stat__text' }, [
@@ -459,7 +662,7 @@ const CellStat = {
             : null,
         ]),
         h('div', { class: 'stat__bar', 'aria-hidden': 'true' }, [
-          h('i', { style: { left: barLo + '%', width: Math.max(2, barHi - barLo) + '%' } }),
+          h('i', { style: barRangeStyle(st) }),
         ]),
         st.evidence?.length
           ? h('details', { class: 'evidence' }, [
@@ -559,7 +762,7 @@ onUnmounted(clearTimer)
 <style scoped>
 .page { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
 .main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 140px; overflow-x: hidden; }
-.head { margin-bottom: 1.5rem; }
+.head { margin-bottom: 1.25rem; }
 .eyebrow { margin: 0 0 4px; font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
 .title { font-family: var(--font-heading); font-size: clamp(22px, 5vw, 30px); margin: 0 0 8px; line-height: 1.25; }
 .meta { display: flex; flex-wrap: wrap; gap: 8px 0; align-items: center; color: var(--color-text-secondary); font-size: 14px; margin: 0; }
@@ -578,7 +781,7 @@ onUnmounted(clearTimer)
 .muted { color: var(--color-text-muted); }
 .mono { font-family: var(--font-mono, ui-monospace, monospace); }
 
-.meaning { margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-md, 8px); background: var(--color-info-bg); color: var(--color-info-text); font-size: 14px; line-height: 1.5; }
+.meaning { margin: 0 0 1.25rem; padding: 1rem 1.1rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-md, 8px); background: var(--color-info-bg); color: var(--color-info-text); font-size: 14px; line-height: 1.5; }
 .meaning__title { margin: 0 0 0.35rem; font-family: var(--font-heading); font-size: 1rem; color: var(--color-text-primary); }
 .meaning p { margin: 0.25rem 0 0; }
 .meaning__link {
@@ -593,7 +796,7 @@ onUnmounted(clearTimer)
   text-underline-offset: 2px;
 }
 
-.progress { display: grid; gap: 12px; margin-bottom: 1.75rem; }
+.progress { display: grid; gap: 12px; margin-bottom: 1.25rem; }
 .prog__row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
 .prog__label { font-weight: 600; }
 .prog__meta { color: var(--color-text-muted); }
@@ -603,7 +806,144 @@ onUnmounted(clearTimer)
 @keyframes pulse-bar { 50% { opacity: 0.65; } }
 
 .section-title { font-family: var(--font-heading); font-size: 1.1rem; margin: 0 0 0.6rem; }
-.compare { margin: 1.75rem 0; }
+
+/* Summary (Hauptfrage) */
+.summary {
+  margin: 0 0 1.25rem;
+  padding: 1.1rem 1.15rem;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface-raised);
+}
+.summary__eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.summary__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+.summary__title { font-family: var(--font-heading); font-size: 1.2rem; margin: 0; line-height: 1.3; }
+.summary__arms { list-style: none; margin: 0.85rem 0 0; padding: 0; display: grid; gap: 10px; }
+.summary__arm-row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.summary__arm-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.summary__arm-meta { font-size: 12px; color: var(--color-text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
+.summary__bar,
+:deep(.stat__bar) {
+  position: relative;
+  height: 6px;
+  margin-top: 6px;
+  background: var(--color-bg-surface-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.summary__bar i,
+:deep(.stat__bar i) {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-brand-primary);
+  border-radius: inherit;
+  opacity: 0.75;
+}
+.summary__plain {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface-subtle);
+  color: var(--color-text-primary);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+/* Fold / accordion */
+.fold { margin-top: 0.75rem; }
+.fold__btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 0;
+  border: none;
+  border-top: 1px solid var(--color-border-subtle);
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.fold__chev {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--color-text-secondary);
+  border-bottom: 2px solid var(--color-text-secondary);
+  transform: rotate(45deg);
+  transition: transform 0.2s ease;
+}
+.fold__btn[aria-expanded="true"] .fold__chev,
+.more__toggle[aria-expanded="true"] .fold__chev {
+  transform: rotate(225deg);
+}
+.fold__panel[hidden] { display: none; }
+.fold__panel--open {
+  display: block;
+  animation: fold-in 0.25s ease;
+}
+@keyframes fold-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.more { margin: 0 0 1.25rem; }
+.more__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.more__item {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface-raised);
+  overflow: hidden;
+}
+.more__item--material {
+  border-color: color-mix(in srgb, var(--color-info-border) 70%, var(--color-border-default));
+}
+.more__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.more__toggle-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.more__name { font-family: var(--font-heading); font-size: 1rem; font-weight: 600; }
+.more__shares { font-size: 12px; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.more__panel { padding: 0 14px 12px; }
+
+.expert { margin: 0 0 1.5rem; }
+.expert__toggle {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg-surface-raised);
+  padding: 12px 14px;
+}
+.expert__panel {
+  margin-top: 10px;
+  padding: 4px 0 0;
+}
+
+.compare { margin: 1.25rem 0; }
 .compare__list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .compare__item { padding: 10px 12px; border-left: 3px solid var(--color-border-default); background: var(--color-bg-surface-raised); }
 .compare__item--confirmatory { border-color: var(--color-success-border); background: var(--color-success-bg); }
@@ -615,7 +955,7 @@ onUnmounted(clearTimer)
 .compare__badge--confirmatory { border-color: var(--color-success-border); background: var(--color-success-bg); color: var(--color-success-text); }
 .compare__warning { font-weight: 600; }
 .compare__tests { white-space: normal; }
-.help { margin-top: 2rem; padding: 1rem 1.1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
+.help { margin-top: 1.25rem; padding: 1rem 1.1rem; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-md, 8px); background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 14px; line-height: 1.55; }
 .help p { margin: 0; }
 
 .foot { margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--color-border-subtle); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
@@ -724,7 +1064,7 @@ onUnmounted(clearTimer)
 .mechanism-blocked { background: var(--color-bg-surface-subtle); color: var(--color-text-muted); }
 .mechanism-blocked__text { margin: 0; font-size: 12px; line-height: 1.4; }
 
-.run-stats { margin: 0 0 1.75rem; }
+.run-stats { margin: 0 0 1.25rem; }
 .run-stats--table { display: none; }
 .run-stats--list { display: grid; gap: 12px; margin: 0; padding: 0; list-style: none; }
 .run-stats__group {
@@ -752,8 +1092,6 @@ onUnmounted(clearTimer)
 
 :deep(.stat__text) { font-size: 13px; line-height: 1.4; }
 :deep(.stat__disputed) { color: var(--color-warning-text); font-weight: 600; }
-:deep(.stat__bar) { position: relative; height: 6px; margin-top: 6px; background: var(--color-bg-surface-subtle); border-radius: 999px; overflow: hidden; }
-:deep(.stat__bar i) { position: absolute; top: 0; bottom: 0; background: var(--color-brand-primary); border-radius: inherit; opacity: 0.75; }
 :deep(.evidence) { margin-top: 6px; font-size: 12px; }
 :deep(.evidence summary) { cursor: pointer; min-height: 44px; display: inline-flex; align-items: center; color: var(--color-text-secondary); }
 :deep(.evidence ul) { margin: 6px 0 0; padding-left: 1rem; color: var(--color-text-secondary); }
@@ -770,5 +1108,7 @@ onUnmounted(clearTimer)
 @media (prefers-reduced-motion: reduce) {
   .prog__fill { transition: none; }
   .prog__fill--pulse { animation: none; }
+  .fold__chev { transition: none; }
+  .fold__panel--open { animation: none; }
 }
 </style>
