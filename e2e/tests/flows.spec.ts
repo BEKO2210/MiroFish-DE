@@ -39,11 +39,11 @@ test.describe('Flows', () => {
     const row = page
       .locator('article.row')
       .filter({ hasText: 'E2E Abbruch ohne Simulation' })
-      .filter({ has: page.locator('button.act--danger') })
+      .filter({ has: page.locator('button.act--danger:not([disabled])') })
       .first()
     await expect(row).toBeVisible()
 
-    await row.locator('button.act--danger').click()
+    await row.locator('button.act--danger:not([disabled])').click()
     const sheet = page.locator('[role="alertdialog"]')
     await expect(sheet).toBeVisible()
 
@@ -69,11 +69,11 @@ test.describe('Flows', () => {
     const row = page
       .locator('article.row')
       .filter({ hasText: 'MiroFish' })
-      .filter({ has: page.locator('button.act--danger') })
+      .filter({ has: page.locator('button.act--danger:not([disabled])') })
       .first()
     await expect(row).toBeVisible()
 
-    await row.locator('button.act--danger').click()
+    await row.locator('button.act--danger:not([disabled])').click()
     const sheet = page.locator('[role="alertdialog"]')
     await expect(sheet).toBeVisible()
 
@@ -82,7 +82,7 @@ test.describe('Flows', () => {
     await expect(sheet).toBeHidden()
     expect(api!.writes.filter((c) => c.method === 'DELETE')).toHaveLength(0)
 
-    await row.locator('button.act--danger').click()
+    await row.locator('button.act--danger:not([disabled])').click()
     await expect(sheet).toBeVisible()
     await sheet.getByRole('button', { name: 'Löschen' }).click()
     await expect(sheet).toBeHidden()
@@ -90,7 +90,10 @@ test.describe('Flows', () => {
     const dels = api!.writes.filter((c) => c.method === 'DELETE' && c.pathname.startsWith('/api/simulation/'))
     expect(dels.length).toBe(1)
     await expect(
-      page.locator('article.row').filter({ hasText: 'MiroFish' }).filter({ has: page.locator('button.act--danger') }),
+      page
+        .locator('article.row')
+        .filter({ hasText: 'MiroFish' })
+        .filter({ has: page.locator('button.act--danger:not([disabled])') }),
     ).toHaveCount(0)
   })
 
@@ -909,5 +912,86 @@ test.describe('Flows', () => {
     const deskBox = await desktopSend.boundingBox()
     expect(deskBox!.width).toBeGreaterThanOrEqual(44)
     expect(deskBox!.height).toBeGreaterThanOrEqual(44)
+  })
+
+  test('Schrittanzeige: Nachfragen ist „hier“, erledigte Stufen mit Haken, nicht „läuft“', async ({
+    page,
+  }) => {
+    await preparePage(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/interaction/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    await expect(page.getByTestId('step-dot-5')).toHaveAttribute('data-state', 'here')
+    await expect(page.getByTestId('step-dot-5')).toHaveAttribute('aria-current', 'step')
+    await expect(page.getByTestId('step-dot-5')).toHaveClass(/is-here/)
+    await expect(page.locator('.step-dot.is-running')).toHaveCount(0)
+    for (const n of [1, 2, 3, 4]) {
+      await expect(page.getByTestId(`step-dot-${n}`)).toHaveAttribute('data-state', 'done')
+      await expect(page.getByTestId(`step-dot-${n}`).locator('.step-dot__check')).toBeVisible()
+    }
+    await expect(page.getByTestId('step-dot-5')).toContainText(/hier/i)
+  })
+
+  test('Schrittanzeige: Bericht fertig → Stufe 4 „hier“, Stufe 5 verfügbar', async ({ page }) => {
+    await preparePage(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/report/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+    await expect
+      .poll(async () => page.getByTestId('step-dot-4').getAttribute('data-state'))
+      .toBe('here')
+    await expect(page.getByTestId('step-dot-4')).toHaveAttribute('aria-current', 'step')
+    await expect(page.getByTestId('step-dot-5')).toHaveAttribute('data-state', 'available')
+    await expect(page.locator('.step-dot.is-running')).toHaveCount(0)
+  })
+
+  test('Verlauf: Validierungsläufe getrennt ohne Löschen; laufende nicht löschbar; 409 verständlich', async ({
+    page,
+  }) => {
+    const { api } = await preparePage(page)
+    await page.goto('/history', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    const validation = page.getByTestId('hist-validation')
+    await expect(validation).toBeVisible()
+    await expect.poll(async () => validation.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(false)
+    await expect(validation.locator('summary')).toContainText(/Validierungsläufe/)
+    await validation.locator('summary').click()
+    await expect.poll(async () => validation.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(true)
+    await expect(validation).toContainText(/automatisch verwaltet/)
+    const valRow = validation.locator('article.row').filter({ hasText: /Realitätsabgleich/ })
+    await expect(valRow).toBeVisible()
+    await expect(valRow.locator('button.act--danger')).toHaveCount(0)
+    await expect(page.getByTestId('hist-regular')).not.toContainText(/Realitätsabgleich/)
+
+    const running = page.getByTestId('hist-row-sim_running_e2e')
+    await expect(running).toBeVisible()
+    const blocked = running.locator('button.act--danger')
+    await expect(blocked).toBeDisabled()
+    await expect(blocked).toHaveAttribute('title', /Läuft gerade/)
+
+    const row = page
+      .locator('[data-testid="hist-regular"] article.row')
+      .filter({ hasText: 'MiroFish' })
+      .filter({ has: page.locator('button.act--danger:not([disabled])') })
+      .first()
+    await page.route('**/api/simulation/**', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: false, error: 'Simulation still running' }),
+        })
+        return
+      }
+      await route.fallback()
+    })
+    await row.locator('button.act--danger:not([disabled])').click()
+    const sheet = page.locator('[role="alertdialog"]')
+    await expect(sheet).toBeVisible()
+    api!.reset()
+    await sheet.getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.locator('.error[role="alert"]')).toContainText(/Läuft gerade/)
   })
 })

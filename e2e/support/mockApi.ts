@@ -461,6 +461,53 @@ const FAILED_NOSIM_PIPELINE = {
   status: 'failed',
 }
 
+/** Pilot-Validierungslauf (kein Löschen in der UI) */
+const VALIDATION_HISTORY_ITEM = {
+  config_generated: true,
+  created_at: '2026-10-13T11:00:00.000000',
+  created_date: '2026-10-13',
+  current_round: 10,
+  project_id: null,
+  project_name: 'Realitätsabgleich Pilot Neuwied',
+  report_id: null,
+  runner_status: 'completed',
+  simulation_id: 'sim_validierung_e2e',
+  simulation_requirement: 'Realitätsabgleich: Parkgebühren Neuwied',
+  source: 'validierung',
+  status: 'ready',
+  total_rounds: 10,
+  updated_at: '2026-10-13T11:30:00.000000',
+}
+
+/** Laufender Simulations-Eintrag ohne abgeschlossenen Bericht (Löschen deaktiviert) */
+const RUNNING_HISTORY_ITEM = {
+  config_generated: false,
+  created_at: '2026-10-13T11:45:00.000000',
+  created_date: '2026-10-13',
+  current_round: 0,
+  project_id: 'proj_running_e2e',
+  project_name: 'E2E Laufender Eintrag',
+  report_id: null,
+  runner_status: 'running',
+  simulation_id: 'sim_running_e2e',
+  simulation_requirement: 'E2E Laufender Eintrag – bitte nicht löschen',
+  status: 'processing',
+  total_rounds: 0,
+  updated_at: '2026-10-13T11:50:00.000000',
+}
+
+const RUNNING_PIPELINE_FOR_HIST = {
+  completed_at: null,
+  created_at: '2026-10-13T11:45:00.000000',
+  current_step: 'simulate',
+  error: null,
+  pipeline_id: 'run_running_e2e',
+  report_id: null,
+  requirement: 'E2E Laufender Eintrag – bitte nicht löschen',
+  simulation_id: 'sim_running_e2e',
+  status: 'running',
+}
+
 /** Laufender Pipeline-Zustand für Lebenszeichen / Stale-Hinweis (Uhr: FIXED_NOW). */
 function runningPipelineFixture(pipelineId: string, updatedAt: string) {
   return defaultOk({
@@ -557,12 +604,12 @@ export async function installMockApi(page: Page): Promise<MockApi> {
     if (method === 'GET' || method === 'HEAD') {
       // Verlauf: abgebrochener Durchlauf ohne simulation_id (für Löschen-via-Pipeline)
       if (pathname === '/api/pipeline/list') {
-        const base = (loadFixture('pipeline_list') as { success?: boolean; data?: unknown[] } | null) || defaultOk([])
-        const data = Array.isArray((base as { data?: unknown[] }).data)
-          ? [...((base as { data: unknown[] }).data)]
-          : []
-        if (!data.some((p) => (p as { pipeline_id?: string }).pipeline_id === FAILED_NOSIM_PIPELINE.pipeline_id)) {
-          data.push(FAILED_NOSIM_PIPELINE)
+        const base = (loadFixture('pipeline_list') as { data?: unknown[] } | null)?.data
+        const data = Array.isArray(base) ? [...base] : []
+        for (const item of [FAILED_NOSIM_PIPELINE, RUNNING_PIPELINE_FOR_HIST]) {
+          if (!data.some((p) => (p as { pipeline_id?: string }).pipeline_id === item.pipeline_id)) {
+            data.push(item)
+          }
         }
         const filtered = data.filter(
           (p) => !deletedPipelines.has((p as { pipeline_id?: string }).pipeline_id || ''),
@@ -571,6 +618,22 @@ export async function installMockApi(page: Page): Promise<MockApi> {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ success: true, data: filtered }),
+        })
+        return
+      }
+
+      if (pathname === '/api/simulation/history' || pathname === '/api/simulation/list') {
+        const hist = (loadFixture('simulation_history') as { data?: unknown[] } | null)?.data
+        const data = Array.isArray(hist) ? [...hist] : []
+        for (const item of [VALIDATION_HISTORY_ITEM, RUNNING_HISTORY_ITEM]) {
+          if (!data.some((s) => (s as { simulation_id?: string }).simulation_id === item.simulation_id)) {
+            data.push(item)
+          }
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ success: true, data, count: data.length }),
         })
         return
       }
@@ -595,16 +658,6 @@ export async function installMockApi(page: Page): Promise<MockApi> {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify(payload),
-        })
-        return
-      }
-      // Bekannte Listen-Endpunkte ohne Datei
-      if (pathname === '/api/simulation/list') {
-        const hist = loadFixture('simulation_history')
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(hist || defaultOk([])),
         })
         return
       }

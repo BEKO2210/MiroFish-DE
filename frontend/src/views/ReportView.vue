@@ -5,7 +5,14 @@
       <div class="header-left">
         <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
-      <StepHeaderCompact class="mobile-step-header" :current-step="4" :max-unlocked-step="4" :step-names="stepNames" @select-step="selectStep" />
+      <StepHeaderCompact
+        class="mobile-step-header"
+        :current-step="4"
+        :max-unlocked-step="currentStatus === 'completed' ? 5 : 4"
+        :step-names="stepNames"
+        :busy="currentStatus === 'processing'"
+        @select-step="selectStep"
+      />
       
       <div class="header-center">
         <div class="view-switcher">
@@ -28,7 +35,7 @@
           <span class="step-name">{{ $t('reportView.berichterstellung') }}</span>
         </div>
         <div class="step-divider"></div>
-        <span class="status-indicator" :class="statusClass">
+        <span class="status-indicator" :class="currentStatus">
           <span class="dot"></span>
           {{ statusText }}
         </span>
@@ -111,11 +118,6 @@ const rightPanelStyle = computed(() => {
   return { width: '50%', opacity: 1, transform: 'translateX(0)' }
 })
 
-// --- Status Computed ---
-const statusClass = computed(() => {
-  return currentStatus.value
-})
-
 const statusText = computed(() => {
   if (currentStatus.value === 'error') return t('common.error')
   if (currentStatus.value === 'completed') return t('common.completed')
@@ -145,6 +147,9 @@ const toggleMaximize = (target) => {
 }
 
 const selectStep = (step) => {
+  if (step === 5 && currentReportId.value && currentStatus.value === 'completed') {
+    router.push({ name: 'Interaction', params: { reportId: currentReportId.value } })
+  }
   if (step === 3 && simulationId.value) router.push({ name: 'SimulationRun', params: { simulationId: simulationId.value } })
   if (step === 2 && simulationId.value) router.push({ name: 'Simulation', params: { simulationId: simulationId.value } })
   if (step === 1 && projectData.value?.project_id) router.push({ name: 'Process', params: { projectId: projectData.value.project_id } })
@@ -160,7 +165,10 @@ const loadReportData = async () => {
     if (reportRes.success && reportRes.data) {
       const reportData = reportRes.data
       simulationId.value = reportData.simulation_id
-      
+      if (reportData.status === 'completed' || reportData.markdown_content) {
+        currentStatus.value = 'completed'
+      }
+
       if (simulationId.value) {
         // Simulationsinformationen abrufen
         const simRes = await getSimulation(simulationId.value)

@@ -5,7 +5,14 @@
       <div class="header-left">
         <button type="button" class="brand" @click="router.push('/')" :aria-label="$t('nav.homeAria')"><img src="/logo-mark.svg" alt="" width="28" height="28" /><span>MiroFish</span></button>
       </div>
-      <StepHeaderCompact class="mobile-step-header" :current-step="currentStep" :max-unlocked-step="currentStep" :step-names="stepNames" @select-step="selectStep" />
+      <StepHeaderCompact
+        class="mobile-step-header"
+        :current-step="currentStep"
+        :max-unlocked-step="currentStep"
+        :step-names="stepNames"
+        :busy="statusClass === 'processing' && currentStep < 5"
+        @select-step="selectStep"
+      />
       
       <div class="header-center">
         <div class="view-switcher">
