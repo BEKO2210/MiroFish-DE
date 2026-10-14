@@ -7,7 +7,8 @@
     "zeitfenster": "T0 bis T0+14 Tage (bis 11.09.2025)",
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens ein organisierter Akteur (Ratsfraktion, Verein, Verband oder Bürgerinitiative) eine ablehnende Stellungnahme gegen die Maßnahme.",
     "eingetreten": false,
-    "quelle": "7 (18.09.2025) und 2 (undatiert); dokumentierte Negativsuche, kein datierter Beleg im Fenster bis 11.09.2025"
+    "quelle": "7 (18.09.2025) und 2 (undatiert); dokumentierte Negativsuche, kein datierter Beleg im Fenster bis 11.09.2025",
+    "quellenluecke": true
   },
   {
     "id": "beschluss_aufgehoben",

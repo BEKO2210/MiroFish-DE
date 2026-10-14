@@ -4,7 +4,11 @@
     "polarity": "presence",
     "eingetreten": true,
     "primaer": true,
-    "quelle": "3 (CDU-Fraktionsbeitrag vom 17.12.2021)"
+    "quelle": "3 (CDU-Fraktionsbeitrag vom 17.12.2021)",
+    "kontaminiert": {
+      "quelle": "Externe Kaltprüfung Gemini 3.8 Flash, ohne Websuche, nur Bogentext; erkannt mit 95 %, Ausgang bekannt",
+      "datum": "2026-10-14"
+    }
   },
   {
     "text_de": "Innerhalb von 14 Tagen veröffentlicht mindestens eine Ratsfraktion eine befürwortende Stellungnahme zur beschlossenen Gebührenhöhe.",

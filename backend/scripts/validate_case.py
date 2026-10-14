@@ -19,6 +19,7 @@ QUESTION = ("Wie reagieren Bürgerinnen, Vereine, Medien und Politik in den erst
             "Wochen nach der Bekanntgabe?")
 ALLOWED_ARMS = ("baseline", "null_document", "null_personas", "isolated")
 DEFAULT_ARMS = ("baseline", "null_document", "null_personas")
+ALLOWED_MINUTES_PER_ROUND = (60, 120, 240)
 ARM_LABELS = {"baseline": "Schwarm (S)", "null_document": "Dokument-Nullmodell (D)",
               "null_personas": "Persona-Nullmodell (P)", "isolated": "Isoliert"}
 TERMINAL_ENSEMBLE_STATUSES = {"completed", "failed", "cancelled"}
@@ -124,6 +125,41 @@ def load_outcomes(case_dir: Path) -> List[Dict[str, Any]]:
     if primary_count != 1:
         raise ValueError("ergebnisse.json muss genau eine Frage mit primaer: true enthalten")
     return outcomes
+
+
+def case_annotations(outcomes: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Vorab-Kontamination und Quellenlücke aus den Frageobjekten, nicht aus dem Ordnernamen."""
+    kontaminiert = None
+    quellenluecke = False
+    for index, outcome in enumerate(outcomes):
+        if "quellenluecke" in outcome and not isinstance(outcome.get("quellenluecke"), bool):
+            raise ValueError(f"quellenluecke in ergebnisse.json[{index}] muss boolesch sein")
+        quellenluecke = quellenluecke or outcome.get("quellenluecke") is True
+        if "kontaminiert" not in outcome or outcome.get("kontaminiert") in (None, False):
+            continue
+        flag = outcome.get("kontaminiert")
+        if not isinstance(flag, dict):
+            raise ValueError(
+                f"kontaminiert in ergebnisse.json[{index}] muss ein Objekt mit quelle und datum sein")
+        quelle = str(flag.get("quelle") or "").strip()
+        datum = str(flag.get("datum") or "").strip()
+        if not quelle or not datum:
+            raise ValueError(f"kontaminiert in ergebnisse.json[{index}] braucht quelle und datum")
+        parsed = {"quelle": quelle, "datum": datum}
+        if kontaminiert and kontaminiert != parsed:
+            raise ValueError("kontaminiert ist mehrfach und widersprüchlich gesetzt")
+        kontaminiert = parsed
+    return {"kontaminiert": kontaminiert, "quellenluecke": quellenluecke}
+
+
+def validate_minutes_per_round(minutes: Any, hours: int) -> int:
+    if isinstance(minutes, bool) or not isinstance(minutes, int) or minutes not in ALLOWED_MINUTES_PER_ROUND:
+        raise ValueError("minutes_per_round muss 60, 120 oder 240 sein")
+    if (hours * 60) % minutes:
+        raise ValueError(
+            f"hours ({hours}) muss durch minutes_per_round/60 ({minutes // 60}) teilbar sein; "
+            "sonst würden Stunden abgeschnitten")
+    return minutes
 
 
 def blind_custom_outcomes(outcomes: Sequence[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -243,9 +279,11 @@ def check_contamination(identity: Dict[str, str], llm: Any = None,
             "answer": answers.get("identity"), "material_answer": answers.get("material")}
 
 
-def _new_state(case_name: str, base: str, runs: int, hours: int, arms: Sequence[str]) -> Dict[str, Any]:
+def _new_state(case_name: str, base: str, runs: int, hours: int, arms: Sequence[str],
+               minutes_per_round: int = 60) -> Dict[str, Any]:
     return {"case": case_name, "base": base.rstrip("/"), "runs": runs, "hours": hours,
-            "arms": list(arms), "question": QUESTION, "contamination_check": None,
+            "minutes_per_round": minutes_per_round, "arms": list(arms), "question": QUESTION,
+            "contamination_check": None,
             "project_id": None, "graph_task_id": None, "graph_id": None,
             "simulation_id": None, "prepare_task_id": None, "prepared": False,
             "ensemble_id": None, "ensemble_completed": False,
@@ -258,14 +296,15 @@ def _save_state(path: Path, state: Dict[str, Any]) -> None:
 
 
 def load_or_create_state(path: Path, case_name: str, base: str, runs: int, hours: int,
-                         arms: Sequence[str] = DEFAULT_ARMS) -> Dict[str, Any]:
+                         arms: Sequence[str] = DEFAULT_ARMS,
+                         minutes_per_round: int = 60) -> Dict[str, Any]:
     if not path.is_file():
-        state = _new_state(case_name, base, runs, hours, arms)
+        state = _new_state(case_name, base, runs, hours, arms, minutes_per_round)
         _save_state(path, state)
         return state
     state = _load_json(path)
     expected = {"case": case_name, "base": base.rstrip("/"), "runs": runs, "hours": hours,
-                "arms": list(arms), "question": QUESTION}
+                "minutes_per_round": minutes_per_round, "arms": list(arms), "question": QUESTION}
     conflicts = [key for key, value in expected.items() if state.get(key) != value]
     if conflicts:
         raise ValueError("Vorhandener Resume-State passt nicht zu diesem Aufruf: " + ", ".join(conflicts))
@@ -330,6 +369,7 @@ def run_ensemble(client: ApiClient, outcomes: Sequence[Dict[str, Any]], state_pa
     if not state.get("ensemble_id"):
         body = {"simulation_id": state["simulation_id"], "variants": list(state["arms"]),
                 "runs": state["runs"], "hours": state["hours"],
+                "minutes_per_round": state["minutes_per_round"],
                 "custom_outcomes": blind_custom_outcomes(outcomes)}
         primary_id = primary_outcome_id(outcomes)
         if primary_id:
@@ -438,20 +478,28 @@ def _primary_s_vs_p(ensemble: Dict[str, Any], primary_id: Optional[str]) -> Opti
 
 def contaminated_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]],
                              contamination: Dict[str, Any], *, runs: int, hours: int,
-                             arms: Sequence[str]) -> Dict[str, Any]:
-    return {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
-            "hours": hours, "arms": list(arms), "primary_outcome_id": primary_outcome_id(outcomes),
-            "contaminated": True, "contamination_check": contamination,
-            "simulation_id": None, "ensemble_id": None,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "rows": [], "metrics": {}, "primary_metrics": {}, "metrics_citable": False,
-            "metrics_note": METRICS_NOTE, "primary_s_vs_p": None,
-            "aborted_before_prepare": True}
+                             arms: Sequence[str], minutes_per_round: int = 60,
+                             quellenluecke: bool = False,
+                             kontaminiert: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    result = {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
+              "hours": hours, "minutes_per_round": minutes_per_round, "arms": list(arms),
+              "primary_outcome_id": primary_outcome_id(outcomes),
+              "contaminated": True, "quellenluecke": quellenluecke,
+              "contamination_check": contamination,
+              "simulation_id": None, "ensemble_id": None,
+              "generated_at": datetime.now(timezone.utc).isoformat(),
+              "rows": [], "metrics": {}, "primary_metrics": {}, "metrics_citable": False,
+              "metrics_note": METRICS_NOTE, "primary_s_vs_p": None,
+              "aborted_before_prepare": True}
+    if kontaminiert:
+        result["kontaminiert"] = kontaminiert
+    return result
 
 
 def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemble: Dict[str, Any],
                       *, runs: int, hours: int, arms: Optional[Sequence[str]] = None,
-                      contamination: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+                      contamination: Optional[Dict[str, Any]] = None,
+                      minutes_per_round: int = 60) -> Dict[str, Any]:
     results, reliability = ensemble.get("results") or {}, ensemble.get("reliability") or {}
     arms = list(arms or [arm for arm in ALLOWED_ARMS if arm in results])
     custom = {str(item.get("text_de") or "").strip(): item for item in ensemble.get("checklist") or []
@@ -488,8 +536,10 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
     primary = [row for row in scored if row["primary"]]
     primary_id = next((row["outcome_id"] for row in rows if row["primary"]), None)
     return {"schema_version": 2, "case": case_name, "question": QUESTION, "runs": runs,
-            "hours": hours, "arms": arms, "primary_outcome_id": primary_id,
+            "hours": hours, "minutes_per_round": minutes_per_round, "arms": arms,
+            "primary_outcome_id": primary_id,
             "contaminated": bool((contamination or {}).get("known", False)),
+            "quellenluecke": any(item.get("quellenluecke") is True for item in outcomes),
             "contamination_check": contamination, "simulation_id": ensemble.get("simulation_id"),
             "ensemble_id": ensemble.get("ensemble_id"), "generated_at": datetime.now(timezone.utc).isoformat(),
             "rows": rows, "metrics": metrics(scored), "primary_metrics": metrics(primary),
@@ -510,7 +560,8 @@ def case_markdown(result: Dict[str, Any]) -> str:
     lines = [f"# V5-Realitätsabgleich: {result['case']}", "", f"Neutrale Frage: „{QUESTION}“", "",
              f"Kontaminationsprüfung: **{'kennt den Fall' if result['contaminated'] else 'kennt den Fall nicht'}** "
              f"(Modell: {_escape(check.get('model', '–'))}).", "",
-             f"{result['runs']} Läufe je Arm, {result['hours']} simulierte Stunden. Wahrheitswert, Quellen und "
+             f"{result['runs']} Läufe je Arm, {result['hours']} simulierte Stunden, "
+             f"Rundentakt {result.get('minutes_per_round', 60)} Minuten. Wahrheitswert, Quellen und "
              "tatsächlicher Verlauf wurden nicht an die Simulation gesendet.", "",
              "| Ergebnis | Typ | tatsächlich | " + " | ".join(ARM_LABELS[a] for a in arms) + " | Kappa |",
              "|---|---|---:|" + "---:|" * len(arms) + "---:|"]
@@ -627,24 +678,79 @@ def _summary_group(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             "preregistered_criterion": {"status": status, "checks": checks}}
 
 
+def _minutes_protocol(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    rows = [{"case": item.get("case"), "minutes_per_round": item["minutes_per_round"]}
+            for item in results if isinstance(item.get("minutes_per_round"), int)
+            and not isinstance(item.get("minutes_per_round"), bool)]
+    return {"values": sorted({row["minutes_per_round"] for row in rows}), "cases": rows}
+
+
 def build_summary(case_results: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     results = list(case_results)
     clean = [item for item in results if not item.get("contaminated", False)]
+    # Ausschluss nur über das Feld, nie über den Ordnernamen.
+    sensitivity = [item for item in clean if item.get("quellenluecke") is not True]
+    sensitivity_group = _summary_group(sensitivity)
+    sensitivity_group["replaces_primary"] = False
     contaminated = [item for item in results if item.get("contaminated", False)]
+    declared = []
+    for item in contaminated:
+        flag = item.get("kontaminiert")
+        if isinstance(flag, dict):
+            declared.append({"case": item.get("case"), "quelle": flag.get("quelle"),
+                             "datum": flag.get("datum")})
     return {"schema_version": 2, "generated_at": datetime.now(timezone.utc).isoformat(),
             "bootstrap_unit": "case", "bootstrap_seed": BOOTSTRAP_SEED,
-            "bootstrap_samples": BOOTSTRAP_SAMPLES, "clean": _summary_group(clean),
+            "bootstrap_samples": BOOTSTRAP_SAMPLES, "minutes_per_round": _minutes_protocol(results),
+            "clean": _summary_group(clean),
+            "sensitivity_no_source_gap": sensitivity_group,
+            "source_gap_cases": [item.get("case") for item in clean if item.get("quellenluecke") is True],
             "contaminated": _summary_group(contaminated),
-            "contaminated_cases": [item.get("case") for item in contaminated]}
+            "contaminated_cases": [item.get("case") for item in contaminated],
+            "contaminated_declared": declared}
+
+
+def _minutes_sentence(summary: Dict[str, Any]) -> Optional[str]:
+    protocol = summary.get("minutes_per_round") or {}
+    values = protocol.get("values") or []
+    if len(values) == 1:
+        return f"Rundentakt: {values[0]} Minuten je Runde."
+    if values:
+        rendered = ", ".join(f"{row['case']}: {row['minutes_per_round']}" for row in protocol.get("cases") or [])
+        return f"Rundentakt je Fall: {rendered}."
+    return None
+
+
+def _brier_table(group: Dict[str, Any]) -> List[str]:
+    lines = ["| Arm | Brier-Score | 95-%-Fall-Bootstrap-KI | Kalibrierungssteigung |",
+             "|---|---:|---:|---:|"]
+    for arm in group["arms"]:
+        cal = group["calibration"][arm]
+        interval = group["brier_ci_95"][arm]
+        rendered = f"{interval['low']:.4f}–{interval['high']:.4f}" if interval else "–"
+        slope_cell = _display(cal["slope"])
+        if cal.get("note"):
+            slope_cell = f"{slope_cell} ({cal['note']})"
+        lines.append(f"| {ARM_LABELS[arm]} | {_display(group['brier'][arm])} | {rendered} | {slope_cell} |")
+    lines += ["", "| Kontrast | Skill | 95-%-Fall-Bootstrap-KI |", "|---|---:|---:|"]
+    for name, item in group["skill"].items():
+        interval = item["ci_95"]
+        rendered = f"{interval['low']:.4f}–{interval['high']:.4f}" if interval else "–"
+        lines.append(f"| {name} | {_display(item['value'])} | {rendered} |")
+    return lines
 
 
 def summary_markdown(summary: Dict[str, Any]) -> str:
     group = summary["clean"]
     lines = ["# V5-Realitätsabgleich – Gesamt", "",
-             f"{group['scored_primary_cases']} nicht kontaminierte Fälle mit messbarem Primärergebnis. "
-             f"Bootstrap über **Fälle** ({summary['bootstrap_samples']} Ziehungen, Seed {summary['bootstrap_seed']}).",
-             "", "| Arm | Brier-Score | 95-%-Fall-Bootstrap-KI | Kalibrierungssteigung |",
-             "|---|---:|---:|---:|"]
+             f"Primäranalyse: {group['case_count']} nicht kontaminierte Fälle, "
+             f"davon {group['scored_primary_cases']} mit messbarem Primärergebnis. "
+             f"Bootstrap über **Fälle** ({summary['bootstrap_samples']} Ziehungen, Seed {summary['bootstrap_seed']})."]
+    takt = _minutes_sentence(summary)
+    if takt:
+        lines.append(takt)
+    lines += ["", "| Arm | Brier-Score | 95-%-Fall-Bootstrap-KI | Kalibrierungssteigung |",
+              "|---|---:|---:|---:|"]
     for arm in group["arms"]:
         cal = group["calibration"][arm]
         interval = group["brier_ci_95"][arm]
@@ -668,14 +774,33 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
               "mit Fall-Bootstrap.", "",
               f"Mittel: {_display(contrast.get('mean_distance'))}, 95-%-KI: {contrast_rendered}.", ""]
     criterion = group["preregistered_criterion"]
+    contaminated_line = (
+        f"Kontaminierte Fälle ({summary['contaminated']['case_count']}): "
+        + (", ".join(summary["contaminated_cases"]) or "keine")
+        + ". Sie sind aus der Hauptauswertung ausgeschlossen und im JSON getrennt ausgewiesen."
+    )
+    declared = summary.get("contaminated_declared") or []
+    if declared:
+        detail = "; ".join(
+            f"{row['case']} ({row.get('datum') or '–'}: {row.get('quelle') or '–'})" for row in declared)
+        contaminated_line += f" Vorab festgelegt: {detail}."
     lines += ["## Vorab-Kriterium", "",
               f"**{criterion['status']}**. Der Pilotstatus hängt am Skill-Intervall S gegen D "
               "(vollständig über 0) und an Kappa ≥ 0,6. Liegt das Skill-Intervall ganz unter 0, "
               "ist der Status nicht bestanden, auch ohne Kalibrierungssteigung. "
               f"Die Steigung zählt unter {CALIBRATION_MIN_CASES} Fällen nicht als Bestehen.", "",
-              f"Kontaminierte Fälle ({summary['contaminated']['case_count']}): "
-              + (", ".join(summary["contaminated_cases"]) or "keine")
-              + ". Sie sind aus der Hauptauswertung ausgeschlossen und im JSON getrennt ausgewiesen."]
+              contaminated_line]
+    sens = summary["sensitivity_no_source_gap"]
+    excluded = ", ".join(summary.get("source_gap_cases") or []) or "keine"
+    lines += ["", "## Vorab fixierte Sensitivitätsanalyse", "",
+              f"{sens['case_count']} nicht kontaminierte Fälle ohne Quellenlücke, "
+              f"davon {sens['scored_primary_cases']} mit messbarem Primärergebnis. "
+              f"Ausgeschlossen über das Feld quellenluecke: {excluded}. "
+              "Diese Auswertung ersetzt das Vorab-Kriterium der Primäranalyse nicht.", ""]
+    if sens["arms"]:
+        lines.extend(_brier_table(sens))
+    else:
+        lines.append("Keine gewerteten Fälle.")
     return "\n".join(lines) + "\n"
 
 
@@ -694,11 +819,18 @@ def update_summary(results_dir: Path) -> Dict[str, Any]:
     return summary
 
 
+def _write_contaminated(results_dir: Path, case_name: str, result: Dict[str, Any], note: str) -> None:
+    _write_json_atomic(results_dir / f"{case_name}.json", result)
+    _write_text_atomic(results_dir / f"{case_name}.md", note)
+    update_summary(results_dir)
+
+
 def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
                   arms: Sequence[str] = DEFAULT_ARMS, base: str = "http://127.0.0.1:5002",
                   results_dir: Path = DEFAULT_RESULTS_DIR, client: Optional[ApiClient] = None,
                   contamination_checker: Any = None, location: Optional[str] = None,
                   year: Optional[str] = None, topic: Optional[str] = None,
+                  minutes_per_round: int = 60,
                   sleep: Callable[[float], None] = time.sleep, poll_interval: float = 5.0) -> Dict[str, Any]:
     case_dir = case_dir.resolve()
     validate_case_files(case_dir)
@@ -707,10 +839,27 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
         raise ValueError("runs muss zwischen 1 und 100 liegen")
     if isinstance(hours, bool) or not 1 <= hours <= 336:
         raise ValueError("hours muss zwischen 1 und 336 liegen")
+    minutes_per_round = validate_minutes_per_round(minutes_per_round, hours)
     outcomes = load_outcomes(case_dir)
+    annotations = case_annotations(outcomes)
     results_dir.mkdir(parents=True, exist_ok=True)
+    if annotations["kontaminiert"]:
+        flag = annotations["kontaminiert"]
+        result = contaminated_case_result(
+            case_dir.name, outcomes,
+            {"known": True, "predeclared": True, "quelle": flag["quelle"], "datum": flag["datum"],
+             "checked_at": datetime.now(timezone.utc).isoformat(), "model": None, "answer": None},
+            runs=runs, hours=hours, arms=arms, minutes_per_round=minutes_per_round,
+            quellenluecke=annotations["quellenluecke"], kontaminiert=flag)
+        _write_contaminated(
+            results_dir, case_dir.name, result,
+            f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
+            f"Vorab kontaminiert (Quelle: {flag['quelle']}, Datum: {flag['datum']}). "
+            "Die Simulation wurde nicht gestartet.\n")
+        raise ValueError(f"Fall {case_dir.name} ist vorab kontaminiert ({flag['quelle']}, {flag['datum']}); "
+                         "Simulation nicht gestartet")
     state_path = results_dir / f"{case_dir.name}.state.json"
-    state = load_or_create_state(state_path, case_dir.name, base, runs, hours, arms)
+    state = load_or_create_state(state_path, case_dir.name, base, runs, hours, arms, minutes_per_round)
     if not state.get("contamination_check"):
         material = (case_dir / "ausgangslage.md").read_text(encoding="utf-8")
         state["contamination_check"] = check_contamination(
@@ -719,20 +868,21 @@ def validate_case(case_dir: Path, *, runs: int = 10, hours: int = 336,
         _save_state(state_path, state)
     if state["contamination_check"].get("known") is True:
         result = contaminated_case_result(
-            case_dir.name, outcomes, state["contamination_check"], runs=runs, hours=hours, arms=arms)
-        _write_json_atomic(results_dir / f"{case_dir.name}.json", result)
-        _write_text_atomic(results_dir / f"{case_dir.name}.md",
-                           f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
-                           "Kontaminationsprüfung: **kennt den Fall**. "
-                           "Die Simulation wurde vor der Vorbereitung abgebrochen.\n")
-        update_summary(results_dir)
+            case_dir.name, outcomes, state["contamination_check"], runs=runs, hours=hours, arms=arms,
+            minutes_per_round=minutes_per_round, quellenluecke=annotations["quellenluecke"])
+        _write_contaminated(
+            results_dir, case_dir.name, result,
+            f"# V5-Realitätsabgleich: {case_dir.name}\n\n"
+            "Kontaminationsprüfung: **kennt den Fall**. "
+            "Die Simulation wurde vor der Vorbereitung abgebrochen.\n")
         raise ValueError(f"Fall {case_dir.name} ist kontaminiert (Kaltfrage kennt: true); "
                          "Simulation vor der Vorbereitung abgebrochen")
     api = client or ApiClient(base)
     prepare_simulation(api, case_dir, state_path, state, sleep=sleep, poll_interval=poll_interval)
     ensemble = run_ensemble(api, outcomes, state_path, state, sleep=sleep, poll_interval=poll_interval)
     result = build_case_result(case_dir.name, outcomes, ensemble, runs=runs, hours=hours,
-                               arms=arms, contamination=state["contamination_check"])
+                               arms=arms, contamination=state["contamination_check"],
+                               minutes_per_round=state["minutes_per_round"])
     _write_json_atomic(results_dir / f"{case_dir.name}.json", result)
     _write_text_atomic(results_dir / f"{case_dir.name}.md", case_markdown(result))
     update_summary(results_dir)
@@ -744,6 +894,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("case_dir", type=Path, help="Ordner mit ausgangslage.md, verlauf.md und ergebnisse.json")
     parser.add_argument("--runs", type=int, default=10)
     parser.add_argument("--hours", type=int, default=336)
+    parser.add_argument("--minutes-per-round", type=int, default=60, choices=ALLOWED_MINUTES_PER_ROUND,
+                        help="Rundentakt in Minuten, an den Ensemble-Start durchgereicht")
     parser.add_argument("--arms", default=",".join(DEFAULT_ARMS), help="Kommagetrennte V5-Arme")
     parser.add_argument("--base", default="http://127.0.0.1:5002")
     parser.add_argument("--ort", dest="location")
@@ -756,6 +908,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     arguments = parse_args(argv)
     try:
         result = validate_case(arguments.case_dir, runs=arguments.runs, hours=arguments.hours,
+                               minutes_per_round=arguments.minutes_per_round,
                                arms=parse_arms(arguments.arms), base=arguments.base,
                                location=arguments.location, year=arguments.year, topic=arguments.topic)
     except (ApiError, OSError, ValueError) as error:
