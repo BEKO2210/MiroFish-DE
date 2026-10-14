@@ -436,3 +436,16 @@ oder Arme, weist das Werkzeug den vorhandenen State ab.
 `--results-dir`): `<fall>.md` und `<fall>.json` je Fall, `<fall>.state.json` (IDs und Resume-Zähler), `preflight.json`,
 `pilot.log`, am Ende `GESAMT.md` und `GESAMT.json` mit dem vorregistrierten Urteil. Die Rohdaten je Ensemble liegen unter
 `backend/uploads/ensembles/<id>/` (`ensemble.json`, je Lauf `classification.json`) und über `GET /api/ensemble/<id>`.
+
+## Zweitbewertung mit Gemini
+
+Zusätzlich zur lokalen Doppelklassifikation (V3c) kann dieselbe Stapelanweisung an Gemini gehen. Das macht die Antigravity-CLI `agy` auf belkis-home, nicht das Ensemble. Voraussetzung ist ein Prompt-Verzeichnis `P` von `backend/scripts/export_rater_prompts.py`: `P/<arm>/<run>/batch_<n>.json` mit den Feldern `system`, `user`, `expected_ids` und `kind`.
+
+```bash
+scripts/agy_second_rater.sh --dry-run /pfad/zu/P    # zeigt nur den Prompt
+scripts/agy_second_rater.sh /pfad/zu/P             # schickt die Stapel
+```
+
+Das Skript läuft streng nacheinander (Pause 2 Sekunden). Aufruf je Stapel: `agy --model 'Gemini 3.8 Flash (High)' --mode plan --print-timeout 1400s` mit dem Text aus fester Werkzeug-Sperre, `system` und `user`. Kurze Prompts gehen über `--print` (Shell-Variable). Ab 100000 Bytes wäre das einzelne Argument länger als die Linux-Grenze; dann liest `agy` den Prompt von stdin. `--print -` liest nicht von stdin. `agy` startet in einem leeren Verzeichnis, damit der Plan-Modus das Repo nicht anfasst.
+
+Die Rohantwort liegt neben dem Stapel als `batch_<n>.answer.txt`. Eine vorhandene Datei, die `{` enthält und nicht `no output produced`, wird übersprungen. Liefert `agy` stattdessen `no output produced` (Werkzeugversuch ohne Freigabe, oft mit `permission`), wird die Antwort verworfen und der Stapel bis zu dreimal versucht. Fortschritt steht in `P/agy.log` (Zeitstempel, Datei, Dauer, Ergebnis). Am Ende: Anzahl ok und fehlgeschlagen. Exit 0, wenn nichts fehlgeschlagen ist.
