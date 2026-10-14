@@ -17,18 +17,11 @@
         <p v-if="data.error" class="error" role="alert">{{ data.error }}</p>
       </header>
 
-      <ReliabilityHint
-        storage-key="ensemble"
-        :message="t('reliability.ensembleHint')"
-        :link-label="t('reliability.link')"
-        link-to="/verlaesslichkeit"
-        :dismiss-label="t('reliability.dismiss')"
-      />
-
-      <aside class="meaning" aria-labelledby="meaning-title">
+      <aside class="meaning" data-testid="reliability-hint" aria-labelledby="meaning-title">
         <h2 id="meaning-title" class="meaning__title">{{ t('ensemble.meaningTitle') }}</h2>
         <p>{{ t('ensemble.meaningBody') }}</p>
         <p>{{ t('ensemble.meaningLimit') }}</p>
+        <router-link class="meaning__link" to="/verlaesslichkeit">{{ t('reliability.link') }}</router-link>
       </aside>
 
       <section class="progress" v-if="variants.length" :aria-label="t('ensemble.progressAria')">
@@ -177,10 +170,10 @@
             </div>
             <p v-if="isComparisonBlocked(c)" class="compare__body">{{ t('ensemble.mechanismUnavailable') }}</p>
             <p v-else class="compare__body">
-              <span class="mono">{{ fmtDiff(c.diff) }} · {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
+              <span>{{ fmtDiff(c.diff) }} · {{ fmtDiffCi(c.ci_low, c.ci_high) }}</span>
               — {{ interpretDiff(c) }}
               <span v-if="!isConfirmatory(c)" class="compare__warning"> · {{ t('ensemble.exploratoryWarning') }}</span>
-              <span v-if="hasPValues(c)" class="compare__tests mono"> · {{ formatPValues(c) }}</span>
+              <span v-if="hasPValues(c)" class="compare__tests"> · {{ formatPValues(c) }}</span>
             </p>
           </li>
         </ul>
@@ -259,7 +252,6 @@ import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
-import ReliabilityHint from '../components/ReliabilityHint.vue'
 import { getEnsemble, cancelEnsemble, deleteEnsemble } from '../api/ensemble'
 import { getSimulationHistory } from '../api/simulation'
 
@@ -589,6 +581,17 @@ onUnmounted(clearTimer)
 .meaning { margin: 0 0 1.5rem; padding: 1rem 1.1rem; border: 1px solid var(--color-info-border); border-radius: var(--radius-md, 8px); background: var(--color-info-bg); color: var(--color-info-text); font-size: 14px; line-height: 1.5; }
 .meaning__title { margin: 0 0 0.35rem; font-family: var(--font-heading); font-size: 1rem; color: var(--color-text-primary); }
 .meaning p { margin: 0.25rem 0 0; }
+.meaning__link {
+  display: inline-flex;
+  align-items: center;
+  margin: 0.5rem 0 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-info-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
 .progress { display: grid; gap: 12px; margin-bottom: 1.75rem; }
 .prog__row { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
@@ -607,7 +610,7 @@ onUnmounted(clearTimer)
 .compare__item--exploratory, .compare__item--blocked { color: var(--color-text-muted); background: var(--color-bg-surface-subtle); }
 .compare__item--unreliable { color: var(--color-text-secondary); background: var(--color-bg-surface-subtle); }
 .compare__heading { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
-.compare__body { margin: 4px 0 0; }
+.compare__body { margin: 4px 0 0; font-variant-numeric: tabular-nums; }
 .compare__badge, .tag-mechanism { display: inline-flex; align-items: center; min-height: 24px; padding: 0 7px; border: 1px solid var(--color-border-default); border-radius: 999px; background: var(--color-bg-surface-raised); color: var(--color-text-secondary); font-size: 11px; font-weight: 700; }
 .compare__badge--confirmatory { border-color: var(--color-success-border); background: var(--color-success-bg); color: var(--color-success-text); }
 .compare__warning { font-weight: 600; }

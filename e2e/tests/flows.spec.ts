@@ -271,9 +271,11 @@ test.describe('Flows', () => {
 
     await page.goto('/ensemble/ens_test', { waitUntil: 'domcontentloaded' })
     await settle(page)
-    const ensHint = page.getByTestId('reliability-hint')
+    const ensHint = page.locator('.meaning[data-testid="reliability-hint"]')
     await expect(ensHint).toBeVisible()
     await expect(ensHint).toContainText(/keine Wahrscheinlichkeiten für die Realität/i)
+    await expect(ensHint.getByRole('heading', { name: 'So sind diese Zahlen zu lesen' })).toBeVisible()
+    await expect(ensHint.getByRole('link', { name: /Wie verlässlich ist das/i })).toBeVisible()
     await expect(page.locator('.results:visible .material-in-hint').first()).toBeVisible()
     await expectNoHorizontalScroll(page)
 

@@ -764,7 +764,7 @@
     "resultsAria": "Results",
     "outcome": "Outcome",
     "meaningTitle": "How to read these figures",
-    "meaningBody": "Every result figure is only the share of runs from this simulation setup, for example: 7 of 10 runs in this simulation. It is not a probability for the real world.",
+    "meaningBody": "Every result figure is only the share of runs from this simulation setup, for example: 7 of 10 runs in this simulation. These values show ranges from multiple runs – not real-world probabilities.",
     "meaningLimit": "Claims about the real world require comparison with real cases first. Progress figures only show how many runs have technically finished.",
     "alreadyInMaterial": "Already in the source material",
     "cell": "{yes} of {n} runs in this simulation · share: {rate}% · model variation range (confidence interval): {lo}–{hi}%",
