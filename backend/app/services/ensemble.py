@@ -51,6 +51,7 @@ MISSING_ID_FOLLOWUP_ROUNDS = 2
 DEFAULT_OLLAMA_NUM_CTX = 4096
 CLASSIFICATION_OUTPUT_TOKENS = 3000
 CLASSIFICATION_CONTEXT_BUFFER = 256
+CLASSIFICATION_FOLLOWUP_RESERVE = 150
 SEED_ATTEMPTS = 3
 NULL_DOCUMENT_ARMS = frozenset({"null_model", "null_document"})
 NULL_PERSONA_ARMS = frozenset({"null_personas"})
@@ -1274,8 +1275,10 @@ def verify_classification_evidence(
         if not isinstance(raw, dict):
             verified[outcome_id] = {"yes": False, "evidence": [], "unclassified": True}
             continue
-        answer = raw.get("yes", raw.get("answer", False))
-        yes = answer is True or str(answer).strip().casefold() in {"ja", "yes", "true", "1"}
+        yes = _classification_answer(raw)
+        if yes is None:
+            verified[outcome_id] = {"yes": False, "evidence": [], "unclassified": True}
+            continue
         evidence = []
         for post_id, span in _evidence_pairs(raw):
             match = next(
@@ -1292,6 +1295,8 @@ def verify_classification_evidence(
                     "span": _normalized_span(span),
                 })
         verified[outcome_id] = {"yes": bool(yes and evidence), "evidence": evidence}
+        if yes and not evidence:
+            verified[outcome_id]["evidence_rejected"] = True
     return verified
 
 
@@ -1376,35 +1381,62 @@ def chat_json_with_retries(
     return None, raw, errors, error_types
 
 
+def _classification_answer(row: Any) -> Optional[bool]:
+    """Nur echte Booleans und eindeutig erkannte Ja-/Nein-Strings akzeptieren."""
+    if not isinstance(row, dict):
+        return None
+    answer = row.get("yes", row.get("answer"))
+    if isinstance(answer, bool):
+        return answer
+    if isinstance(answer, str):
+        normalized = answer.strip().casefold()
+        if normalized in {"ja", "yes", "true", "1"}:
+            return True
+        if normalized in {"nein", "no", "false", "0"}:
+            return False
+    return None
+
+
 def _returned_outcome_ids(payload: Any, expected_ids: Iterable[str]) -> set[str]:
-    """Nur tatsächlich gelieferte, erwartete Ergebnis-IDs einer Antwort."""
+    """Nur erwartete IDs mit eindeutigem Ja-/Nein-Wert als geliefert werten."""
     expected = set(expected_ids)
     rows = payload.get("results", []) if isinstance(payload, dict) else []
     if not isinstance(rows, list):
         return set()
-    return {
-        str(row.get("outcome_id"))
+    by_outcome = {
+        str(row.get("outcome_id")): row
         for row in rows
         if isinstance(row, dict) and str(row.get("outcome_id")) in expected
     }
+    return {
+        outcome_id for outcome_id, row in by_outcome.items()
+        if _classification_answer(row) is not None
+    }
 
 
-def _merge_classification_payload(base: Any, addition: Any) -> Dict[str, Any]:
-    """Ergebniszeilen einer gezielten Nachfrage in die Erstantwort übernehmen."""
+def _merge_classification_payload(
+    base: Any, addition: Any, requested_ids: Iterable[str],
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Nur angefragte Ergebniszeilen übernehmen; übrige fürs Audit zurückgeben."""
     base_rows = base.get("results", []) if isinstance(base, dict) else []
     addition_rows = addition.get("results", []) if isinstance(addition, dict) else []
     rows = [row for row in base_rows if isinstance(row, dict)]
     positions = {str(row.get("outcome_id")): index for index, row in enumerate(rows)}
+    requested = set(requested_ids)
+    rejected: List[Dict[str, Any]] = []
     for row in addition_rows if isinstance(addition_rows, list) else []:
         if not isinstance(row, dict):
             continue
         outcome_id = str(row.get("outcome_id"))
+        if outcome_id not in requested:
+            rejected.append(row)
+            continue
         if outcome_id in positions:
             rows[positions[outcome_id]] = row
         else:
             positions[outcome_id] = len(rows)
             rows.append(row)
-    return {"results": rows}
+    return {"results": rows}, rejected
 
 
 def _render_post(post: Dict[str, Any]) -> str:
@@ -1412,20 +1444,22 @@ def _render_post(post: Dict[str, Any]) -> str:
 
 
 def build_post_batches(
-    posts: Sequence[Dict[str, Any]], prompt_prefix: str, token_budget: int
+    posts: Sequence[Dict[str, Any]], prompt_prefix: str, token_budget: int,
+    reserve_tokens: int = 0,
 ) -> List[List[Dict[str, Any]]]:
     """Beiträge reihenfolgetreu auf Prompts unterhalb des Eingabebudgets verteilen."""
-    if token_budget <= estimate_tokens(prompt_prefix):
+    effective_budget = token_budget - max(0, int(reserve_tokens))
+    if effective_budget <= estimate_tokens(prompt_prefix):
         raise ValueError("Klassifikationsbudget reicht nicht für Anweisung und Checkliste")
 
     fragments: List[Dict[str, Any]] = []
     for original in posts:
         post = dict(original)
-        if estimate_tokens(f"{prompt_prefix}{_render_post(post)}") <= token_budget:
+        if estimate_tokens(f"{prompt_prefix}{_render_post(post)}") <= effective_budget:
             fragments.append(post)
             continue
         empty = dict(post, text="")
-        available = (token_budget - estimate_tokens(f"{prompt_prefix}{_render_post(empty)}") - 1) * 3
+        available = (effective_budget - estimate_tokens(f"{prompt_prefix}{_render_post(empty)}") - 1) * 3
         if available <= 0:
             raise ValueError("Klassifikationsbudget reicht nicht für Beitragsmetadaten")
         text = str(post.get("text") or "")
@@ -1439,12 +1473,12 @@ def build_post_batches(
     for post in fragments:
         candidate = current + [post]
         compact = "\n".join(_render_post(item) for item in candidate)
-        if current and estimate_tokens(prompt_prefix + compact) > token_budget:
+        if current and estimate_tokens(prompt_prefix + compact) > effective_budget:
             batches.append(current)
             current = [post]
         else:
             current = candidate
-        if estimate_tokens(prompt_prefix + "\n".join(_render_post(item) for item in current)) > token_budget:
+        if estimate_tokens(prompt_prefix + "\n".join(_render_post(item) for item in current)) > effective_budget:
             raise ValueError("Ein Beitrag überschreitet trotz Aufteilung das Klassifikationsbudget")
     batches.append(current)
     return batches
@@ -1596,7 +1630,7 @@ class EnsembleService:
         base = str(Config.LOCAL_LLM_BASE_URL).rstrip("/")
         if base.endswith("/v1"):
             base = base[:-3]
-        body = json.dumps({"model": model}).encode("utf-8")
+        body = json.dumps({"model": model, "name": model}).encode("utf-8")
         request = urllib.request.Request(
             base + "/api/show",
             data=body,
@@ -2489,7 +2523,10 @@ class EnsembleService:
         token_budget = int(context_info["input_budget"])
         prefix = f"{system}\n{instruction}"
         try:
-            batches = build_post_batches(posts, prefix, token_budget)
+            batches = build_post_batches(
+                posts, prefix, token_budget,
+                reserve_tokens=CLASSIFICATION_FOLLOWUP_RESERVE,
+            )
         except ValueError as error:
             raise ValueError(
                 f"Klassifikationskontext für Modell {context_info['model']} zu klein "
@@ -2571,9 +2608,22 @@ class EnsembleService:
                         {"role": "system", "content": system},
                         {"role": "user", "content": followup_instruction},
                     ]
+                    compact_followup = False
+                    if estimate_tokens(followup_messages) > token_budget:
+                        compact_followup = True
+                        followup_messages = [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": (
+                                "JSON results nur für diese IDs, je eine Zeile, yes als Boolean. "
+                                "true nur bei eindeutigem Beleg mit vorhandener post_id und "
+                                "wörtlichem snippet; derselbe konkrete Beleg darf allgemeinere "
+                                "passende Ereignisse belegen. Sonst false.\n"
+                                f"{missing_checklist}\nBeiträge:\n{compact}"
+                            )},
+                        ]
                     if estimate_tokens(followup_messages) > token_budget:
                         raise ValueError(
-                            f"Gezielte Klassifikationsnachfrage für Modell "
+                            f"Auch kompakte Klassifikationsnachfrage für Modell "
                             f"{context_info['model']} überschreitet das Eingabebudget "
                             f"{token_budget} bei num_ctx={context_info['num_ctx']}"
                         )
@@ -2591,6 +2641,7 @@ class EnsembleService:
                         "attempts": ((len(extra_errors) + 1) if extra is not None
                                      else len(extra_errors)),
                         "raw_response": extra_raw,
+                        "compact": compact_followup,
                     }
                     if extra is None:
                         followup_audit["error"] = (
@@ -2601,8 +2652,11 @@ class EnsembleService:
                             extra_error_types[-1] if extra_error_types else "unbekannt"
                         )
                     else:
-                        payload = _merge_classification_payload(payload, extra)
+                        payload, rejected_rows = _merge_classification_payload(
+                            payload, extra, missing_set
+                        )
                         followup_audit["parsed_response"] = extra
+                        followup_audit["rejected_rows"] = rejected_rows
                     missing = [
                         outcome_id for outcome_id in expected_ids
                         if outcome_id not in _returned_outcome_ids(payload, expected_ids)
@@ -2850,9 +2904,22 @@ class EnsembleService:
                         f"Fehlende Ereignisse:\n{missing_checklist}\n\nErzählung:\n{narrative}"
                     )},
                 ]
+                compact_followup = False
+                if estimate_tokens(followup_messages) > token_budget:
+                    compact_followup = True
+                    followup_messages = [
+                        {"role": "system", "content": messages[0]["content"]},
+                        {"role": "user", "content": (
+                            "JSON results nur für diese IDs, je eine Zeile, yes als Boolean. "
+                            "true nur mit einer wörtlichen, das Ereignis tragenden Textstelle; "
+                            "das gilt auch für Interaktionen, eine Datenbankkante genügt nicht. "
+                            "Sonst false.\n"
+                            f"{missing_checklist}\nErzählung:\n{narrative}"
+                        )},
+                    ]
                 if estimate_tokens(followup_messages) > token_budget:
                     raise ValueError(
-                        f"Gezielte Klassifikationsnachfrage für Modell "
+                        f"Auch kompakte Klassifikationsnachfrage für Modell "
                         f"{context_info['model']} überschreitet das Eingabebudget "
                         f"{token_budget} bei num_ctx={context_info['num_ctx']}"
                     )
@@ -2866,6 +2933,7 @@ class EnsembleService:
                     "attempts": ((len(extra_errors) + 1) if extra is not None
                                  else len(extra_errors)),
                     "raw_response": extra_raw,
+                    "compact": compact_followup,
                 }
                 if extra is None:
                     followup_audit["error"] = (
@@ -2876,8 +2944,11 @@ class EnsembleService:
                         extra_error_types[-1] if extra_error_types else "unbekannt"
                     )
                 else:
-                    payload = _merge_classification_payload(payload, extra)
+                    payload, rejected_rows = _merge_classification_payload(
+                        payload, extra, missing_set
+                    )
                     followup_audit["parsed_response"] = extra
+                    followup_audit["rejected_rows"] = rejected_rows
                 missing = [
                     outcome_id for outcome_id in expected_ids
                     if outcome_id not in _returned_outcome_ids(payload, expected_ids)
@@ -2892,7 +2963,7 @@ class EnsembleService:
             if parse_error or not isinstance(raw_row, dict):
                 positive[outcome["id"]] = (False, "")
                 continue
-            answer = raw_row.get("yes", False)
+            answer = _classification_answer(raw_row)
             snippet = " ".join(str(raw_row.get("snippet") or "").split())
             valid = bool(answer is True and span_in_text(snippet, narrative))
             positive[outcome["id"]] = (valid, snippet if valid else "")
@@ -2908,8 +2979,8 @@ class EnsembleService:
             # Ein geparster Stapel ohne Zeile bleibt unklassifiziert. Nach ausgeschöpften
             # Wiederholungen zählt der Lauf weiter, nur ohne Beleg.
             if parse_error or (
-                not isinstance(raw_row, dict)
-                or (counter and not isinstance(by_id.get(counter), dict))
+                _classification_answer(raw_row) is None
+                or (counter and _classification_answer(by_id.get(counter)) is None)
             ):
                 record: Dict[str, Any] = {"yes": False, "evidence": [], "unclassified": True}
                 if interaction:
@@ -2932,6 +3003,13 @@ class EnsembleService:
                     "span": snippet,
                 }] if yes else []),
             }
+            rejected_ids = [outcome["id"]] + ([counter] if counter else [])
+            if any(
+                _classification_answer(by_id.get(rejected_id)) is True
+                and not positive.get(rejected_id, (False, ""))[0]
+                for rejected_id in rejected_ids
+            ):
+                record["evidence_rejected"] = True
             if interaction:
                 record["mechanism_edges"] = []
             result[outcome["id"]] = record

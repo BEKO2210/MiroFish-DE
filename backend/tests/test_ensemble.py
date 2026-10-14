@@ -221,6 +221,22 @@ def test_post_batches_respect_budget_and_order():
     )
 
 
+def test_post_batches_leave_requested_followup_reserve():
+    posts = [
+        {"post_id": f"twitter:{i}", "agent": "Ada", "text": "x" * 180}
+        for i in range(8)
+    ]
+    prefix = "Anweisung und Checkliste\nBeiträge:\n"
+    batches = build_post_batches(posts, prefix, 240, reserve_tokens=40)
+    assert len(batches) > 1
+    assert all(
+        estimate_tokens(prefix + "\n".join(
+            f"[{post['post_id']}] {post['agent']}: {post['text']}" for post in batch
+        )) <= 200
+        for batch in batches
+    )
+
+
 def test_local_llm_warns_when_estimated_context_is_exceeded(monkeypatch, caplog):
     client = object.__new__(LLMClient)
     client.provider = "ollama"
@@ -326,8 +342,31 @@ def test_evidence_requires_id_and_literal_span_in_that_post():
     assert result["o1"]["yes"] is True
     assert result["o1"]["evidence"][0]["run"] == 2
     assert result["o1"]["evidence"][0]["span"] == "startet eine unterschriftensammlung"
-    assert result["o2"] == {"yes": False, "evidence": []}
-    assert result["o3"] == {"yes": False, "evidence": []}
+    assert result["o2"] == {
+        "yes": False, "evidence": [], "evidence_rejected": True,
+    }
+    assert result["o3"] == {
+        "yes": False, "evidence": [], "evidence_rejected": True,
+    }
+
+
+def test_evidence_audit_distinguishes_explicit_no_from_rejected_yes():
+    posts = [{
+        "platform": "twitter", "post_id": "twitter:1", "agent": "Ada",
+        "text": "Ein anderer Vorgang.",
+    }]
+    result = verify_classification_evidence(
+        {"results": [
+            {"outcome_id": "o1", "yes": "nein"},
+            {"outcome_id": "o2", "yes": "ja", "post_ids": ["twitter:1"],
+             "snippet": "nicht vorhanden"},
+        ]},
+        posts,
+        [{"id": "o1"}, {"id": "o2"}],
+        1,
+    )
+    assert result["o1"] == {"yes": False, "evidence": []}
+    assert result["o2"]["evidence_rejected"] is True
 
 
 def test_without_variant_removes_agents_profiles_and_initial_posts():
@@ -936,6 +975,38 @@ class MissingIdLLM:
         }]}
 
 
+class RepeatingFollowupLLM:
+    model = "repeating-followup-model"
+
+    def __init__(self):
+        self.calls = 0
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return {"results": [{"outcome_id": "o1", "yes": False}]}
+        return {"results": [
+            {"outcome_id": "o1", "yes": True, "post_ids": ["twitter:1"],
+             "snippet": "Anderes"},
+            {"outcome_id": "o2", "yes": False},
+        ]}
+
+
+class InvalidAnswerLLM:
+    model = "invalid-answer-model"
+
+    def __init__(self, answer=None):
+        self.answer = answer
+        self.calls = 0
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        return {"results": [
+            {"outcome_id": "o1", "yes": self.answer},
+            {"outcome_id": "o2", "yes": "nein"},
+        ]}
+
+
 def _two_outcome_state():
     return {"checklist": [
         {"id": "o1", "text_de": "Ereignis eins", "definition": "sichtbar",
@@ -979,6 +1050,62 @@ def test_permanently_missing_id_stays_unclassified(tmp_path):
     assert len(batch["followups"]) == 2
 
 
+def test_followup_cannot_change_unrequested_first_answer(tmp_path):
+    llm = RepeatingFollowupLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result, audit = service._classify_posts_once(
+        _two_outcome_state(),
+        [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1, run_number=1, llm=llm,
+    )
+
+    assert result["o1"] == {"yes": False, "evidence": []}
+    followup = audit["batches"][0]["followups"][0]
+    assert followup["requested_ids"] == ["o2"]
+    assert [row["outcome_id"] for row in followup["rejected_rows"]] == ["o1"]
+
+
+def test_oversized_verbose_followup_uses_compact_prompt(tmp_path, monkeypatch):
+    llm = RepeatingFollowupLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+
+    def fake_estimate_tokens(value):
+        return 501 if "vorigen Antwort fehlten" in str(value) else 100
+
+    monkeypatch.setattr(ensemble_module, "estimate_tokens", fake_estimate_tokens)
+    result, audit = service._classify_posts_once(
+        _two_outcome_state(),
+        [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1,
+        run_number=1,
+        llm=llm,
+        context_info={
+            "model": llm.model, "num_ctx": 4096, "input_budget": 500,
+            "output_tokens": 3000,
+        },
+    )
+
+    assert result["o2"] == {"yes": False, "evidence": []}
+    assert audit["batches"][0]["followups"][0]["compact"] is True
+
+
+@pytest.mark.parametrize("invalid_answer", [None, "unklar", 1])
+def test_invalid_yes_value_is_followed_up_then_unclassified(tmp_path, invalid_answer):
+    llm = InvalidAnswerLLM(invalid_answer)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result, audit = service._classify_posts_once(
+        _two_outcome_state(),
+        [{"post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1, run_number=1, llm=llm,
+    )
+
+    assert llm.calls == 3
+    assert result["o1"] == {"yes": False, "evidence": [], "unclassified": True}
+    assert result["o2"] == {"yes": False, "evidence": []}
+    assert audit["batches"][0]["missing_ids_before_followup"] == ["o1"]
+    assert audit["batches"][0]["missing_ids_after_followup"] == ["o1"]
+
+
 def test_ollama_show_controls_classification_context_without_network(tmp_path, monkeypatch):
     class Response:
         def __enter__(self):
@@ -1013,7 +1140,9 @@ def test_ollama_show_controls_classification_context_without_network(tmp_path, m
     }
     request, timeout = requests[0]
     assert request.full_url == "http://ollama.test/api/show"
-    assert json.loads(request.data) == {"model": "qwen3.5:9b-agent32k"}
+    assert json.loads(request.data) == {
+        "model": "qwen3.5:9b-agent32k", "name": "qwen3.5:9b-agent32k",
+    }
     assert timeout == 10
 
 
@@ -1856,6 +1985,41 @@ class NarrativeLLM:
             "yes": True,
             "snippet": "Eltern antworten dem Stadtrat",
         }]}
+
+
+class InvalidNarrativeAnswerLLM:
+    model = "invalid-narrative-answer"
+
+    def __init__(self):
+        self.calls = 0
+
+    def chat_json(self, messages, **kwargs):
+        self.calls += 1
+        return {"results": [{"outcome_id": "o1", "yes": "unklar"}]}
+
+
+def test_invalid_narrative_yes_is_followed_up_then_unclassified(tmp_path):
+    llm = InvalidNarrativeAnswerLLM()
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result, audit = service._classify_narrative_once(
+        {"checklist": [{
+            "id": "o1", "text_de": "Ein Ereignis findet statt",
+            "definition": "sichtbar", "polarity": "presence", "kind": "event",
+        }]},
+        "Es geschieht nichts Einschlägiges.",
+        seed=2,
+        run_number=1,
+        llm=llm,
+        context_info={
+            "model": llm.model, "num_ctx": 4096, "input_budget": 800,
+            "output_tokens": 3000,
+        },
+    )
+
+    assert llm.calls == 3
+    assert result["o1"] == {"yes": False, "evidence": [], "unclassified": True}
+    assert audit["batches"][0]["missing_ids_before_followup"] == ["o1"]
+    assert audit["batches"][0]["missing_ids_after_followup"] == ["o1"]
 
 
 def test_null_interaction_is_coded_from_text(tmp_path):
