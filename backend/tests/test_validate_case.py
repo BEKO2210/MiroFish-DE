@@ -2,6 +2,7 @@
 import inspect
 import json
 import math
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +16,7 @@ from scripts.validate_case import (
     build_case_result,
     build_summary,
     calibration_slope,
+    case_annotations,
     case_markdown,
     load_outcomes,
     outcome_horizon_hours,
@@ -24,6 +26,8 @@ from scripts.validate_case import (
     summary_markdown,
     validate_case,
 )
+
+CASES = Path(__file__).resolve().parents[2] / "docs" / "validation" / "faelle"
 
 
 class FakeApi:
@@ -102,8 +106,9 @@ def test_mocked_api_flow_arms_primary_and_resume(tmp_path):
                            sleep=lambda _: None, poll_interval=0)
     assert api.ensemble_payload == {
         "simulation_id": "sim_blind", "variants": list(DEFAULT_ARMS), "runs": 10,
-        "hours": 336, "custom_outcomes": [{"text_de": "Ereignis A tritt ein."},
-                                             {"text_de": "Ereignis B tritt ein."}],
+        "hours": 336, "minutes_per_round": 60,
+        "custom_outcomes": [{"text_de": "Ereignis A tritt ein."},
+                            {"text_de": "Ereignis B tritt ein."}],
         "primary_outcome_id": "c1",
     }
     serialized = json.dumps(api.posts, default=str, ensure_ascii=False)
@@ -254,6 +259,7 @@ def test_bootstrap_is_deterministic_with_seed():
 def test_hours_default_is_two_weeks():
     assert inspect.signature(validate_case).parameters["hours"].default == 336
     assert parse_args(["fall"]).hours == 336
+    assert parse_args(["fall"]).minutes_per_round == 60
 
 
 def test_file_in_material_horizon_and_uncitable_pool():
@@ -394,3 +400,128 @@ def test_ensemble_resume_is_limited(tmp_path):
         run_ensemble(api, [], tmp_path / "fall.state.json",
                      {"ensemble_id": "ens_aaaaaaaaaaaa"}, sleep=lambda _: None, poll_interval=0)
     assert len(api.posts) == ENSEMBLE_RESUME_ATTEMPTS
+
+
+def _rates():
+    return {"baseline": .8, "null_document": .4, "null_personas": .7}
+
+
+def test_predeclared_contamination_skips_simulation_and_joins_gesamt(tmp_path):
+    case, output, api = _case(tmp_path), tmp_path / "results", FakeApi()
+    outcomes = json.loads((case / "ergebnisse.json").read_text(encoding="utf-8"))
+    outcomes[0]["kontaminiert"] = {"quelle": "Gemini 3.8 Flash, 95 %", "datum": "2026-10-14"}
+    (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="vorab kontaminiert"):
+        validate_case(case, runs=1, hours=336, arms=DEFAULT_ARMS, base="http://test",
+                      results_dir=output, client=api,
+                      contamination_checker=lambda *_: pytest.fail("keine Kaltfrage"),
+                      sleep=lambda _: None, poll_interval=0)
+    assert api.posts == [] and api.gets == []
+    assert not (output / "fall-a.state.json").exists()
+    saved = json.loads((output / "fall-a.json").read_text(encoding="utf-8"))
+    assert saved["contaminated"] is True and saved["aborted_before_prepare"] is True
+    assert saved["kontaminiert"] == {"quelle": "Gemini 3.8 Flash, 95 %", "datum": "2026-10-14"}
+    assert saved["minutes_per_round"] == 60
+    summary = json.loads((output / "GESAMT.json").read_text(encoding="utf-8"))
+    assert summary["contaminated_cases"] == ["fall-a"]
+    assert summary["clean"]["case_count"] == 0
+    assert summary["sensitivity_no_source_gap"]["case_count"] == 0
+    assert summary["contaminated_declared"][0]["datum"] == "2026-10-14"
+    text = (output / "GESAMT.md").read_text(encoding="utf-8")
+    assert "Vorab festgelegt" in text
+    assert "fall-a" in text
+
+
+def test_source_gap_stays_in_primary_and_drops_from_sensitivity(tmp_path):
+    case, output, api = _case(tmp_path), tmp_path / "gap-out", FakeApi()
+    outcomes = json.loads((case / "ergebnisse.json").read_text(encoding="utf-8"))
+    outcomes[0]["quellenluecke"] = True
+    (case / "ergebnisse.json").write_text(json.dumps(outcomes), encoding="utf-8")
+
+    def checker(identity, prompt):
+        return {"kennt": False, "begruendung": "unbekannt"}
+
+    result = validate_case(case, runs=10, hours=336, minutes_per_round=120, arms=DEFAULT_ARMS,
+                           base="http://test", results_dir=output, client=api,
+                           contamination_checker=checker, sleep=lambda _: None, poll_interval=0)
+    assert api.ensemble_payload["minutes_per_round"] == 120
+    assert "quellenluecke" not in json.dumps(api.ensemble_payload)
+    assert "kontaminiert" not in json.dumps(api.ensemble_payload)
+    assert result["quellenluecke"] is True and result["contaminated"] is False
+    assert result["minutes_per_round"] == 120
+    summary = json.loads((output / "GESAMT.json").read_text(encoding="utf-8"))
+    assert summary["clean"]["scored_primary_cases"] == 1
+    assert summary["sensitivity_no_source_gap"]["scored_primary_cases"] == 0
+    assert summary["source_gap_cases"] == ["fall-a"]
+    assert summary["minutes_per_round"]["values"] == [120]
+    text = summary_markdown(summary)
+    assert "Rundentakt: 120 Minuten je Runde." in text
+    assert "Vorab fixierte Sensitivitätsanalyse" in text
+    assert "ersetzt das Vorab-Kriterium" in text
+
+    resumed = FakeApi()
+    with pytest.raises(ValueError, match="minutes_per_round"):
+        validate_case(case, runs=10, hours=336, minutes_per_round=240, arms=DEFAULT_ARMS,
+                      base="http://test", results_dir=output, client=resumed,
+                      contamination_checker=lambda *_: pytest.fail("State-Konflikt vor der Kaltfrage"),
+                      sleep=lambda _: None, poll_interval=0)
+    assert resumed.posts == []
+
+
+def test_sensitivity_uses_field_not_folder_name():
+    rates = _rates()
+    gap = _summary_case("kehl-tram-baumfaellungen-2017", 0, rates)
+    gap["quellenluecke"] = True
+    same_name = _summary_case("wanzleben-grundschule-2025", 0, rates)
+    kept = _summary_case("karlsfeld-hallenbad-2023", 1, rates)
+    known = _summary_case("freiburg-bewohnerparken-2021", 1, rates, contaminated=True)
+    known["kontaminiert"] = {"quelle": "externe Kaltprüfung", "datum": "2026-10-14"}
+    known["minutes_per_round"] = 60
+    kept["minutes_per_round"] = 240
+    summary = build_summary([gap, same_name, kept, known])
+    assert summary["clean"]["scored_primary_cases"] == 3
+    assert summary["sensitivity_no_source_gap"]["scored_primary_cases"] == 2
+    assert summary["source_gap_cases"] == ["kehl-tram-baumfaellungen-2017"]
+    assert "wanzleben-grundschule-2025" not in summary["source_gap_cases"]
+    assert summary["contaminated_cases"] == ["freiburg-bewohnerparken-2021"]
+    assert summary["sensitivity_no_source_gap"]["replaces_primary"] is False
+    assert summary["minutes_per_round"]["values"] == [60, 240]
+    text = summary_markdown(summary)
+    assert "Rundentakt je Fall:" in text
+    assert "Diese Auswertung ersetzt das Vorab-Kriterium der Primäranalyse nicht." in text
+    assert "Vorab-Kriterium" in text
+    primary_at = text.index("## Vorab-Kriterium")
+    sensitivity_at = text.index("## Vorab fixierte Sensitivitätsanalyse")
+    assert primary_at < sensitivity_at
+
+
+def test_minutes_per_round_rejects_unknown_and_indivisible(tmp_path):
+    case, api = _case(tmp_path), FakeApi()
+    with pytest.raises(ValueError, match="60, 120 oder 240"):
+        validate_case(case, minutes_per_round=30, results_dir=tmp_path / "out-a", client=api,
+                      contamination_checker=lambda *_: pytest.fail("kein API"),
+                      sleep=lambda _: None, poll_interval=0)
+    with pytest.raises(ValueError, match="teilbar"):
+        validate_case(case, hours=10, minutes_per_round=240, results_dir=tmp_path / "out-b", client=api,
+                      contamination_checker=lambda *_: pytest.fail("kein API"),
+                      sleep=lambda _: None, poll_interval=0)
+    assert api.posts == []
+    with pytest.raises(SystemExit):
+        parse_args(["fall", "--minutes-per-round", "30"])
+
+
+def test_protocol_flags_live_in_case_files():
+    freiburg = load_outcomes(CASES / "freiburg-bewohnerparken-2021")
+    flag = case_annotations(freiburg)["kontaminiert"]
+    assert flag["datum"] == "2026-10-14"
+    assert "95" in flag["quelle"]
+    assert "Gemini" in flag["quelle"]
+    for name in ("kehl-tram-baumfaellungen-2017", "niederkassel-buecherei-2023",
+                 "wanzleben-grundschule-2025"):
+        assert case_annotations(load_outcomes(CASES / name))["quellenluecke"] is True
+    for name in ("karlsfeld-hallenbad-2023", "kuppenheim-cuppamare-2024",
+                 "neuwied-parkgebuehren-2025", "unterschleissheim-wall-2022"):
+        notes = case_annotations(load_outcomes(CASES / name))
+        assert notes["quellenluecke"] is False
+        assert notes["kontaminiert"] is None
