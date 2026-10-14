@@ -73,7 +73,7 @@
           </li>
         </ul>
 
-        <p class="summary__plain" data-testid="ensemble-summary-plain">{{ plainLanguageDiff }}</p>
+        <p v-if="plainLanguageDiff" class="summary__plain" data-testid="ensemble-summary-plain">{{ plainLanguageDiff }}</p>
 
         <div class="fold">
           <button
@@ -475,12 +475,15 @@ const exploratoryItems = computed(() => {
   return checklist.value.filter((x) => x.id !== pid)
 })
 const plainLanguageDiff = computed(() => {
-  const clear = comparisons.value.some((c) => {
-    if (!isConfirmatory(c) || isComparisonBlocked(c) || c.unreliable) return false
-    if (c.ci_low == null || c.ci_high == null) return false
-    return c.ci_low > 0 || c.ci_high < 0
-  })
-  return t(clear ? 'ensemble.summaryDiffers' : 'ensemble.summaryUnclear')
+  // Satz nur, wenn jeder konfirmatorische Vergleich ein vollständiges Intervall hat.
+  const rows = comparisons.value.filter((c) => isConfirmatory(c) && !isComparisonBlocked(c))
+  if (!rows.length) return ''
+  const intervals = rows.map(comparisonInterval)
+  if (intervals.some((iv) => !iv)) return ''
+  const containsZero = intervals.map((iv) => iv.lo <= 0 && iv.hi >= 0)
+  if (containsZero.every(Boolean)) return t('ensemble.summaryUnclear')
+  if (containsZero.every((v) => !v)) return t('ensemble.summaryDiffers')
+  return t('ensemble.summaryMixed')
 })
 
 function pickLocale(de, en, fallback) {
@@ -518,10 +521,23 @@ function isComparisonBlocked(c) {
   return isMechanismBlocked(item, c?.variant)
 }
 function isConfirmatory(c) {
-  const primaryId = data.value?.primary_outcome_id
   if (c?.role) return c.role === 'confirmatory'
-  if (primaryId) return c?.outcome_id === primaryId
-  return false
+  const primaryId = data.value?.primary_outcome_id || checklist.value[0]?.id
+  return !!primaryId && c?.outcome_id === primaryId
+}
+function comparisonInterval(c) {
+  if (c?.ci_low == null || c?.ci_high == null) return null
+  const lo = Number(c.ci_low)
+  const hi = Number(c.ci_high)
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null
+  return { lo, hi }
+}
+function rateCiSpan(st) {
+  if (st?.ci_low == null || st?.ci_high == null) return null
+  const lo = Number(st.ci_low)
+  const hi = Number(st.ci_high)
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) return null
+  return { lo: Math.round(lo * 100), hi: Math.round(hi * 100) }
 }
 function validP(value) {
   return value !== null && value !== '' && Number.isFinite(Number(value))
@@ -578,14 +594,15 @@ function formatDuration(sec) {
 
 function compactCell(st) {
   if (!st) return '—'
-  const lo = Math.round((st.ci_low ?? 0) * 100)
-  const hi = Math.round((st.ci_high ?? 0) * 100)
-  return t('ensemble.summaryCell', { yes: st.yes, n: st.n, lo, hi })
+  const span = rateCiSpan(st)
+  if (!span) return t('ensemble.summaryCellNoRange', { yes: st.yes ?? '—', n: st.n ?? '—' })
+  return t('ensemble.summaryCell', { yes: st.yes, n: st.n, lo: span.lo, hi: span.hi })
 }
 function barRangeStyle(st) {
-  if (!st) return {}
-  const lo = Math.max(0, Math.min(100, Math.round((st.ci_low ?? 0) * 100)))
-  const hi = Math.max(lo, Math.min(100, Math.round((st.ci_high ?? 0) * 100)))
+  const span = rateCiSpan(st)
+  if (!span) return { display: 'none' }
+  const lo = Math.max(0, Math.min(100, span.lo))
+  const hi = Math.max(lo, Math.min(100, span.hi))
   return { left: lo + '%', width: Math.max(2, hi - lo) + '%' }
 }
 function compactSharesLine(item) {
@@ -651,13 +668,17 @@ const CellStat = {
     return () => {
       const st = p.stat
       if (!st) return h('span', { class: 'muted' }, '—')
-      const rate = formatNumber(Math.round((st.rate ?? 0) * 100))
-      const lo = formatNumber(Math.round((st.ci_low ?? 0) * 100))
-      const hi = formatNumber(Math.round((st.ci_high ?? 0) * 100))
+      const rate = st.rate == null || !Number.isFinite(Number(st.rate))
+        ? '—'
+        : formatNumber(Math.round(Number(st.rate) * 100))
+      const span = rateCiSpan(st)
       const disputed = Number(st.disputed) || 0
+      const line = span
+        ? p.t('ensemble.cell', { yes: st.yes, n: st.n, rate, lo: formatNumber(span.lo), hi: formatNumber(span.hi) })
+        : p.t('ensemble.cellNoRange', { yes: st.yes, n: st.n, rate })
       return h('div', { class: 'stat' }, [
         h('div', { class: 'stat__text' }, [
-          p.t('ensemble.cell', { yes: st.yes, n: st.n, rate, lo, hi }),
+          line,
           disputed > 0
             ? h('span', { class: 'stat__disputed' }, ` · ${p.t('ensemble.disputed', { n: disputed })}`)
             : null,
