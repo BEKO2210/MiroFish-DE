@@ -399,7 +399,7 @@ bestanden (Instrument unzuverlässig)“.
 
 **1. Preflight.** Der Treiber `backend/scripts/run_pilot_v5.py` prüft vor jedem Fall Plattenplatz (Standard mindestens
 40 GB frei auf dem Datenträger von `backend/uploads`, einstellbar mit `--min-free-gb` und `--data-dir`), Erreichbarkeit
-von Ollama, das Vorhandensein aller Rahmenmodelle (Agenten-, Haupt- und Zweitbewerter, Kaltfragenmodelle) und ob fremde
+von Ollama, das Vorhandensein aller lokal benötigten Rahmenmodelle (Agenten-, Hauptbewerter, Kaltfragenmodelle) und ob fremde
 Ensembles laufen (`--ignore-busy` überspringt das). Nur prüfen, nichts starten:
 
 ```bash
@@ -420,11 +420,29 @@ python3 scripts/validate_case.py ../docs/validation/faelle/<fall> --rahmen pilot
 ```
 
 Der Rahmen setzt 5 Seeds, 336 Stunden, Rundentakt 240 Minuten (`--minutes-per-round`; erlaubt 60, 120, 240; Stunden × 60
-müssen durch den Takt teilbar sein) und das Agentenmodell als `text_model`, `strict_second_rater` und
+müssen durch den Takt teilbar sein) und das Agentenmodell als `text_model`, `strict_second_rater`,
+`second_rater=deferred` und
 `min_classified` = 4 werden aus dem Rahmen an `POST /api/ensemble/start` weitergegeben. Fortschritt und Restzeit
 stehen im Log `pilot.log` im Ergebnisordner.
 
-**3. Abbruch und Fortsetzen.** Ein laufendes Ensemble stoppt `POST /api/ensemble/<id>/cancel` (abgebrochene Ensembles werden nicht fortgesetzt). Derselbe Aufruf
+**3. Zweitbewertung nachholen.** Nach dem lokalen Lauf die exakt vom Dienst erzeugten Bewertungsstapel exportieren,
+mit `agy` beantworten lassen (der Treiber legt den Rohtext jeweils als `batch_<n>.answer.txt` daneben) und importieren:
+
+```bash
+python3 scripts/export_rater_prompts.py --ensemble-dir uploads/ensembles/ens_… --out-dir /pfad/prompts
+# agy-Treiber: /pfad/prompts/<arm>/run_<n>/batch_<n>.json -> batch_<n>.answer.txt
+python3 scripts/import_second_rater.py --ensemble-dir uploads/ensembles/ens_… \
+  --prompts-dir /pfad/prompts --model "gemini-3.8-flash-high (agy)"
+python3 scripts/validate_case.py --rahmen pilot-v5 --nur-gesamt \
+  --results-dir ../docs/validation/ergebnisse/pilot-v5
+```
+
+Der Export nutzt standardmäßig ein Eingabebudget von 30.000 Tokens (`--token-budget`). Der Import sichert jede
+ursprüngliche Laufwertung als `classification.primary-only.json`, wertet fehlende IDs, fehlende Antworten und
+kaputtes JSON als `unclassified` und berechnet über die Dienstfunktionen Kappa, Ergebnisse und Vergleiche neu.
+`GESAMT` bleibt bis zur vollständigen Zweitbewertung aller Ensembles bei „wartet auf Zweitbewertung“.
+
+**4. Abbruch und Fortsetzen.** Ein laufendes Ensemble stoppt `POST /api/ensemble/<id>/cancel` (abgebrochene Ensembles werden nicht fortgesetzt). Derselbe Aufruf
 setzt am gespeicherten State wieder auf: fertige Fälle (`<fall>.json`) werden übersprungen, ein fehlgeschlagenes
 Ensemble wird per `POST /api/ensemble/<id>/resume` am letzten Seed fortgesetzt. Der Treiber versucht je Fall bis zu 4
 Anläufe mit wachsender Wartezeit (`--max-attempts`, `--wait-seconds`; höchstens 30 Minuten), das Fall-Werkzeug höchstens
@@ -432,7 +450,7 @@ Anläufe mit wachsender Wartezeit (`--max-attempts`, `--wait-seconds`; höchsten
 an; dann ist der manuelle Reset aus dem Abschnitt „Betrieb“ des Protokolls nötig. Ändert man Basis-URL, Läufe, Stunden
 oder Arme, weist das Werkzeug den vorhandenen State ab.
 
-**4. Ergebnisse.** Standardmäßig unter `docs/validation/ergebnisse/pilot-v5/` (Probelauf `…/probe-v5/`; anderer Ort mit
+**5. Ergebnisse.** Standardmäßig unter `docs/validation/ergebnisse/pilot-v5/` (Probelauf `…/probe-v5/`; anderer Ort mit
 `--results-dir`): `<fall>.md` und `<fall>.json` je Fall, `<fall>.state.json` (IDs und Resume-Zähler), `preflight.json`,
 `pilot.log`, am Ende `GESAMT.md` und `GESAMT.json` mit dem vorregistrierten Urteil. Die Rohdaten je Ensemble liegen unter
 `backend/uploads/ensembles/<id>/` (`ensemble.json`, je Lauf `classification.json`) und über `GET /api/ensemble/<id>`.

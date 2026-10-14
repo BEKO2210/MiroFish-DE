@@ -29,6 +29,7 @@ from scripts.validate_case import (
     summary_markdown,
     validate_case,
     KAPPA_INSTRUMENT_STATUS,
+    WAITING_SECOND_RATER,
 )
 
 CASES = Path(__file__).resolve().parents[2] / "docs" / "validation" / "faelle"
@@ -452,6 +453,15 @@ def test_pilot_status_follows_skill_not_slope():
     assert steep["calibration"]["baseline"]["slope"] > 1.5
     assert steep["skill"]["baseline_vs_null_document"]["ci_95"]["low"] > 0
     assert steep["preregistered_criterion"]["status"] == "bestanden"
+
+
+def test_overall_verdict_waits_for_every_deferred_second_rater():
+    cases = [_with_distance(_skill_case(f"a{i}", 1, 1, .5)) for i in range(2)]
+    cases[0]["second_rater_status"] = "vollständig"
+    cases[1]["second_rater_status"] = "ausstehend"
+    clean = _summarize(cases)["clean"]
+    assert clean["preregistered_criterion"]["status"] == WAITING_SECOND_RATER
+    assert clean["preregistered_criterion"]["waiting_cases"] == ["a1"]
 
 
 class _FailedThenDone:

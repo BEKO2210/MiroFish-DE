@@ -13,7 +13,7 @@ START_FIELDS = {
     "simulation_id", "runs", "hours", "variants", "start_hour",
     "minutes_per_round", "custom_outcomes", "primary_outcome_id",
     "text_model", "arm_model", "strict_second_rater", "min_classified",
-    "min_posts", "max_agent_error_rate",
+    "min_posts", "max_agent_error_rate", "second_rater",
 }
 
 
@@ -42,6 +42,7 @@ def start_ensemble():
             text_model=data.get("text_model"),
             arm_model=data.get("arm_model"),
             strict_second_rater=data.get("strict_second_rater", False),
+            second_rater=data.get("second_rater"),
             min_classified=data.get("min_classified"),
             min_posts=data.get("min_posts", 1),
             max_agent_error_rate=data.get("max_agent_error_rate", 0.5),

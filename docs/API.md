@@ -69,6 +69,7 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
   "primary_outcome_id": "c1",
   "text_model": "gemma4:e4b-it-qat",
   "strict_second_rater": true,
+  "second_rater": "deferred",
   "min_classified": 4
 }'
 # -> {"success": true, "data": {"ensemble_id": "ens_…", "estimate_seconds": 1234}}
@@ -87,6 +88,7 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
 | `text_model` | Hauptmodell (`LLM_MODEL_NAME`) | Modell der Agenten in allen Armen mit Agentensimulation; wird als `llm_model` in die Laufkonfiguration geschrieben |
 | `arm_model` | Hauptmodell der LLM-Konfiguration | Modell der Nullarme (`null_document`, `null_personas`, Alias `null_model`) |
 | `strict_second_rater` | `false` | Boolean. `true`: der Zweitbewerter muss ein anderes, vorhandenes Modell sein; kein Rückfall auf das Hauptmodell mit anderem Seed (siehe unten) |
+| `second_rater` | – | Optional genau `"deferred"`: während des Laufs nur Hauptbewerter, Zweitbewertung nach Export/Import; Ergebnisse bleiben bis dahin vorläufig |
 | `min_classified` | `runs` | ganze Zahl 1 bis `runs`: Mindestzahl klassifizierter Läufe je Variante und Ergebnis, damit es „messbar“ ist |
 | `min_posts` | 1 | ganze Zahl ≥ 1 oder genau `agent_count` (wird zur Zahl der Agenten aufgelöst und so gespeichert; der Pilotrahmen nutzt fest 3). Gilt für Simulationsarme. Nullarme zählen die Erzählung als 1 Beitrag und brauchen kein `actions.jsonl` |
 | `max_agent_error_rate` | 0.5 | Zahl 0–1: höchste zulässige Fehlerquote der Agentenaktionen je Lauf |
@@ -106,6 +108,10 @@ Modellverfügbarkeit geprüft; bei Ausfall wartet der Lauf bis zu 30 Minuten und
 Vor jeder Klassifikation wird außerdem der modellbezogene Ollama-Kontext über `/api/show` geprüft (ohne `num_ctx`:
 konservativ 4096); das abgeleitete Eingabebudget steht zusammen mit fehlenden Ergebnis-IDs vor und nach bis zu zwei
 gezielten Nachfragen im Klassifikationsaudit.
+
+Bei `second_rater: "deferred"` ist das lokale Zweitmodell von diesen Prüfungen ausgenommen. Der Zustand enthält
+`second_rater_status: "ausstehend"`, `results_preliminary: true`, kein Kappa und keine Variantenvergleiche. Der
+Import prüft bei `strict_second_rater: true` stattdessen, dass sein `--model` nicht dem Hauptbewerter entspricht.
 
 **Zweitbewerter**: Ohne `strict_second_rater` fällt die Klassifikation auf das Hauptmodell mit anderem Seed zurück,
 wenn das Zweitmodell fehlt oder nicht antwortet (Vermerk `fallback_reason` im Audit). Mit `true` schlägt der Versuch
