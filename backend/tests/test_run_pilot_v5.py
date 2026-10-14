@@ -80,6 +80,7 @@ def test_ensemble_start_options_only_from_frame():
     assert vc.ensemble_start_options(None) == {}
     options = vc.ensemble_start_options(vc.load_rahmen("pilot-v5"))
     assert options == {"text_model": vc.PILOT_V5_FRAME["models"]["agent_model"],
+                       "arm_model": vc.PILOT_V5_FRAME["models"]["agent_model"],
                        "strict_second_rater": True,
                        "min_classified": vc.PILOT_V5_FRAME["min_classified_per_arm"]}
 

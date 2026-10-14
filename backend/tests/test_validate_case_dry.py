@@ -298,6 +298,7 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         assert body["variants"] == ARMS
         assert body["primary_outcome_id"] == "c1"
         assert body["text_model"] == PILOT_V5_FRAME["models"]["agent_model"]
+        assert body["arm_model"] == PILOT_V5_FRAME["models"]["agent_model"]
         assert body["strict_second_rater"] is True
         assert body["min_classified"] == PILOT_V5_FRAME["min_classified_per_arm"]
         blinded = json.dumps(body["custom_outcomes"], ensure_ascii=False)
