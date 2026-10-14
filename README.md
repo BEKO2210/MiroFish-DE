@@ -17,6 +17,7 @@ Schwarm-Simulation mit KI-Agenten – denkbare Verläufe durchspielen
 *   **Verlauf mit Export und Löschen**, HTTP-Schnittstelle für Skripte und KI-Agenten ([docs/API.md](docs/API.md)).
 *   **Wie verlässlich ist das?** Ehrliche Erklärung für Nicht-Fachleute: [docs/VERLAESSLICHKEIT.md](docs/VERLAESSLICHKEIT.md).
 *   **Anleitung für Gemeinderat, Verein und Bürgerinitiative:** Material, Frage, Ablauf, Bericht lesen – [docs/ANLEITUNG.md](docs/ANLEITUNG.md).
+*   **Alle Änderungen vom 13.–14.10.2026:** [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ---
 

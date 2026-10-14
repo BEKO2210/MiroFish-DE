@@ -17,6 +17,7 @@ Swarm simulation with AI agents – playing out possible scenarios
 *   **History with export and delete**, HTTP interface for scripts and AI agents ([docs/API.md](docs/API.md)).
 *   **How reliable is it?** Plain-language explanation: [docs/RELIABILITY.md](docs/RELIABILITY.md).
 *   **Guide for town councils, clubs and citizens' initiatives:** material, question, steps, reading the report – [docs/GUIDE.md](docs/GUIDE.md).
+*   **All changes of 13–14 Oct 2026** (German): [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 ---
 
