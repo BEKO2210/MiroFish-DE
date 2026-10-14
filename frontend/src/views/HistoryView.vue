@@ -17,32 +17,83 @@
         <router-link to="/" class="btn btn--primary">{{ t('hist.emptyCta') }}</router-link>
       </div>
 
-      <section v-else class="list">
-        <article v-for="it in items" :key="it.key" class="row" :class="{ 'row--running': it.state === 'running' }">
-          <component :is="it.href ? 'router-link' : 'div'" :to="it.href" class="row__main">
-            <span class="chip" :class="`chip--${it.state}`">
-              <i v-if="it.state === 'running'" class="chip__pulse"></i>{{ it.stateLabel }}
-            </span>
-            <h2 class="row__title">{{ it.title }}</h2>
-            <p class="row__meta">{{ it.date }}<template v-if="it.meta"> · {{ it.meta }}</template></p>
-            <div v-if="it.state === 'running' && it.progress != null" class="row__bar"><div :style="{ width: it.progress + '%' }"></div></div>
-          </component>
-          <div class="row__actions">
-            <router-link v-if="it.reportHref" :to="it.reportHref" class="act" :title="t('run.openReport')">
-              <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>{{ t('hist.report') }}</span>
-            </router-link>
-            <router-link v-if="it.graphHref" :to="it.graphHref" class="act" :title="t('hist.graphTitle')">
-              <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="8" cy="18" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8 7.5 16 9M7.5 8.5 9.5 16M16.5 10 15.5 15M10 17.5 14.5 17"/></svg><span>{{ t('hist.graph') }}</span>
-            </router-link>
-            <a v-if="it.exportHref" :href="it.exportHref" class="act" :title="t('hist.exportTitle')" download>
-              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>{{ t('hist.export') }}</span>
-            </a>
-            <button v-if="it.state !== 'running'" type="button" class="act act--danger" @click="askDelete(it)">
-              <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>{{ t('hist.delete') }}</span>
-            </button>
-          </div>
-        </article>
-      </section>
+      <template v-else>
+        <section v-if="regularItems.length" class="list" data-testid="hist-regular">
+          <article
+            v-for="it in regularItems"
+            :key="it.key"
+            class="row"
+            :class="{ 'row--running': it.state === 'running' }"
+            :data-testid="`hist-row-${it.key}`"
+          >
+            <component :is="it.href ? 'router-link' : 'div'" :to="it.href" class="row__main">
+              <span class="chip" :class="`chip--${it.state}`">
+                <i v-if="it.state === 'running'" class="chip__pulse"></i>{{ it.stateLabel }}
+              </span>
+              <h2 class="row__title">{{ it.title }}</h2>
+              <p class="row__meta">{{ it.date }}<template v-if="it.meta"> · {{ it.meta }}</template></p>
+            </component>
+            <div class="row__actions">
+              <router-link v-if="it.reportHref" :to="it.reportHref" class="act" :title="t('run.openReport')">
+                <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>{{ t('hist.report') }}</span>
+              </router-link>
+              <router-link v-if="it.graphHref" :to="it.graphHref" class="act" :title="t('hist.graphTitle')">
+                <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="8" cy="18" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8 7.5 16 9M7.5 8.5 9.5 16M16.5 10 15.5 15M10 17.5 14.5 17"/></svg><span>{{ t('hist.graph') }}</span>
+              </router-link>
+              <a v-if="it.exportHref" :href="it.exportHref" class="act" :title="t('hist.exportTitle')" download>
+                <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-2"/></svg><span>{{ t('hist.export') }}</span>
+              </a>
+              <button
+                type="button"
+                class="act act--danger"
+                :disabled="it.deleteBlocked"
+                :title="it.deleteBlocked ? t('hist.deleteBlocked') : undefined"
+                :aria-label="it.deleteBlocked ? t('hist.deleteBlocked') : undefined"
+                @click="askDelete(it)"
+              >
+                <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><span>{{ t('hist.delete') }}</span>
+              </button>
+            </div>
+          </article>
+        </section>
+
+        <details
+          v-if="validationItems.length"
+          class="validation"
+          data-testid="hist-validation"
+        >
+          <summary class="validation__summary">
+            {{ t('hist.validationTitle') }}
+            <span class="validation__count">{{ validationItems.length }}</span>
+          </summary>
+          <p class="validation__hint">{{ t('hist.validationHint') }}</p>
+          <section class="list">
+            <article
+              v-for="it in validationItems"
+              :key="it.key"
+              class="row"
+              :class="{ 'row--running': it.state === 'running' }"
+              :data-testid="`hist-row-${it.key}`"
+            >
+              <component :is="it.href ? 'router-link' : 'div'" :to="it.href" class="row__main">
+                <span class="chip" :class="`chip--${it.state}`">
+                  <i v-if="it.state === 'running'" class="chip__pulse"></i>{{ it.stateLabel }}
+                </span>
+                <h2 class="row__title">{{ it.title }}</h2>
+                <p class="row__meta">{{ it.date }}<template v-if="it.meta"> · {{ it.meta }}</template></p>
+              </component>
+              <div class="row__actions">
+                <router-link v-if="it.reportHref" :to="it.reportHref" class="act" :title="t('run.openReport')">
+                  <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>{{ t('hist.report') }}</span>
+                </router-link>
+                <router-link v-if="it.graphHref" :to="it.graphHref" class="act" :title="t('hist.graphTitle')">
+                  <svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="8" r="2.5"/><circle cx="8" cy="18" r="2.5"/><circle cx="17" cy="17" r="2.5"/><path d="M8 7.5 16 9M7.5 8.5 9.5 16M16.5 10 15.5 15M10 17.5 14.5 17"/></svg><span>{{ t('hist.graph') }}</span>
+                </router-link>
+              </div>
+            </article>
+          </section>
+        </details>
+      </template>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
     </main>
 
@@ -52,7 +103,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppHeader from '../components/AppHeader.vue'
 import ConfirmSheet from '../components/ConfirmSheet.vue'
@@ -67,9 +118,19 @@ const pending = ref(null)
 const deleting = ref(false)
 let timer = null
 
+const BUSY = new Set(['running', 'preparing', 'processing', 'vorbereiten', 'läuft'])
+
 const fmt = (iso) => { try { return new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }
 const stateLabel = (s) => t({ running: 'hist.sRunning', completed: 'hist.sCompleted', failed: 'hist.sFailed', idle: 'hist.sIdle', progress: 'hist.sProgress' }[s] || 'hist.sIdle')
 const stepLabel = (s) => (s ? t(`steps.${s}`) : t('run.preparing'))
+
+const isBusyStatus = (...vals) => vals.some((v) => BUSY.has(String(v || '').toLowerCase()))
+const isValidationRun = (title, ...origins) =>
+  origins.some((o) => String(o || '').toLowerCase() === 'validierung') ||
+  /^Realitätsabgleich/i.test(String(title || ''))
+
+const regularItems = computed(() => items.value.filter((i) => !i.isValidation))
+const validationItems = computed(() => items.value.filter((i) => i.isValidation))
 
 const load = async () => {
   try {
@@ -79,32 +140,42 @@ const load = async () => {
     ])
     const bySim = new Map(pipes.filter(p => p.simulation_id).map(p => [p.simulation_id, p]))
     const out = []
-    // Laufende oder gescheiterte Durchläufe, die noch keine Simulation haben
     for (const p of pipes) {
       if (p.simulation_id && sims.some(s => s.simulation_id === p.simulation_id)) continue
       if (p.status === 'completed') continue
+      const title = p.requirement
+      const busy = isBusyStatus(p.status)
+      const isValidation = isValidationRun(title, p.source, p.origin)
       out.push({
-        key: p.pipeline_id, pipelineId: p.pipeline_id, title: p.requirement, date: fmt(p.created_at),
-        state: p.status === 'running' ? 'running' : 'failed',
-        stateLabel: stateLabel(p.status === 'running' ? 'running' : 'failed'),
-        meta: p.status === 'running' ? stepLabel(p.current_step) : t('hist.sFailed'),
-        href: `/run/${p.pipeline_id}`, created: p.created_at
+        key: p.pipeline_id, pipelineId: p.pipeline_id, title, date: fmt(p.created_at),
+        state: busy ? 'running' : 'failed',
+        stateLabel: stateLabel(busy ? 'running' : 'failed'),
+        meta: busy ? stepLabel(p.current_step) : t('hist.sFailed'),
+        href: `/run/${p.pipeline_id}`, created: p.created_at,
+        isValidation, deleteBlocked: busy
       })
     }
     for (const s of sims) {
       const p = bySim.get(s.simulation_id)
-      const running = p?.status === 'running'
-      const done = (s.current_round || 0) > 0 && s.current_round >= (s.total_rounds || 0) && (s.total_rounds || 0) > 0
-      const state = running ? 'running' : s.report_id ? 'completed' : done ? 'completed' : (s.current_round || 0) > 0 ? 'progress' : p?.status === 'failed' ? 'failed' : 'idle'
+      const deleteBlocked = isBusyStatus(p?.status, s.status, s.runner_status)
+      const running = p?.status === 'running' || (isBusyStatus(s.status, s.runner_status) && p?.status !== 'failed')
+      const roundsDone = (s.current_round || 0) > 0
+      const finished = roundsDone && s.current_round >= (s.total_rounds || 0) && (s.total_rounds || 0) > 0
+      let state = 'idle'
+      if (running) state = 'running'
+      else if (s.report_id || finished) state = 'completed'
+      else if (roundsDone) state = 'progress'
+      else if (p?.status === 'failed') state = 'failed'
       const title = s.simulation_requirement || s.project_name || t('start.untitled')
+      const isValidation = isValidationRun(title, s.source, s.origin, p?.source, p?.origin)
       out.push({
         key: s.simulation_id, simulationId: s.simulation_id, title, date: fmt(s.created_at), state, stateLabel: stateLabel(state),
-        meta: running ? stepLabel(p.current_step) : s.total_rounds ? t('hist.rounds', { cur: s.current_round || 0, total: s.total_rounds }) : '',
-        progress: running ? null : undefined,
-        href: running ? `/run/${p.pipeline_id}` : s.report_id ? `/report/${s.report_id}` : `/simulation/${s.simulation_id}`,
+        meta: running ? stepLabel(p?.current_step) : s.total_rounds ? t('hist.rounds', { cur: s.current_round || 0, total: s.total_rounds }) : '',
+        href: running && p?.pipeline_id ? `/run/${p.pipeline_id}` : s.report_id ? `/report/${s.report_id}` : `/simulation/${s.simulation_id}`,
         reportHref: s.report_id ? `/report/${s.report_id}` : null,
         graphHref: s.project_id ? `/process/${s.project_id}?view=graph` : null,
-        exportHref: `/api/simulation/${s.simulation_id}/export`, created: s.created_at
+        exportHref: `/api/simulation/${s.simulation_id}/export`, created: s.created_at,
+        isValidation, deleteBlocked
       })
     }
     out.sort((a, b) => (a.state === 'running') - (b.state === 'running') || new Date(a.created) - new Date(b.created)).reverse()
@@ -115,7 +186,10 @@ const load = async () => {
   } finally { loading.value = false }
 }
 
-const askDelete = (it) => { pending.value = it }
+const askDelete = (it) => {
+  if (it.deleteBlocked || it.isValidation) return
+  pending.value = it
+}
 const doDelete = async () => {
   if (!pending.value) return
   deleting.value = true
@@ -127,7 +201,12 @@ const doDelete = async () => {
     items.value = items.value.filter(i => i.key !== target.key)
     pending.value = null
   } catch (e) {
-    const msg = e.response?.data?.error
+    if (e.response?.status === 409) {
+      error.value = t('hist.deleteConflict')
+      pending.value = null
+      return
+    }
+    const msg = e.response?.data?.error || e.message
     const technical = !msg || /HTTPConnectionPool|Traceback|ECONN|Network Error|status code/i.test(msg)
     error.value = technical ? t('hist.deleteFailedPlain') : t('hist.deleteFailed', { msg })
   } finally { deleting.value = false }
@@ -141,7 +220,7 @@ onUnmounted(() => clearInterval(timer))
 .page { min-height: 100vh; background: var(--color-bg-canvas); color: var(--color-text-primary); }
 .main { max-width: 760px; margin: 0 auto; padding: 20px 16px 32px; }
 @media (max-width: 768px) {
-  .main { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .main { padding-bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
   .act { min-height: 48px; color: var(--color-text-primary); }
   .act--danger { color: var(--color-error-text); }
 }
@@ -153,8 +232,6 @@ onUnmounted(() => clearInterval(timer))
 .row__main { display: block; padding: 14px 16px 12px; text-decoration: none; color: inherit; }
 .row__title { font-family: var(--font-body); font-size: 15px; font-weight: 600; line-height: 1.35; margin: 8px 0 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .row__meta { margin: 0; font-size: 13px; color: var(--color-text-secondary); }
-.row__bar { height: 3px; background: var(--color-border-subtle); border-radius: 999px; margin-top: 10px; overflow: hidden; }
-.row__bar div { height: 100%; background: var(--color-brand-primary); }
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 3px 8px; border-radius: 999px; background: var(--color-bg-surface-subtle); color: var(--color-text-secondary); }
 .chip--running { background: var(--color-brand-subtle); color: var(--color-brand-hover); font-weight: 700; }
 .chip--completed { background: var(--color-success-bg); color: var(--color-success-text); }
@@ -167,9 +244,18 @@ onUnmounted(() => clearInterval(timer))
 .act { flex: 1; min-height: 44px; border-radius: 0; box-shadow: none; -webkit-appearance: none; appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: transparent; color: var(--color-text-secondary); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; }
 .act + .act { border-left: 1px solid var(--color-border-subtle); }
 .act svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.act:hover { background: var(--color-bg-surface-subtle); }
+.act:hover:not(:disabled) { background: var(--color-bg-surface-subtle); }
 .act--danger { color: var(--color-error-text); }
-.act--danger:hover { background: var(--color-error-bg); }
+.act--danger:hover:not(:disabled) { background: var(--color-error-bg); }
+.act:disabled { opacity: 0.45; cursor: not-allowed; }
+.validation { margin-top: 20px; margin-bottom: 8px; border: 1px solid var(--color-border-subtle); border-radius: 16px; background: var(--color-bg-surface-raised); padding: 0 14px 14px; }
+.validation__summary { cursor: pointer; list-style: none; font-weight: 600; font-size: 14px; padding: 14px 0; display: flex; align-items: center; gap: 8px; color: var(--color-text-secondary); }
+.validation__summary::-webkit-details-marker { display: none; }
+.validation__summary::before { content: '▸'; font-size: 12px; transition: transform var(--transition-fast); }
+details[open] > .validation__summary::before { transform: rotate(90deg); }
+.validation:not([open]) > :not(summary) { display: none; }
+.validation__count { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--color-bg-surface-subtle); }
+.validation__hint { margin: 0 0 12px; font-size: 13px; color: var(--color-text-muted); line-height: 1.4; }
 .empty { text-align: center; padding: 48px 16px; color: var(--color-text-muted); display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border-radius: 12px; border: 1px solid var(--color-border-subtle); background: var(--color-bg-surface-raised); color: inherit; text-decoration: none; font-weight: 600; font-size: 15px; white-space: nowrap; }
 .btn--primary { background: var(--color-brand-primary); border-color: var(--color-brand-primary); color: var(--color-brand-on-primary); }

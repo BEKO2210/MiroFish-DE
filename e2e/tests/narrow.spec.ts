@@ -264,8 +264,11 @@ test.describe('Schmale Handy-Viewports', () => {
         await page.goto('/history', { waitUntil: 'domcontentloaded' })
         await settle(page)
         await applyTheme(page, theme)
-        const row = page.locator('article.row').filter({ has: page.locator('button.act--danger') }).first()
-        await row.locator('button.act--danger').click()
+        const row = page
+          .locator('article.row')
+          .filter({ has: page.locator('button.act--danger:not([disabled])') })
+          .first()
+        await row.locator('button.act--danger:not([disabled])').click()
         await expect(page.locator('[role="alertdialog"]')).toBeVisible()
         await page.waitForTimeout(200)
         let m = await measurePage(page, '/history#confirm-delete', viewport, theme)
