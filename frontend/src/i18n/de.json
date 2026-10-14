@@ -690,6 +690,7 @@
     "printPdf": "Drucken / PDF",
     "howItWasMade": "So entstand der Bericht",
     "contents": "Inhalt",
+    "tocAbgleich": "Vorgabe-Abgleich",
     "expandSection": "Abschnitt aufklappen",
     "collapseSection": "Abschnitt zuklappen",
     "scenarioFromOneRun": "Szenario aus 1 Lauf",

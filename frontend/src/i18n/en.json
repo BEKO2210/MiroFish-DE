@@ -690,6 +690,7 @@
     "printPdf": "Print / PDF",
     "howItWasMade": "How this report was made",
     "contents": "Contents",
+    "tocAbgleich": "Source check",
     "expandSection": "Expand section",
     "collapseSection": "Collapse section",
     "scenarioFromOneRun": "Scenario from 1 run",

@@ -5,6 +5,16 @@
     <aside class="mobile-sticky-bar" role="region" :aria-label="ariaLabel || primaryLabel">
       <div class="mobile-sticky-bar__container">
         <button
+          v-if="leadingLabel"
+          type="button"
+          class="sticky-btn sticky-btn--leading"
+          :disabled="primaryLoading"
+          @click="$emit('leading-click')"
+        >
+          <span>{{ leadingLabel }}</span>
+        </button>
+
+        <button
           v-if="secondaryLabel"
           type="button"
           class="sticky-btn sticky-btn--secondary"
@@ -36,11 +46,13 @@ defineProps({
   primaryLoading: { type: Boolean, default: false },
   /** Neutraler Hauptknopf (kein Marken-/Warn-/Fehlerrot) */
   primaryNeutral: { type: Boolean, default: false },
+  /** Optionaler Knopf links (z. B. Inhaltsverzeichnis) */
+  leadingLabel: { type: String, default: '' },
   secondaryLabel: { type: String, default: '' },
   secondaryDisabled: { type: Boolean, default: false },
   ariaLabel: { type: String, default: '' }
 })
-defineEmits(['primary-click', 'secondary-click'])
+defineEmits(['primary-click', 'secondary-click', 'leading-click'])
 </script>
 
 <style scoped>
@@ -74,6 +86,7 @@ defineEmits(['primary-click', 'secondary-click'])
 
   .sticky-btn {
     flex: 1;
+    min-width: 0;
     min-height: 48px;
     border-radius: var(--radius-lg, 12px);
     font-family: var(--font-body);
@@ -83,11 +96,18 @@ defineEmits(['primary-click', 'secondary-click'])
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 0 16px;
+    padding: 0 12px;
     border: 1px solid transparent;
     cursor: pointer;
     touch-action: manipulation;
     transition: transform var(--transition-fast), opacity var(--transition-fast), background-color var(--transition-fast);
+  }
+
+  .sticky-btn span,
+  .sticky-btn__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sticky-btn:active:not(:disabled) {
@@ -115,9 +135,21 @@ defineEmits(['primary-click', 'secondary-click'])
     box-shadow: none;
   }
 
+  .sticky-btn--leading {
+    flex: 0 0 auto;
+    min-width: 44px;
+    max-width: 7.5rem;
+    padding: 0 12px;
+    background: var(--color-bg-surface-raised);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
+  }
+
   .sticky-btn--secondary {
     flex: 0 0 auto;
-    min-width: 110px;
+    min-width: 44px;
+    max-width: 7.5rem;
+    padding: 0 12px;
     background: var(--color-bg-surface-raised);
     color: var(--color-text-secondary);
     border-color: var(--color-border-default);
