@@ -619,6 +619,7 @@ function compactCount(st) {
 }
 function compactRange(st) {
   if (!st) return ''
+  if (Number(st.n) === 0) return t('ensemble.notMeasurable')
   const span = rateCiSpan(st)
   if (!span) return t('ensemble.summaryCellRangeEmpty')
   return t('ensemble.summaryCellRange', { lo: span.lo, hi: span.hi })
@@ -693,6 +694,11 @@ const CellStat = {
     return () => {
       const st = p.stat
       if (!st) return h('span', { class: 'muted' }, '—')
+      if (Number(st.n) === 0) {
+        return h('div', { class: 'stat' }, [
+          h('div', { class: 'stat__text' }, p.t('ensemble.notMeasurable')),
+        ])
+      }
       const rate = st.rate == null || !Number.isFinite(Number(st.rate))
         ? '—'
         : formatNumber(Math.round(Number(st.rate) * 100))

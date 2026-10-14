@@ -789,7 +789,10 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
             value = (results.get(arm) or {}).get(outcome_id)
             if not isinstance(value, dict):
                 raise ValueError(f"Variantenresultat {arm} fehlt für {outcome_id}")
-            arm_values[arm] = {key: value.get(key, 0) for key in ("yes", "n", "rate", "disputed", "unclassified")}
+            arm_values[arm] = {
+                key: value.get(key) if key == "rate" else value.get(key, 0)
+                for key in ("yes", "n", "rate", "disputed", "unclassified")
+            }
         rel = reliability.get(outcome_id) or {}
         in_material = outcome.get("in_material") is True or bool(item.get("in_material", False))
         beyond = beyond_simulated_horizon(outcome, hours)
@@ -827,6 +830,13 @@ def _display(value: Any, percent: bool = False) -> str:
     return "–" if value is None else (f"{float(value):.1%}" if percent else f"{float(value):.4f}")
 
 
+def _display_rates(rates: Dict[str, Any]) -> str:
+    return "{" + ", ".join(
+        f"{arm}: {float(rate):.1%}" if rate is not None else f"{arm}: nicht messbar"
+        for arm, rate in rates.items()
+    ) + "}"
+
+
 def _escape(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
@@ -842,7 +852,13 @@ def case_markdown(result: Dict[str, Any]) -> str:
              "| Ergebnis | Typ | tatsächlich | " + " | ".join(ARM_LABELS[a] for a in arms) + " | Kappa |",
              "|---|---|---:|" + "---:|" * len(arms) + "---:|"]
     for row in result["rows"]:
-        values = [f"{row['arms'][arm]['yes']}/{row['arms'][arm]['n']} ({float(row['arms'][arm]['rate']):.1%})" for arm in arms]
+        values = [
+            (f"{row['arms'][arm]['yes']}/{row['arms'][arm]['n']} "
+             f"({float(row['arms'][arm]['rate']):.1%})")
+            if row["arms"][arm].get("rate") is not None
+            else f"{row['arms'][arm]['yes']}/{row['arms'][arm]['n']} (nicht messbar)"
+            for arm in arms
+        ]
         lines.append(f"| {_escape(row['question'])} | {'primär' if row['primary'] else 'explorativ'} | {row['actual']} | "
                      + " | ".join(values) + f" | {_display(row['reliability'].get('kappa'))} |")
     lines += ["", "## Brier-Score je Arm", "", METRICS_NOTE, "",
@@ -1059,10 +1075,11 @@ def _probe_diagnostics(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         if primary is None:
             continue
         kappa = _kappa_number(primary)
-        rates = {arm: primary["arms"][arm]["rate"] for arm in result.get("arms", [])}
+        rates = {arm: primary["arms"][arm].get("rate") for arm in result.get("arms", [])}
+        measured_rates = [float(value) for value in rates.values() if value is not None]
         rows.append({"case": result.get("case"), "kappa": kappa, "kappa_degenerate": kappa is None,
                      "primary_rates": rates,
-                     "rate_variance": len({round(float(value), 6) for value in rates.values()}) > 1})
+                     "rate_variance": len({round(value, 6) for value in measured_rates}) > 1})
     return {"cases": rows,
             "note": "Probelauf: prüft Varianz der Klassifikation und Kappa; kein Ergebnis zur Nutzenbehauptung."}
 
@@ -1194,7 +1211,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         for row in summary["probe"]["cases"]:
             lines.append(f"- {row['case']}: Kappa {_display(row['kappa'])}"
                          f"{' (degeneriert, Instrument nicht prüfbar)' if row['kappa_degenerate'] else ''}, "
-                         f"Ja-Anteile {row['primary_rates']}, Varianz zwischen Armen: "
+                         f"Ja-Anteile {_display_rates(row['primary_rates'])}, Varianz zwischen Armen: "
                          f"{'ja' if row['rate_variance'] else 'nein'}.")
         lines.append("")
     models = summary.get("models")

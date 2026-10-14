@@ -234,6 +234,50 @@ def test_brier_per_arm_and_primary_separate():
     assert result["primary_metrics"]["null_document"]["brier"] == pytest.approx(.36)
 
 
+def test_case_markdown_marks_arm_without_classifications_as_unmeasurable():
+    outcomes = [{"text_de": "A", "eingetreten": True, "primaer": True}]
+    empty = {"n": 0, "yes": 0, "rate": None, "disputed": 2, "unclassified": 0}
+    ensemble = {
+        "checklist": [{"id": "c1", "text_de": "A", "source": "user"}],
+        "results": {arm: {"c1": dict(empty)} for arm in DEFAULT_ARMS},
+        "reliability": {"c1": {
+            "agreement": None, "kappa": None, "n_pairs": 0, "label": "nicht messbar",
+        }},
+    }
+
+    result = build_case_result(
+        "leer", outcomes, ensemble, runs=2, hours=24, arms=DEFAULT_ARMS,
+    )
+    assert all(result["rows"][0]["arms"][arm]["rate"] is None for arm in DEFAULT_ARMS)
+    text = case_markdown(result)
+    assert text.count("0/0 (nicht messbar)") == len(DEFAULT_ARMS)
+    assert "0/0 (0.0%)" not in text
+
+
+def test_probe_summary_renders_null_yes_rates_as_unmeasurable():
+    frame = {
+        "id": "probe-v5", "status": "Probelauf", "cases": 1,
+        "arms": list(DEFAULT_ARMS), "seeds": 2, "minutes_per_round": 240,
+        "hours": 24, "case_ids": ["probe"], "min_classified_per_arm": 1,
+    }
+    case = {
+        "case": "probe", "arms": list(DEFAULT_ARMS), "contaminated": False,
+        "rahmen": frame, "runs": 2, "hours": 24, "minutes_per_round": 240,
+        "rows": [{
+            "primary": True, "measurable": False, "actual": 1,
+            "reliability": {"kappa": None, "n_pairs": 0},
+            "arms": {arm: {"rate": None} for arm in DEFAULT_ARMS},
+        }],
+    }
+
+    summary = build_summary([case], frame)
+    assert all(value is None for value in summary["probe"]["cases"][0]["primary_rates"].values())
+    text = summary_markdown(summary)
+    probe_line = next(line for line in text.splitlines() if line.startswith("- probe:"))
+    assert "Ja-Anteile {baseline: nicht messbar" in probe_line
+    assert "None" not in probe_line
+
+
 def _summary_case(name, actual, rates, *, contaminated=False, exploratory_rate=None):
     rows = [{"primary": True, "measurable": True, "actual": actual,
              "reliability": {"kappa": .8},

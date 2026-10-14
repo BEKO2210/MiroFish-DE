@@ -2513,6 +2513,28 @@ def test_min_classified_marks_result_unmeasurable(tmp_path):
     assert state["unclassified_runs"] == 2
 
 
+def test_fully_unclassified_arm_has_no_rate_or_interval(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    state = {
+        "runs": 2, "min_classified": 1, "status": "completed", "hours": 2,
+        "variants": [{"key": "baseline", "label_de": "Basislauf"}],
+        "checklist": [{"id": "c1", "text_de": "Primärfrage", "polarity": "presence"}],
+        "primary_outcome_id": "c1",
+    }
+    missing = {"yes": False, "unclassified": True, "disputed": False}
+    service._aggregate(state, {"baseline": [{"c1": missing}, {"c1": missing}]})
+
+    stat = state["results"]["baseline"]["c1"]
+    assert stat["n"] == 0
+    assert stat["rate"] is None
+    assert stat["ci_low"] is None
+    assert stat["ci_high"] is None
+    report = ensemble_markdown(state)
+    assert "0 / 0" in report
+    assert "nicht messbar" in report
+    assert "0.0% (0.0%–0.0%)" not in report
+
+
 def test_run_stats_agent_error_rate_and_quality_gate(tmp_path):
     run_dir = tmp_path / "run"
     log = run_dir / "twitter" / "actions.jsonl"

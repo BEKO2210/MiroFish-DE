@@ -569,6 +569,7 @@
     "summaryCellCount": "{yes} of {n} runs",
     "summaryCellRange": "range {lo}–{hi}%",
     "summaryCellRangeEmpty": "range —",
+    "notMeasurable": "not measurable",
     "summaryUnclear": "There is no clear difference between the simulation and the comparison arms.",
     "summaryDiffers": "The simulation and the comparison arms differ on this question.",
     "summaryMixed": "The comparison arms do not all agree: only some show a clear difference.",

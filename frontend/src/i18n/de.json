@@ -569,6 +569,7 @@
     "summaryCellCount": "{yes} von {n} Läufen",
     "summaryCellRange": "Spanne {lo}–{hi} %",
     "summaryCellRangeEmpty": "Spanne —",
+    "notMeasurable": "nicht messbar",
     "summaryUnclear": "Zwischen Simulation und Vergleichsarmen zeigt sich kein klarer Unterschied.",
     "summaryDiffers": "Simulation und Vergleichsarme unterscheiden sich bei dieser Frage.",
     "summaryMixed": "Die Vergleichsarme fallen unterschiedlich aus: nur bei einem Teil zeigt sich ein klarer Unterschied.",

@@ -3140,7 +3140,7 @@ class EnsembleService:
                 ]
                 yes = sum(1 for row in classified_runs if row.get(oid, {}).get("yes"))
                 n = len(classified_runs)
-                low, high = wilson_interval(yes, n)
+                low, high = wilson_interval(yes, n) if n else (None, None)
                 evidence = [
                     item
                     for row in classified_runs
@@ -3151,9 +3151,9 @@ class EnsembleService:
                     "n": n,
                     "unclassified": unclassified,
                     "disputed": disputed,
-                    "rate": _round(yes / n if n else 0.0),
-                    "ci_low": _round(low),
-                    "ci_high": _round(high),
+                    "rate": _round(yes / n) if n else None,
+                    "ci_low": _round(low) if low is not None else None,
+                    "ci_high": _round(high) if high is not None else None,
                     "evidence": evidence,
                     "measurable": n >= int(state.get("min_classified", state.get("runs", 1))),
                 }
@@ -3803,11 +3803,18 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
             ]
             suffix = f" (mit Gegenstück: {'; '.join(counterparts)})" if counterparts else ""
             marker = " †" if outcome.get("in_material") else ""
+            interval = (
+                f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%})"
+                if value.get("rate") is not None
+                and value.get("ci_low") is not None
+                and value.get("ci_high") is not None
+                else "nicht messbar"
+            )
             lines.append(
                 f"| {labels[key]} | {outcome['text_de']}{suffix}{marker} | {value['yes']} / {value['n']} | "
                 f"{value.get('disputed', 0)} | "
                 f"{value.get('unclassified', 0)} | "
-                f"{value['rate']:.1%} ({value['ci_low']:.1%}–{value['ci_high']:.1%}) |"
+                f"{interval} |"
             )
     if state.get("run_stats"):
         lines.extend([
