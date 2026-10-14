@@ -88,10 +88,11 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
 | `arm_model` | Hauptmodell der LLM-Konfiguration | Modell der Nullarme (`null_document`, `null_personas`, Alias `null_model`) |
 | `strict_second_rater` | `false` | Boolean. `true`: der Zweitbewerter muss ein anderes, vorhandenes Modell sein; kein Rückfall auf das Hauptmodell mit anderem Seed (siehe unten) |
 | `min_classified` | `runs` | ganze Zahl 1 bis `runs`: Mindestzahl klassifizierter Läufe je Variante und Ergebnis, damit es „messbar“ ist |
-| `min_posts` | 1 | ganze Zahl ≥ 1: Mindestzahl an Beiträgen je Lauf (Nullarme zählen die Erzählung als 1 Beitrag) |
+| `min_posts` | 1 | ganze Zahl ≥ 1 oder genau `agent_count` (wird zur Zahl der Agenten aufgelöst und so gespeichert). Gilt für Simulationsarme. Nullarme zählen die Erzählung als 1 Beitrag und brauchen kein `actions.jsonl` |
 | `max_agent_error_rate` | 0.5 | Zahl 0–1: höchste zulässige Fehlerquote der Agentenaktionen je Lauf |
 
-Alle Zahlen müssen echte ganze Zahlen sein (keine Strings, keine Booleans); `max_agent_error_rate` darf auch eine
+Alle Zahlen müssen echte ganze Zahlen sein (keine Strings, keine Booleans); `min_posts` darf zusätzlich genau
+`agent_count` sein, `max_agent_error_rate` darf auch eine
 Dezimalzahl sein. Fehler: 400 bei ungültigen Werten, 404 wenn die Simulation nicht vorbereitet ist, 500 sonst
 (auch bei den Gesundheitsprüfungen unten).
 
@@ -100,15 +101,17 @@ Ensemble-Datenverzeichnis (mindestens 5 GiB, sonst 500 mit „Zu wenig freier Sp
 `strict_second_rater: true` wird zusätzlich Ollama (`/api/tags`) abgefragt; fehlt ein benötigtes Modell (Agenten-,
 Nullarm-, Haupt- und Zweitbewerter) oder ist der Server nicht erreichbar, gibt es 500 mit „Benötigte Ollama-Modelle
 fehlen: …“. `strict_second_rater: true` ohne konfiguriertes Zweitmodell (`ENSEMBLE_SECOND_RATER_MODEL`, Standard
-`qwen3.5:9b`) ergibt 400. Während des Laufs wird vor jedem Versuch erneut Plattenplatz und (bei Ollama als Anbieter) die
+`qwen3.5:9b`) ergibt 400, ebenso gleiche Modellnamen von Haupt- und Zweitbewerter. Während des Laufs wird vor jedem Versuch erneut Plattenplatz und (bei Ollama als Anbieter) die
 Modellverfügbarkeit geprüft; bei Ausfall wartet der Lauf bis zu 30 Minuten und verbraucht dabei keinen Versuch.
 
 **Zweitbewerter**: Ohne `strict_second_rater` fällt die Klassifikation auf das Hauptmodell mit anderem Seed zurück,
 wenn das Zweitmodell fehlt oder nicht antwortet (Vermerk `fallback_reason` im Audit). Mit `true` schlägt der Versuch
 stattdessen fehl.
 
-**Lauf-Qualität**: Ein Lauf mit weniger als `min_posts` Beiträgen oder einer Agenten-Fehlerquote über
-`max_agent_error_rate` gilt als technischer Fehlschlag und wird wiederholt (bis zu 3 Versuche je Seed).
+**Lauf-Qualität**: Ein Simulationslauf mit weniger als `min_posts` Beiträgen, ohne verwertbares `actions.jsonl`
+(Fehlerquote `unbekannt`) oder mit einer Agenten-Fehlerquote über `max_agent_error_rate` gilt als technischer
+Fehlschlag und wird wiederholt (bis zu 3 Versuche je Seed). Nullarme zählen nur die Erzählung (mindestens 1) und
+verlangen kein Aktionslog.
 
 **Varianten (`variants`)**
 
@@ -203,13 +206,14 @@ Nicht enthalten sind Seeds und interne Steuerfelder. `GET /list` liefert dieselb
 **`reliability[ergebnis_id]`**: `agreement` (Anteil gleicher Urteile), `kappa` (Cohens Kappa), `n_pairs` und `label`:
 `messbar` (κ ≥ 0,6), `unsicher` (κ ≥ 0,4), sonst `nicht messbar`. Das Endurteil ist konservativ: Ja nur, wenn beide
 Bewerter Ja sagen; Dissens zählt als `disputed`. Fehlt die Varianz (beide Urteilsreihen konstant), ist `kappa`
-`null` und `label` `nicht messbar`. Ohne auswertbares Paar bleibt `kappa` `0.0`.
+`null` und `label` `nicht messbar`. Ohne auswertbares Paar ist `kappa` ebenfalls `null` (nicht `0.0`).
 
 **`run_stats[variante]`**: je Lauf `run`, `post_count`, `character_count` (bei Nullmodellen Länge der Erzählung,
 `post_count` = 0), `contribution_count` (Mindestbeitrags-Maß: Beiträge; bei Nullarmen 1, wenn die Erzählung nicht leer
 ist; wird gegen `min_posts` geprüft), `batch_count` (Klassifikationsstapel), `agent_action_count`,
-`agent_error_count` und `agent_error_rate` (fehlgeschlagene Agentenaktionen aus `actions.jsonl`, 0.0 ohne Aktionen;
-wird gegen `max_agent_error_rate` geprüft) sowie die Fremdnutzung im blinden Feed:
+`agent_error_count` und `agent_error_rate` (fehlgeschlagene Agentenaktionen aus `actions.jsonl`; `unbekannt`, wenn
+ein Simulationslauf kein verwertbares Log hat, sonst die Quote und 0.0 ohne Fehler; wird gegen
+`max_agent_error_rate` geprüft) sowie die Fremdnutzung im blinden Feed:
 `search_action_count` (Suchaktionen), `trend_action_count` (Trendaktionen), `foreign_interaction_count`
 (Interaktionen mit Beiträgen anderer: like, repost, quote).
 

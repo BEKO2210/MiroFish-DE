@@ -282,7 +282,8 @@ def cohens_kappa(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, Any]:
     """Prozentuale Übereinstimmung und Cohen-Kappa für zwei binäre Bewerter."""
     n = len(pairs)
     if not n:
-        return {"agreement": 0.0, "kappa": 0.0, "n_pairs": 0}
+        # Ohne Paar ist Kappa nicht definiert. 0,0 wäre ein echtes, schlechtes Kappa.
+        return {"agreement": None, "kappa": None, "n_pairs": 0}
     agreed = sum(1 for left, right in pairs if left == right)
     agreement = agreed / n
     left_yes = sum(1 for left, _ in pairs if left) / n
@@ -1057,6 +1058,12 @@ def compute_run_stats(
             except OSError:
                 logger.warning("Agentenfehlerquote konnte nicht aus %s gelesen werden", log_path)
     contribution_count = 1 if narrative.strip() else post_count
+    # Simulationslauf ohne zählbare Aktion: die Quote ist nicht 0, sondern unbekannt.
+    # Eine Erzählung (Nullarm) hat absichtlich kein Aktionslog.
+    if run_dir and not narrative.strip() and action_count == 0:
+        agent_error_rate: Any = "unbekannt"
+    else:
+        agent_error_rate = _round(agent_error_count / action_count if action_count else 0.0)
     return {
         "post_count": int(post_count),
         "contribution_count": int(contribution_count),
@@ -1064,7 +1071,7 @@ def compute_run_stats(
         "batch_count": int(len(batches)),
         "agent_action_count": action_count,
         "agent_error_count": agent_error_count,
-        "agent_error_rate": _round(agent_error_count / action_count if action_count else 0.0),
+        "agent_error_rate": agent_error_rate,
         **leak_stats,
     }
 
@@ -1405,6 +1412,17 @@ class EnsembleService:
     def _llm_model(llm: Any) -> str:
         return str(getattr(llm, "model", None) or "configured-main-model")
 
+    @staticmethod
+    def _reject_same_rater_model(state: Dict[str, Any], primary: Any, secondary: Any) -> None:
+        if not state.get("strict_second_rater"):
+            return
+        primary_name = str(getattr(primary, "model", "") or "").strip()
+        secondary_name = str(getattr(secondary, "model", "") or "").strip()
+        if primary_name and secondary_name and primary_name == secondary_name:
+            raise RuntimeError(
+                "Haupt- und Zweitbewerter müssen verschiedene Modellnamen haben"
+            )
+
     def _second_rater_llm(self, primary: Any) -> Tuple[Any, bool]:
         """Zweitmodell am lokalen Server; leere Konfiguration bedeutet Seed-Fallback."""
         model = str(os.environ.get(
@@ -1549,7 +1567,7 @@ class EnsembleService:
         arm_model: Optional[str] = None,
         strict_second_rater: bool = False,
         min_classified: Optional[int] = None,
-        min_posts: int = 1,
+        min_posts: Any = 1,
         max_agent_error_rate: float = DEFAULT_MAX_AGENT_ERROR_RATE,
     ) -> Dict[str, Any]:
         self._check_disk_space()
@@ -1590,8 +1608,10 @@ class EnsembleService:
             or not 1 <= min_classified <= runs
         ):
             raise ValueError("min_classified muss zwischen 1 und runs liegen")
-        if isinstance(min_posts, bool) or not isinstance(min_posts, int) or min_posts < 1:
-            raise ValueError("min_posts muss mindestens 1 sein")
+        if min_posts != "agent_count" and (
+            isinstance(min_posts, bool) or not isinstance(min_posts, int) or min_posts < 1
+        ):
+            raise ValueError("min_posts muss mindestens 1 sein oder 'agent_count'")
         if (
             isinstance(max_agent_error_rate, bool)
             or not isinstance(max_agent_error_rate, (int, float))
@@ -1603,6 +1623,12 @@ class EnsembleService:
         ) or "").strip()
         if strict_second_rater and not second_model:
             raise ValueError("strict_second_rater verlangt ein konfiguriertes Zweitmodell")
+        if strict_second_rater:
+            primary_model = str(Config.get_llm_config().get("model") or "").strip()
+            if primary_model and primary_model == second_model:
+                raise ValueError(
+                    "Haupt- und Zweitbewerter müssen verschiedene Modellnamen haben"
+                )
         custom_outcomes = validate_custom_outcomes(custom_outcomes)
         if primary_outcome_id is not None:
             if not isinstance(primary_outcome_id, str) or not primary_outcome_id.strip():
@@ -1617,6 +1643,14 @@ class EnsembleService:
         if missing:
             raise FileNotFoundError("Simulation ist nicht vorbereitet; fehlt: " + ", ".join(missing))
         config = _read_json(source / "simulation_config.json")
+        if min_posts == "agent_count":
+            agents = [
+                agent for agent in (config.get("agent_configs") or [])
+                if isinstance(agent, dict)
+            ]
+            if not agents:
+                raise ValueError("min_posts agent_count braucht mindestens einen Agenten")
+            min_posts = len(agents)
         available_types = {
             str(a.get("entity_type") or "").casefold()
             for a in config.get("agent_configs") or []
@@ -1829,17 +1863,8 @@ class EnsembleService:
         thread.start()
         return {"ensemble_id": ensemble_id, "status": "queued"}
 
-    def _terminate_owned_orphan(self, state: Dict[str, Any]) -> bool:
-        """Beendet ausschließlich den per Laufzustand belegten Prozess im eigenen Laufordner."""
-        runner_id = str(state.get("current_runner_id") or "")
-        if not runner_id.startswith(str(state.get("ensemble_id") or "") + "_"):
-            return False
-        current = state.get("current") or {}
-        variant = str(current.get("variant") or "")
-        run_number = current.get("run")
-        if not variant or not isinstance(run_number, int):
-            return False
-        run_dir = self._path(str(state["ensemble_id"])) / variant / f"run_{run_number}"
+    def _kill_oasis_in_run_dir(self, run_dir: Path) -> bool:
+        """SIGTERM nur, wenn cwd genau dieser Laufordner ist und die Kommandozeile OASIS ist."""
         run_state = _read_json(run_dir / "run_state.json")
         pid = run_state.get("process_pid") if isinstance(run_state, dict) else None
         if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
@@ -1847,7 +1872,9 @@ class EnsembleService:
         proc = Path("/proc") / str(pid)
         try:
             cwd = Path(os.readlink(proc / "cwd")).resolve()
-            command = (proc / "cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+            command = (proc / "cmdline").read_bytes().replace(b"\0", b" ").decode(
+                "utf-8", "replace"
+            )
         except (OSError, ValueError):
             return False
         if cwd != run_dir.resolve() or "run_parallel_simulation.py" not in command:
@@ -1856,8 +1883,30 @@ class EnsembleService:
             os.killpg(os.getpgid(pid), signal.SIGTERM)
         except (OSError, ProcessLookupError):
             return False
-        logger.warning("Verwaisten Ensemble-Prozess %s (PID %s) beendet", runner_id, pid)
+        logger.warning(
+            "Verwaisten Ensemble-Prozess im Laufordner %s (PID %s) beendet", run_dir, pid
+        )
         return True
+
+    def _terminate_owned_orphan(self, state: Dict[str, Any]) -> bool:
+        """Beendet den OASIS-Prozess dieses Ensembles, auch wenn current schon fehlt."""
+        ensemble_id = str(state.get("ensemble_id") or "")
+        if not ensemble_id:
+            return False
+        root = self._path(ensemble_id)
+        current = state.get("current") or {}
+        variant = str(current.get("variant") or "")
+        run_number = current.get("run")
+        if variant and isinstance(run_number, int) and not isinstance(run_number, bool):
+            runner_id = str(state.get("current_runner_id") or "")
+            if not runner_id.startswith(ensemble_id + "_"):
+                return False
+            return self._kill_oasis_in_run_dir(root / variant / f"run_{run_number}")
+        # Nach Neustart ist current schon gelöscht; die PID steht nur noch in run_state.json.
+        killed = False
+        for path in root.glob("*/run_*/run_state.json"):
+            killed = self._kill_oasis_in_run_dir(path.parent) or killed
+        return killed
 
     def list(self, simulation_id: Optional[str] = None) -> List[Dict[str, Any]]:
         result = []
@@ -1908,6 +1957,7 @@ class EnsembleService:
                 attempts[attempt_key] = max(0, int(attempts[attempt_key]) - 1)
             state["finished_at"] = datetime.now().isoformat()
             state["current"] = None
+            self._terminate_owned_orphan(state)
             self._save(state)
             count += 1
         return count
@@ -2345,6 +2395,7 @@ class EnsembleService:
             secondary_setup_error = str(error)
         else:
             secondary_setup_error = ""
+        self._reject_same_rater_model(state, primary, secondary)
         second_seed = seed + 1_000_003
         result_b, audit_b = self._classify_posts_once(
             state, posts, second_seed, run_number, run_dir, secondary
@@ -2506,6 +2557,7 @@ class EnsembleService:
             secondary_setup_error = str(error)
         else:
             secondary_setup_error = ""
+        self._reject_same_rater_model(state, primary, secondary)
         second_seed = seed + 1_000_003
         result_b, audit_b = self._classify_narrative_once(
             state, narrative, second_seed, run_number, secondary, variant_key
@@ -2858,33 +2910,47 @@ class EnsembleService:
             return None
         if state is not None and key is not None:
             stats = self._stats_for_run(key, run_dir)
-            if not self._run_quality_ok(state, stats):
+            if not self._run_quality_ok(state, stats, key):
                 return None
         return result
 
     @staticmethod
-    def _run_quality_ok(state: Dict[str, Any], stats: Dict[str, Any]) -> bool:
+    def _run_quality_ok(
+        state: Dict[str, Any], stats: Dict[str, Any], key: Optional[str] = None,
+    ) -> bool:
+        if null_arm(key or ""):
+            return int(stats.get("contribution_count", 0) or 0) >= 1
+        rate = stats.get("agent_error_rate", 0.0)
+        if rate == "unbekannt":
+            return False
         return (
             int(stats.get("contribution_count", stats.get("post_count", 0)) or 0)
             >= int(state.get("min_posts", 1) or 1)
-            and float(stats.get("agent_error_rate", 0.0) or 0.0)
+            and float(rate or 0.0)
             <= float(state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
         )
 
     def _validate_run_quality(self, state: Dict[str, Any], key: str, run_dir: Path) -> None:
         stats = self._stats_for_run(key, run_dir)
+        if null_arm(key):
+            if int(stats.get("contribution_count", 0) or 0) < 1:
+                raise RuntimeError("Technischer Fehlschlag: Nullarm ohne Erzählung")
+            return
+        if stats.get("agent_error_rate") == "unbekannt":
+            raise RuntimeError(
+                "Technischer Fehlschlag: Agenten-Fehlerquote unbekannt "
+                "(Aktionslog fehlt oder ohne Aktionen)"
+            )
         if int(stats.get("contribution_count", 0)) < int(state.get("min_posts", 1)):
             raise RuntimeError(
                 f"Technischer Fehlschlag: nur {stats.get('contribution_count', 0)} Beiträge "
                 f"(Minimum {state.get('min_posts', 1)})"
             )
-        if float(stats.get("agent_error_rate", 0.0)) > float(
-            state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE)
-        ):
+        rate = float(stats.get("agent_error_rate", 0.0) or 0.0)
+        limit = float(state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
+        if rate > limit:
             raise RuntimeError(
-                f"Technischer Fehlschlag: Agenten-Fehlerquote "
-                f"{float(stats['agent_error_rate']):.3f} über Grenzwert "
-                f"{float(state.get('max_agent_error_rate', DEFAULT_MAX_AGENT_ERROR_RATE)):.3f}"
+                f"Technischer Fehlschlag: Agenten-Fehlerquote {rate:.3f} über Grenzwert {limit:.3f}"
             )
 
     def _stats_for_run(self, key: str, run_dir: Path) -> Dict[str, int]:
@@ -3209,8 +3275,14 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         ])
         for oid, metric in state["reliability"].items():
             outcome = outcomes.get(oid, {"text_de": oid})
+            agreement = metric.get("agreement")
+            agreement_text = (
+                "–"
+                if isinstance(agreement, bool) or not isinstance(agreement, (int, float))
+                else f"{agreement:.1%}"
+            )
             lines.append(
-                f"| {outcome['text_de']} | {metric['agreement']:.1%} | "
+                f"| {outcome['text_de']} | {agreement_text} | "
                 f"{'–' if metric.get('kappa') is None else format(metric['kappa'], '.2f')} | "
                 f"{metric['n_pairs']} | {metric['label']} |"
             )
