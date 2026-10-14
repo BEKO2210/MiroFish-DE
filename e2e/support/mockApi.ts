@@ -91,7 +91,23 @@ function resolveFixture(pathname: string): unknown | null {
       })
     }
     if (rest === 'profiles' || rest === 'profiles/realtime') {
-      return defaultOk({ profiles: [], count: 0 })
+      return defaultOk({
+        profiles: [
+          {
+            username: 'TechJournalist',
+            name: 'tech_j',
+            profession: 'Journalistin',
+            bio: 'Simulierte Rolle aus der MiroFish-Diskussion.',
+          },
+          {
+            username: 'Studierendenvertretung',
+            name: 'student_v',
+            profession: 'Student',
+            bio: 'Simulierte Rolle mit Fokus auf öffentliche Debatte.',
+          },
+        ],
+        count: 2,
+      })
     }
     if (rest === 'posts' || rest === 'timeline' || rest === 'actions' || rest === 'agent-stats') {
       return defaultOk({ items: [], posts: [], timeline: [], actions: [], agents: [] })
@@ -393,10 +409,24 @@ function writeDefaults(method: string, pathname: string, body: unknown): unknown
     return defaultOk({ report_id: 'report_e2e_mock', status: 'pending' })
   }
   if (method === 'POST' && pathname === '/api/report/chat') {
-    return defaultOk({ reply: 'Mock-Antwort', message: 'Mock-Antwort' })
+    return defaultOk({
+      response:
+        'Mock-Antwort vom **Berichts-Agenten**. Enthält <script>alert(1)</script> und Resttext.',
+    })
   }
   if (method === 'POST' && pathname === '/api/simulation/interview/batch') {
-    return defaultOk({ results: [] })
+    const interviews = (body as { interviews?: { agent_id?: number }[] } | null)?.interviews
+    const agentId = interviews?.[0]?.agent_id ?? 0
+    return defaultOk({
+      result: {
+        results: {
+          [`reddit_${agentId}`]: {
+            response:
+              'Mock-Rollenantwort mit **Betonung** und <img src=x onerror=alert(1)>.',
+          },
+        },
+      },
+    })
   }
   if (method === 'DELETE' && pathname.startsWith('/api/simulation/')) {
     return defaultOk({ deleted: true })
@@ -580,6 +610,14 @@ export async function installMockApi(page: Page): Promise<MockApi> {
     if (method === 'DELETE' && pathname.match(/^\/api\/pipeline\/[^/]+$/)) {
       const id = pathname.split('/').pop()
       if (id) deletedPipelines.add(id)
+    }
+
+    // Kurz verzögern, damit Chat-Ladezustand in Flow-Tests sichtbar bleibt
+    if (
+      method === 'POST' &&
+      (pathname === '/api/report/chat' || pathname === '/api/simulation/interview/batch')
+    ) {
+      await new Promise((r) => setTimeout(r, 700))
     }
 
     const response = writeDefaults(method, pathname, body)

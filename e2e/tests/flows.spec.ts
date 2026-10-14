@@ -724,4 +724,91 @@ test.describe('Flows', () => {
     await expect(page.getByTestId('step-activity-stale')).toContainText(/Das dauert gerade länger/)
     await expect(page.getByTestId('step-activity-updated')).toContainText(/Zuletzt aktualisiert vor \d+ s/)
   })
+
+  test('Schritt 5 Nachfragen: Bericht/Rolle, Simulation-Hinweis, Chat, Fehler', async ({ page }) => {
+    await preparePage(page)
+    await page.setViewportSize({ width: 412, height: 915 })
+    await page.goto('/interaction/report_6587bcd7e3fa', { waitUntil: 'domcontentloaded' })
+    await settle(page)
+
+    await expect(page.getByTestId('chat-sim-disclaimer')).toContainText(
+      /simulierte Rollen.*keine echten Personen/i,
+    )
+    await expect(page.getByTestId('chat-target-bar')).toContainText(/Bericht/i)
+
+    const sendMobile = page.getByTestId('chat-send-mobile')
+    await expect(sendMobile).toBeVisible()
+    const sendBox = await sendMobile.boundingBox()
+    expect(sendBox, 'Senden-Knopf sichtbar').toBeTruthy()
+    expect(sendBox!.width).toBeGreaterThanOrEqual(44)
+    expect(sendBox!.height).toBeGreaterThanOrEqual(44)
+
+    const inset = await page.locator('.mobile-chat-composer').evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('--keyboard-inset').trim(),
+    )
+    expect(inset).toMatch(/^\d+px$/)
+
+    const input = page.locator('textarea.mobile-chat-composer__input')
+    await input.fill('Was sagt die Simulation zur Debatte?')
+    const loading = page.getByTestId('chat-loading')
+    const waitLoading = loading.waitFor({ state: 'visible', timeout: 10_000 })
+    await sendMobile.click()
+    await waitLoading
+    const reportAnswer = page.locator('.chat-message.assistant:not(.is-error) .message-text').last()
+    await expect(reportAnswer).toContainText(/Mock-Antwort.*Berichts-Agent/i, { timeout: 15_000 })
+    await expect(reportAnswer.locator('strong')).toHaveCount(1)
+    await expect(reportAnswer.locator('script')).toHaveCount(0)
+    await expect(reportAnswer).toContainText('<script>')
+
+    const nearBottom = await page.locator('.chat-messages').evaluate((el) => {
+      const gap = el.scrollHeight - el.scrollTop - el.clientHeight
+      return gap < 80 || el.scrollHeight <= el.clientHeight + 1
+    })
+    expect(nearBottom, 'Verlauf scrollt zur letzten Nachricht').toBe(true)
+
+    await expect(page.locator('.agent-pill')).toBeVisible({ timeout: 15_000 })
+    await page.locator('.agent-pill').click()
+    await page.locator('.dropdown-item').first().click()
+    await expect(page.getByTestId('chat-target-bar')).toContainText(/TechJournalist.*simulierte Rolle/i)
+
+    await input.fill('Wie siehst du MiroFish?')
+    const waitLoadingRole = loading.waitFor({ state: 'visible', timeout: 10_000 })
+    await sendMobile.click()
+    await waitLoadingRole
+    const roleAnswer = page.locator('.chat-message.assistant:not(.is-error) .message-text').last()
+    await expect(roleAnswer).toContainText(/Mock-Rollenantwort/i, { timeout: 15_000 })
+    await expect(roleAnswer.locator('img')).toHaveCount(0)
+    await expect(roleAnswer.locator('strong')).toHaveCount(1)
+
+    await page.route('**/api/report/chat', async (route) => {
+      await new Promise((r) => setTimeout(r, 200))
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: false, error: 'Netzwerkproblem' }),
+      })
+    })
+    await page.getByRole('button', { name: /Bericht befragen/i }).click()
+    await input.fill('Fehlerfall testen')
+    await sendMobile.click()
+    await expect(page.locator('.chat-message.is-error')).toContainText(/Netzwerkproblem|Fehler/i, {
+      timeout: 20_000,
+    })
+
+    await page.setViewportSize({ width: 360, height: 740 })
+    await settle(page)
+    await expect(page.getByTestId('chat-sim-disclaimer')).toBeVisible()
+    await expect(sendMobile).toBeVisible()
+
+    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'))
+    await settle(page)
+    await expect(page.getByTestId('chat-sim-disclaimer')).toBeVisible()
+    await expect(page.getByTestId('chat-target-bar')).toBeVisible()
+    const desktopSend = page.getByTestId('chat-send')
+    await expect(desktopSend).toBeVisible()
+    const deskBox = await desktopSend.boundingBox()
+    expect(deskBox!.width).toBeGreaterThanOrEqual(44)
+    expect(deskBox!.height).toBeGreaterThanOrEqual(44)
+  })
 })

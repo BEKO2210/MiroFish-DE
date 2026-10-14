@@ -144,9 +144,13 @@
             </button>
           </div>
         </div>
+        <p class="sim-disclaimer" data-testid="chat-sim-disclaimer">{{ $t('step5.simulationDisclaimer') }}</p>
 
         <!-- Chat Mode -->
         <div v-if="activeTab === 'chat'" class="chat-container">
+          <div class="chat-target-bar" data-testid="chat-target-bar" aria-live="polite">
+            <span class="chat-target-bar__label">{{ chatTargetLabel }}</span>
+          </div>
 
           <!-- Report Agent Tools Card -->
           <div v-if="chatTarget === 'report_agent'" class="report-agent-tools-card">
@@ -256,25 +260,23 @@
               v-for="(msg, idx) in chatHistory" 
               :key="idx"
               class="chat-message"
-              :class="msg.role"
+              :class="[msg.role, { 'is-error': msg.isError }]"
             >
               <div class="message-avatar">
                 <span v-if="msg.role === 'user'">{{ $t('step5.u') }}</span>
-                <span v-else>{{ msg.role === 'assistant' && chatTarget === 'report_agent' ? 'R' : (selectedAgent?.username?.[0] || 'A') }}</span>
+                <span v-else>{{ chatAvatarLetter }}</span>
               </div>
               <div class="message-content">
                 <div class="message-header">
-                  <span class="sender-name">
-                    {{ msg.role === 'user' ? $t('step5.you') : (chatTarget === 'report_agent' ? $t('step5.berichtsAgent') : (selectedAgent?.username || $t('step5.agent'))) }}
-                  </span>
+                  <span class="sender-name">{{ messageSenderName(msg) }}</span>
                   <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                 </div>
                 <div class="message-text" v-html="renderMarkdown(msg.content)"></div>
               </div>
             </div>
-            <div v-if="isSending" class="chat-message assistant">
+            <div v-if="isSending" class="chat-message assistant" data-testid="chat-loading" role="status" aria-busy="true" :aria-label="$t('step5.antwortWirdGeladen')">
               <div class="message-avatar">
-                <span>{{ chatTarget === 'report_agent' ? 'R' : (selectedAgent?.username?.[0] || 'A') }}</span>
+                <span>{{ chatAvatarLetter }}</span>
               </div>
               <div class="message-content">
                 <div class="typing-indicator">
@@ -291,7 +293,7 @@
             <textarea 
               v-model="chatInput"
               class="chat-input"
-              :placeholder="$t('step5.frageAnBerichtOderAgenten')"
+              :placeholder="chatPlaceholder"
               @keydown.enter.exact.prevent="sendMessage"
               :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
               rows="1"
@@ -300,6 +302,7 @@
             ></textarea>
             <button 
               class="send-btn"
+              data-testid="chat-send"
               @click="sendMessage"
               :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
               :aria-label="$t('step5.senden')"
@@ -415,11 +418,12 @@
         class="mobile-chat-composer"
         role="region"
         :aria-label="$t('step5.senden')"
+        :style="{ '--keyboard-inset': keyboardInset + 'px' }"
       >
         <textarea
           v-model="chatInput"
           class="mobile-chat-composer__input"
-          :placeholder="$t('step5.frageAnBerichtOderAgenten')"
+          :placeholder="chatPlaceholder"
           @keydown.enter.exact.prevent="sendMessage"
           :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
           rows="1"
@@ -429,6 +433,7 @@
         <button
           type="button"
           class="mobile-chat-composer__send"
+          data-testid="chat-send-mobile"
           @click="sendMessage"
           :disabled="!chatInput.trim() || isSending || (!selectedAgent && chatTarget === 'agent')"
           :aria-label="$t('step5.senden')"
@@ -485,6 +490,30 @@ const isSending = ref(false)
 const chatMessages = ref(null)
 const chatInputRef = ref(null)
 const mobileChatInputRef = ref(null)
+const keyboardInset = ref(0)
+
+const chatTargetLabel = computed(() => {
+  if (chatTarget.value === 'report_agent') return t('step5.duFragstBericht')
+  if (selectedAgent.value) return t('step5.duFragstRolle', { name: selectedAgent.value.username })
+  return t('step5.rolleWaehlen')
+})
+
+const chatPlaceholder = computed(() => {
+  if (chatTarget.value === 'report_agent') return t('step5.frageAnBericht')
+  if (selectedAgent.value) return t('step5.frageAnRolle', { name: selectedAgent.value.username })
+  return t('step5.frageAnBerichtOderAgenten')
+})
+
+const chatAvatarLetter = computed(() =>
+  chatTarget.value === 'report_agent' ? 'R' : (selectedAgent.value?.username?.[0] || 'A'),
+)
+
+function messageSenderName(msg) {
+  if (msg.role === 'user') return t('step5.you')
+  if (msg.isError) return t('step5.fehler')
+  if (chatTarget.value === 'report_agent') return t('step5.berichtsAgent')
+  return selectedAgent.value?.username || t('step5.agent')
+}
 
 const growTextarea = (el, maxLines = 4) => {
   if (!el) return
@@ -495,6 +524,13 @@ const growTextarea = (el, maxLines = 4) => {
 }
 const autoGrowChatInput = () => growTextarea(chatInputRef.value)
 const autoGrowMobileChatInput = () => growTextarea(mobileChatInputRef.value)
+
+const syncKeyboardInset = () => {
+  const vv = window.visualViewport
+  keyboardInset.value = vv
+    ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop))
+    : 0
+}
 
 // Survey State
 const selectedAgents = ref(new Set())
@@ -608,24 +644,33 @@ const formatTime = (timestamp) => {
   }
 }
 
-const renderMarkdown = (content) => {
-  if (!content) return ''
-
-  // Escape-Reste + HTML escapen, bevor eigene Tags eingefügt werden
-  let processedContent = String(content)
-    .replace(/\\"/g, '"')
-    .replace(/\\n/g, '\n')
-    .replace(/\\t/g, '\t')
+function escapeHtml(value) {
+  return String(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  processedContent = processedContent.replace(/^##\s+.+\n+/, '')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/** Wie Step4Report.renderMarkdown: erst escapen, dann Markdown-Tags. */
+const renderMarkdown = (content) => {
+  if (content == null || content === '') return ''
+
+  let processedContent = escapeHtml(
+    String(content)
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/^##\s+.+\n+/, ''),
+  )
   let html = processedContent.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
   html = html.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
   html = html.replace(/^#### (.+)$/gm, '<h5 class="md-h5">$1</h5>')
   html = html.replace(/^### (.+)$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^## (.+)$/gm, '<h3 class="md-h3">$1</h3>')
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+  html = html.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '<h4 class="md-h4">$1</h4>')
   html = html.replace(/^&gt; (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
     const level = Math.floor(indent.length / 2)
@@ -642,9 +687,9 @@ const renderMarkdown = (content) => {
   html = html.replace(/<ol class="md-ol">\s+/g, '<ol class="md-ol">')
   html = html.replace(/\s+<\/ul>/g, '</ul>')
   html = html.replace(/\s+<\/ol>/g, '</ol>')
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  html = html.replace(/_(.+?)_/g, '<em>$1</em>')
+  html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*([^*\n]+?)\*/g, '<em>$1</em>')
+  html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>')
   html = html.replace(/^---$/gm, '<hr class="md-hr">')
   html = html.replace(/\n\n/g, '</p><p class="md-p">')
   html = html.replace(/\n/g, '<br>')
@@ -659,6 +704,9 @@ const renderMarkdown = (content) => {
   html = html.replace(/<p class="md-p">(<br>\s*)+(<ul|<ol|<blockquote|<pre|<hr)/g, '$2')
   html = html.replace(/(<br>\s*){2,}/g, '<br>')
   html = html.replace(/(<\/ol>|<\/ul>|<\/blockquote>)<br>(<p|<div)/g, '$1$2')
+  html = html.replace(/<p class="md-p">(<h4\b[^>]*>[\s\S]*?<\/h4>)<\/p>/g, '$1')
+  html = html.replace(/<p class="md-p">([\s\S]*?)<h4\b/g, '<p class="md-p">$1</p><h4')
+  html = html.replace(/<\/h4><\/p>/g, '</h4>')
 
   const tokens = html.split(/(<ol class="md-ol">(?:<li class="md-oli"[^>]*>[\s\S]*?<\/li>)+<\/ol>)/g)
   let olCounter = 0
@@ -710,13 +758,18 @@ const sendMessage = async () => {
     chatHistory.value.push({
       role: 'assistant',
       content: t('step5.apologyError', { error: err.message }),
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      isError: true,
     })
   } finally {
     isSending.value = false
     scrollToBottom()
     // Gesprächsverlauf automatisch im Cache speichern
     saveChatHistory()
+    nextTick(() => {
+      autoGrowChatInput()
+      autoGrowMobileChatInput()
+    })
   }
 }
 
@@ -741,8 +794,9 @@ const sendToReportAgent = async (message) => {
   if (res.success && res.data) {
     chatHistory.value.push({
       role: 'assistant',
-      content: res.data.response || res.data.answer || t('step5.noResponse'),
-      timestamp: new Date().toISOString()
+      content:
+        res.data.response || res.data.answer || res.data.reply || res.data.message || t('step5.noResponse'),
+      timestamp: new Date().toISOString(),
     })
     addLog(t('step5.reportAgentResponded'))
   } else {
@@ -816,9 +870,11 @@ const sendToAgent = async (message) => {
 
 const scrollToBottom = () => {
   nextTick(() => {
-    if (chatMessages.value) {
-      chatMessages.value.scrollTop = chatMessages.value.scrollHeight
-    }
+    const box = chatMessages.value
+    if (!box) return
+    box.scrollTop = box.scrollHeight
+    const last = box.querySelector('.chat-message:last-child')
+    last?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   })
 }
 
@@ -983,10 +1039,17 @@ onMounted(() => {
   loadReportData()
   loadProfiles()
   document.addEventListener('click', handleClickOutside)
+  syncKeyboardInset()
+  window.visualViewport?.addEventListener('resize', syncKeyboardInset)
+  window.visualViewport?.addEventListener('scroll', syncKeyboardInset)
+  window.addEventListener('resize', syncKeyboardInset)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  window.visualViewport?.removeEventListener('resize', syncKeyboardInset)
+  window.visualViewport?.removeEventListener('scroll', syncKeyboardInset)
+  window.removeEventListener('resize', syncKeyboardInset)
 })
 
 watch(() => props.reportId, (newId) => {
@@ -1000,6 +1063,8 @@ watch(() => props.simulationId, (newId) => {
     loadProfiles()
   }
 }, { immediate: true })
+
+watch([chatHistory, isSending], () => scrollToBottom(), { deep: true })
 </script>
 
 <style scoped>
@@ -1523,12 +1588,35 @@ watch(() => props.simulationId, (newId) => {
   flex-shrink: 0;
 }
 
+.sim-disclaimer {
+  margin: 0;
+  padding: 6px 20px 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface-raised);
+}
+
+.chat-target-bar {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-surface-subtle);
+}
+
+.chat-target-bar__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 /* Chat Container */
 .chat-container {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 /* Report Agent Tools Card */
@@ -1956,7 +2044,9 @@ watch(() => props.simulationId, (newId) => {
 /* Chat Messages */
 .chat-messages {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 24px;
   display: flex;
   flex-direction: column;
@@ -2018,10 +2108,21 @@ watch(() => props.simulationId, (newId) => {
 }
 
 .message-content {
-  max-width: 70%;
+  max-width: min(70%, 42rem);
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
+}
+
+.chat-message.is-error .message-text {
+  background: var(--color-danger-bg, #fef2f2);
+  color: var(--color-danger-text, #b91c1c);
+  border: 1px solid color-mix(in srgb, var(--color-danger-text, #b91c1c) 28%, transparent);
+}
+
+.chat-message.is-error .sender-name {
+  color: var(--color-danger-text, #b91c1c);
 }
 
 .chat-message.user .message-content {
@@ -2053,7 +2154,11 @@ watch(() => props.simulationId, (newId) => {
   padding: 10px 14px;
   border-radius: 12px;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
 }
 
 .chat-message.user .message-text {
@@ -2661,8 +2766,11 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-fa
     width: 100%;
     margin: 0;
   }
-  .right-panel { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .right-panel { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px) + var(--keyboard-inset, 0px)); }
   .main-title { font-size: var(--font-size-h1); }
+  .sim-disclaimer { padding: 6px 16px 8px; }
+  .chat-target-bar { padding: 8px 16px; }
+  .message-content { max-width: 92%; }
   .action-bar {
     flex-direction: column;
     align-items: stretch;
@@ -2693,7 +2801,10 @@ h1, h2, h3, h4, h5, h6, .main-title, .section-title, .action-bar-title { font-fa
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    bottom: max(
+      calc(58px + env(safe-area-inset-bottom, 0px)),
+      var(--keyboard-inset, 0px)
+    );
     z-index: 45;
     padding: 8px 12px;
     background: color-mix(in srgb, var(--color-bg-canvas) 92%, transparent);
