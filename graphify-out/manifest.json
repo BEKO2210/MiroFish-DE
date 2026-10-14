@@ -138,9 +138,9 @@
     "semantic_hash": ""
   },
   "backend/app/services/simulation_runner.py": {
-    "mtime": 1791933454.0750024,
-    "seen": 1791936076.626986,
-    "ast_hash": "a7a3a9d86a75255320b5951b22ab0419",
+    "mtime": 1791942456.093003,
+    "seen": 1791942694.9611394,
+    "ast_hash": "829c7623a02949eeecdc7fe360db9390",
     "semantic_hash": ""
   },
   "backend/app/services/text_processor.py": {
@@ -294,27 +294,27 @@
     "semantic_hash": ""
   },
   "frontend/src/components/Step1GraphBuild.vue": {
-    "mtime": 1791901412.2158408,
-    "seen": 1791936076.6272268,
-    "ast_hash": "d833ace9f4f802e3ceb6462bb23da432",
+    "mtime": 1791942664.9201353,
+    "seen": 1791942694.9613678,
+    "ast_hash": "6670ffeb72683cba7d167b8c827712e1",
     "semantic_hash": ""
   },
   "frontend/src/components/Step2EnvSetup.vue": {
-    "mtime": 1791939898.1971424,
-    "seen": 1791940419.4008174,
-    "ast_hash": "fe3ab3ef9ce39247bd27a63e6d4caec2",
+    "mtime": 1791942664.9211352,
+    "seen": 1791942694.9613702,
+    "ast_hash": "4dc9e33823b7ceb981a938aeea6a9113",
     "semantic_hash": ""
   },
   "frontend/src/components/Step3Simulation.vue": {
-    "mtime": 1791901412.216841,
-    "seen": 1791936076.6272323,
-    "ast_hash": "c858d981bc29f5a328ca83b02f32b4e5",
+    "mtime": 1791942664.9211352,
+    "seen": 1791942694.9613729,
+    "ast_hash": "77f459d5da9d17a048f16d0a4f46d18f",
     "semantic_hash": ""
   },
   "frontend/src/components/Step4Report.vue": {
-    "mtime": 1791939927.9671319,
-    "seen": 1791940419.4008205,
-    "ast_hash": "9c14cd058d2c747853ed39c0afcdb8c8",
+    "mtime": 1791941998.7484186,
+    "seen": 1791942694.9613755,
+    "ast_hash": "0f0868293749a50a1b6b118a08df9151",
     "semantic_hash": ""
   },
   "frontend/src/components/Step5Interaction.vue": {
@@ -354,15 +354,15 @@
     "semantic_hash": ""
   },
   "frontend/src/views/MainView.vue": {
-    "mtime": 1791906702.6057017,
-    "seen": 1791936076.627289,
-    "ast_hash": "89246020552d105586a52c0b5ea9bff0",
+    "mtime": 1791942664.9231353,
+    "seen": 1791942694.9614391,
+    "ast_hash": "edea83ec79172cb35bfb6c2e0045a088",
     "semantic_hash": ""
   },
   "frontend/src/views/Process.vue": {
-    "mtime": 1791916305.4411395,
-    "seen": 1791936076.627292,
-    "ast_hash": "d2b8b171a4e3ec0d0a0db80a89fa857e",
+    "mtime": 1791942664.9241354,
+    "seen": 1791942694.9614418,
+    "ast_hash": "0b00b16afd73d8985de15d2ef090e3b7",
     "semantic_hash": ""
   },
   "frontend/src/views/ReportView.vue": {
@@ -528,9 +528,9 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ThemePicker.vue": {
-    "mtime": 1791937122.4618304,
-    "seen": 1791939305.5150607,
-    "ast_hash": "8ba691323cf22fe708b4bbd747420051",
+    "mtime": 1791941446.454845,
+    "seen": 1791942694.9613907,
+    "ast_hash": "84600685b5273b6a0e1b077b1abecdde",
     "semantic_hash": ""
   },
   "frontend/src/theme.js": {
@@ -546,27 +546,27 @@
     "semantic_hash": ""
   },
   "frontend/src/views/RunView.vue": {
-    "mtime": 1791939898.2021425,
-    "seen": 1791940419.400859,
-    "ast_hash": "2b98ca41205d6edb7053000982940319",
+    "mtime": 1791942664.9241354,
+    "seen": 1791942694.961455,
+    "ast_hash": "9b3e76f5be278a74d20cf6689c6a4424",
     "semantic_hash": ""
   },
   "frontend/src/views/SettingsView.vue": {
-    "mtime": 1791939898.2031426,
-    "seen": 1791940419.4008603,
-    "ast_hash": "39f4bb234db64d46c07a25775795c1fe",
+    "mtime": 1791941446.454845,
+    "seen": 1791942694.9614565,
+    "ast_hash": "9a92b3d2edfb1b5ad61beb73a32c2077",
     "semantic_hash": ""
   },
   "docs/API.md": {
-    "mtime": 1791936528.0935605,
-    "seen": 1791936580.4018276,
-    "ast_hash": "dc849b1e6a7d15b7ab6a4fca65f6e448",
+    "mtime": 1791942680.7096746,
+    "seen": 1791942694.961482,
+    "ast_hash": "1765a25fce84177ce56be84582e1995b",
     "semantic_hash": ""
   },
   "docs/ROADMAP.md": {
-    "mtime": 1791935629.810556,
-    "seen": 1791936076.6273568,
-    "ast_hash": "aa907b4cfe6f0136c0c066ed9b46e06a",
+    "mtime": 1791941258.611528,
+    "seen": 1791942694.961487,
+    "ast_hash": "2640c0b583e310380376f8f20175c304",
     "semantic_hash": ""
   },
   "docs/design/AUDIT.md": {
@@ -630,15 +630,15 @@
     "semantic_hash": ""
   },
   "frontend/src/i18n/de.json": {
-    "mtime": 1791939927.9681318,
-    "seen": 1791940419.40083,
-    "ast_hash": "c9b999fde06f1aebec2e3b5bb1c2a20c",
+    "mtime": 1791942664.9221354,
+    "seen": 1791942694.961399,
+    "ast_hash": "c216315f9a9185e1daae595f45d73403",
     "semantic_hash": ""
   },
   "frontend/src/i18n/en.json": {
-    "mtime": 1791939927.969132,
-    "seen": 1791940419.4008315,
-    "ast_hash": "9395d24d4bfedf6b132354da80445351",
+    "mtime": 1791942664.9231353,
+    "seen": 1791942694.9614015,
+    "ast_hash": "58111686d37c848f63e22600eb99d233",
     "semantic_hash": ""
   },
   "frontend/src/i18n/index.js": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "e2e/support/mockApi.ts": {
-    "mtime": 1791937162.2961624,
-    "seen": 1791939305.5150142,
-    "ast_hash": "9768dbbd3faaa42f40c399d77e578c99",
+    "mtime": 1791942664.9191353,
+    "seen": 1791942694.9613032,
+    "ast_hash": "e9c73f7f0db6f69d9840ee5e05a4839f",
     "semantic_hash": ""
   },
   "e2e/tests/a11y.spec.ts": {
@@ -768,9 +768,9 @@
     "semantic_hash": ""
   },
   "e2e/tests/flows.spec.ts": {
-    "mtime": 1791939927.9661317,
-    "seen": 1791940419.4007833,
-    "ast_hash": "d12bc573d544dd1c459a47657b7c7131",
+    "mtime": 1791942679.9976501,
+    "seen": 1791942694.9613082,
+    "ast_hash": "6ea522550c960c36a6bcb0bb21d498db",
     "semantic_hash": ""
   },
   "e2e/tests/safety.spec.ts": {
@@ -1014,15 +1014,15 @@
     "semantic_hash": ""
   },
   "frontend/src/components/MobileStickyBar.vue": {
-    "mtime": 1791939927.9661317,
-    "seen": 1791940419.400813,
-    "ast_hash": "6a78e76faa8a1516b207aa6e56fce62b",
+    "mtime": 1791941998.7474186,
+    "seen": 1791942694.9613624,
+    "ast_hash": "0d3fed988b9d2cc9c2215635682fe2c2",
     "semantic_hash": ""
   },
   "frontend/src/components/StepHeaderCompact.vue": {
-    "mtime": 1791895721.8497589,
-    "seen": 1791936076.6272411,
-    "ast_hash": "222671e3c98c0c419412763a7eb113a1",
+    "mtime": 1791941446.453845,
+    "seen": 1791942694.9613853,
+    "ast_hash": "6117adf169efab29915f4f2cbd2bdd62",
     "semantic_hash": ""
   },
   "frontend/UX-REPORT-belkis.md": {
@@ -1110,9 +1110,9 @@
     "semantic_hash": ""
   },
   "docs/VALIDIERUNG.md": {
-    "mtime": 1791940389.670883,
-    "seen": 1791940419.4008915,
-    "ast_hash": "2c69bcbd08358a5ddc600683394a1b73",
+    "mtime": 1791942680.7096746,
+    "seen": 1791942694.9614906,
+    "ast_hash": "e2624961ab1055989283739a65249719",
     "semantic_hash": ""
   },
   "docs/validation/szenarien/README.md": {
@@ -1194,21 +1194,21 @@
     "semantic_hash": ""
   },
   "backend/app/api/ensemble.py": {
-    "mtime": 1791936528.0915604,
-    "seen": 1791936580.4015782,
-    "ast_hash": "c58c7d2086c70a569d924c28205294d7",
+    "mtime": 1791942456.091003,
+    "seen": 1791942694.9610887,
+    "ast_hash": "e33cbcdf1002a953634153717e751f43",
     "semantic_hash": ""
   },
   "backend/app/services/ensemble.py": {
-    "mtime": 1791939875.2943814,
-    "seen": 1791940419.4006522,
-    "ast_hash": "9be8a5c5370d93d7be89c041610b6573",
+    "mtime": 1791942456.0920029,
+    "seen": 1791942694.961115,
+    "ast_hash": "4131e494b256a0212b07491111cb24f3",
     "semantic_hash": ""
   },
   "backend/tests/test_ensemble.py": {
-    "mtime": 1791939875.2963812,
-    "seen": 1791940419.4007206,
-    "ast_hash": "8977a19f6a4a883f64b0769ad77a9c10",
+    "mtime": 1791942456.093003,
+    "seen": 1791942694.9611907,
+    "ast_hash": "9b763c2213c118e7ec3193c6fe3d1f59",
     "semantic_hash": ""
   },
   "frontend/src/api/ensemble.js": {
@@ -1218,9 +1218,9 @@
     "semantic_hash": ""
   },
   "frontend/src/views/EnsembleView.vue": {
-    "mtime": 1791939898.2021425,
-    "seen": 1791940419.4008465,
-    "ast_hash": "3035550a25e3146ad47a0f170e23cccd",
+    "mtime": 1791941998.7504187,
+    "seen": 1791942694.9614282,
+    "ast_hash": "e376722c960fa9aa5e50859285e92018",
     "semantic_hash": ""
   },
   "frontend/UX-REPORT-cursor-ensemble.md": {
@@ -1266,9 +1266,9 @@
     "semantic_hash": ""
   },
   "backend/scripts/validate_case.py": {
-    "mtime": 1791939875.2953813,
-    "seen": 1791940419.400714,
-    "ast_hash": "c63dd034b38ac3e2ccf14a76f5870f0b",
+    "mtime": 1791941101.3032374,
+    "seen": 1791942694.961184,
+    "ast_hash": "e84eee7a505869feeda509c5ee3b4acd",
     "semantic_hash": ""
   },
   "backend/tests/test_repro.py": {
@@ -1278,9 +1278,9 @@
     "semantic_hash": ""
   },
   "backend/tests/test_validate_case.py": {
-    "mtime": 1791939875.2963812,
-    "seen": 1791940419.4007273,
-    "ast_hash": "d06fe87d687eb0432116f1a34e433c12",
+    "mtime": 1791941101.3042376,
+    "seen": 1791942694.9611993,
+    "ast_hash": "22550371c4ccabfc30d6c577bcfee567",
     "semantic_hash": ""
   },
   "docs/validation/faelle/freiburg-bewohnerparken-2021/ergebnisse.json": {
@@ -1716,9 +1716,9 @@
     "semantic_hash": ""
   },
   "backend/tests/test_validate_case_dry.py": {
-    "mtime": 1791939875.2963812,
-    "seen": 1791940419.400729,
-    "ast_hash": "9888edf1e8b06bb5f97427b529c46c26",
+    "mtime": 1791941101.3042376,
+    "seen": 1791942694.9612012,
+    "ast_hash": "9f2c4ec76b8f1b0fe3d30aaf83ceabc4",
     "semantic_hash": ""
   },
   "static/image/Screenshot/desktop-bericht.png": {
@@ -1770,9 +1770,9 @@
     "semantic_hash": ""
   },
   "frontend/src/utils/formatNumber.js": {
-    "mtime": 1791939898.2011425,
-    "seen": 1791940419.4008412,
-    "ast_hash": "cd67887c992401822c15cb44ab185815",
+    "mtime": 1791941998.7494187,
+    "seen": 1791942694.9614193,
+    "ast_hash": "5e919527c02bb51144b1588170a8cd3a",
     "semantic_hash": ""
   },
   "docs/validation/PRUEFUNG-V5-COPILOT-2026-10-14.md": {
@@ -1785,6 +1785,66 @@
     "mtime": 1791939875.2973814,
     "seen": 1791940419.4009054,
     "ast_hash": "6da7b06563fd68b363817b27635c2161",
+    "semantic_hash": ""
+  },
+  "backend/scripts/run_pilot_v5.py": {
+    "mtime": 1791941101.3032374,
+    "seen": 1791942694.9611773,
+    "ast_hash": "96eb4bfbc0a1336b3c8e9cac78c4c83d",
+    "semantic_hash": ""
+  },
+  "backend/tests/test_run_pilot_v5.py": {
+    "mtime": 1791941101.3032374,
+    "seen": 1791942694.9611976,
+    "ast_hash": "5c31142dca41c333dbee1c3fb04a2392",
+    "semantic_hash": ""
+  },
+  "docs/validation/probe/ergebnisse.json": {
+    "mtime": 1791941101.3052375,
+    "seen": 1791942694.961232,
+    "ast_hash": "55758b590348b80169e79504ba638013",
+    "semantic_hash": ""
+  },
+  "e2e/tests/narrow.spec.ts": {
+    "mtime": 1791941446.4508448,
+    "seen": 1791942694.9613101,
+    "ast_hash": "4b45c82df2f398071ffe76d5a43f78aa",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/StepActivity.vue": {
+    "mtime": 1791942664.9211352,
+    "seen": 1791942694.9613826,
+    "ast_hash": "c3f5c3368dbe3af440c405c285930b3b",
+    "semantic_hash": ""
+  },
+  "frontend/src/composables/useLiveness.js": {
+    "mtime": 1791942664.9211352,
+    "seen": 1791942694.961393,
+    "ast_hash": "2cdc7e1b6c751a68ae5d80c8b02c1f5e",
+    "semantic_hash": ""
+  },
+  "docs/validation/README.md": {
+    "mtime": 1791941258.611528,
+    "seen": 1791942694.96151,
+    "ast_hash": "b7de6c9c4804d2de44cb4140239e03c4",
+    "semantic_hash": ""
+  },
+  "docs/validation/probe/ausgangslage.md": {
+    "mtime": 1791941101.3042376,
+    "seen": 1791942694.961553,
+    "ast_hash": "419da5006bee54cd42c612fb48c66b1a",
+    "semantic_hash": ""
+  },
+  "docs/validation/probe/quellen.md": {
+    "mtime": 1791941101.3052375,
+    "seen": 1791942694.9615552,
+    "ast_hash": "ca88c4e6561319b1ccd025fda88f3db2",
+    "semantic_hash": ""
+  },
+  "docs/validation/probe/verlauf.md": {
+    "mtime": 1791941101.3052375,
+    "seen": 1791942694.9615564,
+    "ast_hash": "f8c66879446e5a33d47e52fdec2c0912",
     "semantic_hash": ""
   }
 }
