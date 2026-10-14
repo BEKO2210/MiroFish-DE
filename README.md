@@ -16,6 +16,7 @@ Schwarm-Simulation mit KI-Agenten – denkbare Verläufe durchspielen
 *   **Neue Oberfläche:** für Handy und Desktop, Deutsch und Englisch, frei wählbare Farb-Combos.
 *   **Verlauf mit Export und Löschen**, HTTP-Schnittstelle für Skripte und KI-Agenten ([docs/API.md](docs/API.md)).
 *   **Wie verlässlich ist das?** Ehrliche Erklärung für Nicht-Fachleute: [docs/VERLAESSLICHKEIT.md](docs/VERLAESSLICHKEIT.md).
+*   **Anleitung für Gemeinderat, Verein und Bürgerinitiative:** Material, Frage, Ablauf, Bericht lesen – [docs/ANLEITUNG.md](docs/ANLEITUNG.md).
 
 ---
 

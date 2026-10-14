@@ -16,6 +16,7 @@ Swarm simulation with AI agents – playing out possible scenarios
 *   **New interface:** for phone and desktop, German and English, freely selectable colour pairs.
 *   **History with export and delete**, HTTP interface for scripts and AI agents ([docs/API.md](docs/API.md)).
 *   **How reliable is it?** Plain-language explanation: [docs/RELIABILITY.md](docs/RELIABILITY.md).
+*   **Guide for town councils, clubs and citizens' initiatives:** material, question, steps, reading the report – [docs/GUIDE.md](docs/GUIDE.md).
 
 ---
 
