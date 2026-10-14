@@ -160,15 +160,17 @@ function onUp(e) {
 .guide-tip__link {
   grid-area: link;
   justify-self: start;
-  margin-left: 4px;
+  align-self: start;
+  margin: 0 0 0 4px;
+  padding: 4px 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-info-text);
   text-decoration: underline;
   text-underline-offset: 2px;
-  min-height: 44px;
   display: inline-flex;
   align-items: center;
+  line-height: 1.3;
 }
 .guide-tip__close {
   grid-area: close;

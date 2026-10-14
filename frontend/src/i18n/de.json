@@ -764,7 +764,7 @@
     "resultsAria": "Ergebnisse",
     "outcome": "Ergebnis",
     "meaningTitle": "So sind diese Zahlen zu lesen",
-    "meaningBody": "Jede Ergebniszahl ist nur der Anteil der Läufe dieses Simulationsaufbaus, zum Beispiel: 7 von 10 Läufen dieser Simulation. Sie ist keine Wahrscheinlichkeit für die Wirklichkeit.",
+    "meaningBody": "Jede Ergebniszahl ist nur der Anteil der Läufe dieses Simulationsaufbaus, zum Beispiel: 7 von 10 Läufen dieser Simulation. Die Werte zeigen eine Bandbreite aus mehreren Durchläufen – keine Wahrscheinlichkeiten für die Realität.",
     "meaningLimit": "Eine Aussage über die Wirklichkeit ist erst nach dem Abgleich mit realen Fällen möglich. Die Zahlen zum Fortschritt zeigen nur, wie viele Läufe technisch abgeschlossen sind.",
     "alreadyInMaterial": "Stand schon im Material",
     "cell": "{yes} von {n} Läufen dieser Simulation · Anteil: {rate} % · Schwankungsbereich im Modell (Konfidenzintervall): {lo}–{hi} %",
