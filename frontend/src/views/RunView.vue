@@ -107,6 +107,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { formatNumber } from '../utils/formatNumber'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import { getPipeline, STEP_ORDER } from '../api/pipeline'
 
@@ -154,7 +155,7 @@ const etaText = computed(() => {
   const remaining = elapsed * (100 - overall.value) / overall.value
   if (remaining < 90) return t('run.etaSoon')
   if (remaining < 3600) return t('run.etaMin', { n: Math.round(remaining / 60) })
-  return t('run.etaH', { n: (remaining / 3600).toFixed(1) })
+  return t('run.etaH', { n: formatNumber(remaining / 3600, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
 })
 
 const fmtDate = (iso) => { try { return new Date(iso).toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE', { dateStyle: 'medium', timeStyle: 'short' }) } catch (e) { return '' } }

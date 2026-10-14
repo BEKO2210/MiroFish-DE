@@ -142,6 +142,7 @@ import AppHeader from '../components/AppHeader.vue'
 import MobileStickyBar from '../components/MobileStickyBar.vue'
 import ThemePicker from '../components/ThemePicker.vue'
 import service from '../api/index'
+import { formatNumber } from '../utils/formatNumber'
 
 const { t, locale } = useI18n()
 const setLang = (l) => { locale.value = l; try { localStorage.setItem('lang', l) } catch (e) { /* privater Modus */ } document.documentElement.lang = l }
@@ -166,7 +167,7 @@ const withCurrent = (list, cur) => (cur && !list.some(m => m.name === cur) ? [{ 
 const optionLabel = (m) => {
   if (m.missing) return `${m.name} · ${t('settings.notInstalled')}`
   const parts = [m.name]
-  if (m.size_gb) parts.push(`${m.size_gb.toLocaleString(locale.value === 'en' ? 'en-GB' : 'de-DE')} GB`)
+  if (m.size_gb) parts.push(`${formatNumber(m.size_gb)} GB`)
   if (m.loaded) parts.push(t('settings.loadedNow'))
   return parts.join(' · ')
 }

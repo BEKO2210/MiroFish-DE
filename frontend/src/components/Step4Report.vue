@@ -445,7 +445,7 @@
 
                 <!-- Footer: Elapsed Time + Action Buttons -->
                 <div class="timeline-footer" v-if="log.elapsed_seconds || (log.action === 'tool_call' && log.details?.parameters) || log.action === 'tool_result' || (log.action === 'llm_response' && log.details?.response)">
-                  <span v-if="log.elapsed_seconds" class="elapsed-badge">+{{ log.elapsed_seconds.toFixed(1) }}s</span>
+                  <span v-if="log.elapsed_seconds" class="elapsed-badge">+{{ formatNumber(log.elapsed_seconds, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }}s</span>
                   <span v-else class="elapsed-placeholder"></span>
                   
                   <div class="footer-actions">
@@ -603,6 +603,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, h, reactive } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatNumber } from '../utils/formatNumber'
 import { useRouter } from 'vue-router'
 import { getAgentLog, getConsoleLog, getReport } from '../api/report'
 import { startEnsemble, listEnsembles } from '../api/ensemble'
@@ -1375,7 +1376,7 @@ const InsightDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
+        return t('step4.characterCountK', { count: formatNumber(length / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
       }
       return t('step4.characterCount', { count: length })
     }
@@ -1546,7 +1547,7 @@ const PanoramaDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
+        return t('step4.characterCountK', { count: formatNumber(length / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
       }
       return t('step4.characterCount', { count: length })
     }
@@ -1681,7 +1682,7 @@ const InterviewDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
+        return t('step4.characterCountK', { count: formatNumber(length / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
       }
       return t('step4.characterCount', { count: length })
     }
@@ -1993,7 +1994,7 @@ const QuickSearchDisplay = {
     const formatSize = (length) => {
       if (!length) return ''
       if (length >= 1000) {
-        return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
+        return t('step4.characterCountK', { count: formatNumber(length / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
       }
       return t('step4.characterCount', { count: length })
     }
@@ -2260,7 +2261,7 @@ const formatParams = (params) => {
 const formatResultSize = (length) => {
   if (!length) return ''
   if (length < 1000) return t('step4.characterCount', { count: length })
-  return t('step4.characterCountK', { count: (length / 1000).toFixed(1) })
+  return t('step4.characterCountK', { count: formatNumber(length / 1000, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })
 }
 
 const truncateText = (text, maxLen) => {

@@ -288,12 +288,12 @@ class SimulationManager:
             
             # ========== Phase 1: Entitäten lesen und filtern ==========
             if progress_callback:
-                progress_callback("reading", 0, "Verbinde mit Zep-Graphen...")
+                progress_callback("reading", 0, "Wissensnetz wird geöffnet...")
             
             reader = ZepEntityReader()
             
             if progress_callback:
-                progress_callback("reading", 30, "Lese Knotendaten...")
+                progress_callback("reading", 30, "Beteiligte werden gelesen...")
             
             filtered = reader.filter_defined_entities(
                 graph_id=state.graph_id,
@@ -307,7 +307,7 @@ class SimulationManager:
             if progress_callback:
                 progress_callback(
                     "reading", 100, 
-                    f"Abgeschlossen, insgesamt {filtered.filtered_count} Entitäten",
+                    f"Abgeschlossen, {filtered.filtered_count} Beteiligte gefunden",
                     current=filtered.filtered_count,
                     total=filtered.filtered_count
                 )

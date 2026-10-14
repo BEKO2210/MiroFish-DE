@@ -571,7 +571,7 @@ def prepare_simulation():
                     
                     # Detaillierte Fortschrittsinformationen erstellen
                     stage_names = {
-                        "reading": "Graph-Entitäten lesen",
+                        "reading": "Beteiligte aus dem Wissensnetz lesen",
                         "generating_profiles": "Agent-Profile generieren",
                         "generating_config": "Simulationskonfiguration generieren",
                         "copying_scripts": "Simulationsskripte vorbereiten"
@@ -605,11 +605,11 @@ def prepare_simulation():
                     # Kompakte Nachricht erstellen
                     if detail["total"] > 0:
                         detailed_message = (
-                            f"[{stage_index}/{total_stages}] {stage_names.get(stage, stage)}: "
-                            f"{detail['current']}/{detail['total']} - {message}"
+                            f"Schritt {stage_index} von {total_stages}: {stage_names.get(stage, stage)} "
+                            f"({detail['current']} von {detail['total']}) - {message}"
                         )
                     else:
-                        detailed_message = f"[{stage_index}/{total_stages}] {stage_names.get(stage, stage)}: {message}"
+                        detailed_message = f"Schritt {stage_index} von {total_stages}: {stage_names.get(stage, stage)} - {message}"
                     
                     task_manager.update_task(
                         task_id,

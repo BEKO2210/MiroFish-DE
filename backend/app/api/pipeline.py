@@ -135,8 +135,8 @@ def _run(pid, files, requirement, project_name):
         project_id = data["project_id"]
         state["project_id"] = project_id
         onto = data.get("ontology") or {}
-        _set(state, "ontology", "done", f"{len(onto.get('entity_types', []))} Entitätstypen, "
-                                        f"{len(onto.get('edge_types', []))} Beziehungstypen")
+        _set(state, "ontology", "done", f"{len(onto.get('entity_types', []))} Arten von Beteiligten, "
+                                        f"{len(onto.get('edge_types', []))} Arten von Beziehungen")
 
         # 2 Graph
         _set(state, "graph", "running")
@@ -147,7 +147,7 @@ def _run(pid, files, requirement, project_name):
             if t.get("status") == "completed":
                 r = t.get("result") or {}
                 state["graph_id"] = r.get("graph_id")
-                _set(state, "graph", "done", f"{r.get('node_count', 0)} Knoten, {r.get('edge_count', 0)} Kanten")
+                _set(state, "graph", "done", f"{r.get('node_count', 0)} Beteiligte und Themen, {r.get('edge_count', 0)} Verbindungen gefunden")
                 break
             if t.get("status") == "failed":
                 raise RuntimeError(t.get("error") or "Graph-Aufbau fehlgeschlagen")
@@ -158,7 +158,7 @@ def _run(pid, files, requirement, project_name):
         sim = _ok(s.post(f"{base}/api/simulation/create", json={"project_id": project_id}, timeout=60))
         sim_id = sim["simulation_id"]
         state["simulation_id"] = sim_id
-        _set(state, "create", "done", sim_id)
+        _set(state, "create", "done", "Simulation angelegt")
 
         # 4 Vorbereiten (Profile + Konfiguration). Der Fortschritt hängt an der task_id dieser einen Aufgabe; ohne sie
         # meldet der Status-Endpunkt "nicht gestartet", und ein erneutes /prepare würde eine weitere, parallel
@@ -186,13 +186,13 @@ def _run(pid, files, requirement, project_name):
         while True:
             rs = _ok(s.get(f"{base}/api/simulation/{sim_id}/run-status", timeout=30))
             _set(state, "simulate", "running",
-                 f"Runde {rs.get('current_round', 0)}, {rs.get('twitter_actions_count', 0)} + {rs.get('reddit_actions_count', 0)} Aktionen",
+                 f"Runde {rs.get('current_round', 0)}, {rs.get('twitter_actions_count', 0) + rs.get('reddit_actions_count', 0)} Aktionen bisher",
                  progress=rs.get("progress_percent", 0))
             if rs.get("runner_status") == "completed":
-                _set(state, "simulate", "done", f"{rs.get('twitter_actions_count', 0)} + {rs.get('reddit_actions_count', 0)} Aktionen")
+                _set(state, "simulate", "done", f"{rs.get('twitter_actions_count', 0) + rs.get('reddit_actions_count', 0)} Aktionen")
                 break
             if rs.get("runner_status") in ("failed", "stopped"):
-                raise RuntimeError(rs.get("error") or f"Simulation {rs.get('runner_status')}")
+                raise RuntimeError(rs.get("error") or "Die Simulation wurde abgebrochen" if rs.get("runner_status") == "stopped" else "Die Simulation ist fehlgeschlagen")
             time.sleep(15)
 
         # 6 Bericht
