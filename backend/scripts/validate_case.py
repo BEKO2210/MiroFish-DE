@@ -898,6 +898,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                         help="Rundentakt in Minuten, an den Ensemble-Start durchgereicht")
     parser.add_argument("--arms", default=",".join(DEFAULT_ARMS), help="Kommagetrennte V5-Arme")
     parser.add_argument("--base", default="http://127.0.0.1:5002")
+    parser.add_argument("--results-dir", type=Path, default=None,
+                        help="Zielordner für Fallberichte und GESAMT (Standard: docs/validation/ergebnisse)")
     parser.add_argument("--ort", dest="location")
     parser.add_argument("--jahr", dest="year")
     parser.add_argument("--thema", dest="topic")
@@ -906,15 +908,20 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     arguments = parse_args(argv)
+    options = {}
+    if arguments.results_dir is not None:
+        options["results_dir"] = arguments.results_dir
     try:
         result = validate_case(arguments.case_dir, runs=arguments.runs, hours=arguments.hours,
                                minutes_per_round=arguments.minutes_per_round,
                                arms=parse_arms(arguments.arms), base=arguments.base,
-                               location=arguments.location, year=arguments.year, topic=arguments.topic)
+                               location=arguments.location, year=arguments.year, topic=arguments.topic,
+                               **options)
     except (ApiError, OSError, ValueError) as error:
         print(f"Fehler: {error}", file=sys.stderr)
         return 1
-    print(f"Auswertung geschrieben: {DEFAULT_RESULTS_DIR / (result['case'] + '.md')}")
+    results_dir = arguments.results_dir or DEFAULT_RESULTS_DIR
+    print(f"Auswertung geschrieben: {results_dir / (result['case'] + '.md')}")
     return 0
 
 

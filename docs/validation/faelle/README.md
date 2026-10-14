@@ -20,7 +20,7 @@ Einheitliches Primärergebnis für alle Fälle: „Innerhalb von 14 Tagen veröf
 | unterschleissheim-wall-2022 | Unterschleißheim (Bayern) | 30.11.2022 (Ausschuss), 02.02.2023 (Stadtrat) | 30.11.2022 | **Ja** (BUND Naturschutz, 06.12.2022) | Baumfällung / Wallsanierung | 8 (Nr. 8 ohne Beleg) | 7 | 6/7 (86 %) |
 | wanzleben-grundschule-2025 | Wanzleben-Börde (Sachsen-Anhalt) | 28.08.2025 | 28.08.2025 | **Nein** (kein datierter Beleg im Fenster) | Grundschul-Schließung | 8 | 5 | 2/5 (40 %) |
 | neuwied-parkgebuehren-2025 | Neuwied (Rheinland-Pfalz) | 13.11.2025 | 13.11.2025 | **Ja** (AfD-Fraktion, 16.11.2025) | Parkgebühren-Verdopplung | 8 | 7 (6 scorebar, 1 `in_material`) | 5/6 (83 %) |
-| **Summe / Basisrate** | | | | **5/8 Ja (62,5 %)** | | 64 | 55 | 34/53 scorebar (64 %) |
+| **Summe** | | | | **Katalog 5/8 Ja; Primär 4/7 Ja** | | 64 | 55 | 34/53 scorebar (64 %) |
 
 T0 = Tag des Beschlusses; `ausgangslage.md` enthält nur Tatsachen aus Quellen mit Veröffentlichung ≤ T0 (Prüftabelle „T0-Prüfung“
 je Fall in `quellen.md`, jetzt für alle acht Fälle; Ausnahme: Beschluss und in der Sitzung genannte Gründe als Ereignis an T0).
@@ -28,11 +28,20 @@ Genau eine Frage je Fall trägt `"primaer": true`; jede Frage trägt `"polarity"
 Fortbestehen). Kodierhinweise stehen nicht im Fragetext. Neuwied hat 6 scorebare belegte Fragen und gilt damit nicht als
 „schwacher Fall“.
 
-**Basisrate:** 5 von 8 Fällen sind „Ja“ (62,5 %). Das Primärergebnis streut damit; ein Skill-Vergleich muss gegen die konstante
-Vorhersage 0,625 antreten. Mit 8 Fällen ist die Basisrate nur grob bestimmt (Wilson-95-%-Intervall etwa 31–86 %).
+**Felder in `ergebnisse.json`:** `kontaminiert` (Objekt mit `quelle` und `datum`) und `quellenluecke` (boolesch) stehen an der
+Frage, nicht am Ordnernamen. `kontaminiert` trägt nur Freiburg, mit Quelle und Datum der externen Kaltprüfung vom 2026-10-14.
+`quellenluecke: true` tragen Kehl, Niederkassel und Wanzleben. `backend/scripts/validate_case.py` liest beide Felder aus den
+Frageobjekten.
 
-Vorvereinbarte Auswertung (siehe Protokoll): primär alle 8 Fälle; Sensitivitätsanalyse nur über die 5 Fälle ohne Quellenlücke
-(ohne Kehl, Niederkassel, Wanzleben). Arme: S (`baseline`), D (`null_document`), P (`null_personas`); `isolated` und
+**Basisrate:** Im Katalog aller acht Akten ist das Primärergebnis 5-mal „Ja“ (62,5 %; Wilson-95-%-Intervall etwa 31–86 %).
+Freiburg ist vorab kontaminiert und zählt nicht zur Primäranalyse. Primär bleiben 7 Fälle, davon 4 „Ja“ (Karlsfeld, Kuppenheim,
+Neuwied, Unterschleißheim) und 3 „Nein“ (57 %). Mit 7 Fällen ist die Basisrate nur grob bestimmt.
+
+Vorvereinbarte Auswertung (Protokoll und `backend/scripts/validate_case.py`): **Primär** die 7 nicht kontaminierten Fälle.
+**Sensitivität** die 4 nicht kontaminierten Fälle ohne Quellenlücke (Karlsfeld, Kuppenheim, Neuwied, Unterschleißheim). Kehl,
+Niederkassel und Wanzleben bleiben über `quellenluecke` in der Primäranalyse und fallen aus der Sensitivität. Berichtet wird
+der Brier-Score je Arm sowie `Skill(S,D) = 1 − BS_S / BS_D` und `Skill(P,D) = 1 − BS_P / BS_D`. Das 95-%-Intervall entsteht
+durch 10.000 Bootstrap-Ziehungen ganzer Fälle. Arme: S (`baseline`), D (`null_document`), P (`null_personas`); `isolated` und
 `blind_feed` nur explorativ, nicht als Vernetzungseffekt lesbar.
 
 ## Grenzen
@@ -42,13 +51,15 @@ Vorvereinbarte Auswertung (siehe Protokoll): primär alle 8 Fälle; Sensitivitä
   „Eingetreten = falsch“ bedeutet daher oft nur „nicht berichtet bzw. nur belegt, dass der Beschluss blieb“.
 - **Fragenauswahl:** Aussagen ohne tragende Quelle wurden entfernt statt als „falsch“ gewertet. Das verzerrt den Anteil
   „eingetreten“ eher nach oben; reines Nichterwähnen gilt nie als Gegenbeleg.
-- **Kleine Stichprobe:** Acht Fälle, 55 Fragen; Anteile sind Größenordnungen, keine Genauigkeitsmaße. Die Fälle
-  decken nur wenige Arten ab und sind nicht repräsentativ (u. a. nur Fälle mit Presseecho, meist Protest-Fälle).
+- **Kleine Stichprobe:** Acht Akten, davon sieben in der Primäranalyse, 55 Fragen. Anteile sind Größenordnungen, keine
+  Genauigkeitsmaße. Die Fälle decken nur wenige Arten ab und sind nicht repräsentativ (u. a. nur Fälle mit Presseecho,
+  meist Protest-Fälle).
 - **Zeitfenster und Datierung:** Viele Ereignisse sind nicht taggenau datiert; Reaktionen vor dem Beschluss (z. B.
   Petitionen) zählen nicht. Einige Belege stammen erst von nach dem Fenster (z. B. Neuwied: 23.02.2026, 29.04.2026).
 - **T0-Schnitt:** Beschlussinhalt und in der Sitzung genannte Gründe sind Ereignisse an T0, wurden aber erst nach T0 berichtet (dokumentierte Ausnahme). Das T0-Material enthält teils schon Kritik (Niederkassel: Förderverein am 10.02.2023); Quellen mit unklarem Datum (Niederkassel [1], Stadt-Pressemitteilung Neuwied Juni 2025) sind in `quellen.md` vermerkt.
-- **Wenig Varianz im Primärergebnis:** 5/8 „Ja“ (62,5 %). Die drei „Nein“ (Kehl, Niederkassel, Wanzleben) beruhen auf
-  Quellenlücken, nicht auf belegter Abwesenheit; die Basisrate kann dadurch zu niedrig liegen.
+- **Wenig Varianz im Primärergebnis:** Katalog 5/8 „Ja“, Primäranalyse ohne das vorab kontaminierte Freiburg 4/7 „Ja“.
+  Die drei „Nein“ (Kehl, Niederkassel, Wanzleben) beruhen auf Quellenlücken (`quellenluecke`), nicht auf belegter
+  Abwesenheit. Sie bleiben in der Primäranalyse und sind aus der Sensitivität ausgeschlossen.
 - **Parteiische Quellen:** Pressemitteilungen von Stadt und Fraktionen sind Eigendarstellungen; Zitate sind ihre Aussagen,
   keine unabhängige Bestätigung.
 - **Lesbarkeit:** Nicht jede Quelle war automatisch auswertbar (z. B. ein Bild-PDF in Wanzleben); solche Quellen tragen
