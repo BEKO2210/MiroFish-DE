@@ -7,6 +7,7 @@ import re
 import stat
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -93,25 +94,58 @@ def test_start_script_creates_env_and_data_before_compose(tmp_path):
     assert (proj / "docker_args").read_text().startswith("compose up -d")
 
 
+@contextmanager
+def _root_env(text: str):
+    env_path = ROOT / ".env"
+    backup = env_path.read_bytes() if env_path.exists() else None
+    env_path.write_text(text, encoding="utf-8")
+    try:
+        yield
+    finally:
+        if backup is None:
+            env_path.unlink(missing_ok=True)
+        else:
+            env_path.write_bytes(backup)
+
+
 def test_container_flask_port_wins_over_copied_env():
-    # Nach dem Import von app.config muss der Prozesswert gelten
+    # Nach dem Import von app.config muss der Prozesswert gelten, auch wenn eine .env da ist.
     code = (
         "import os;os.environ['FLASK_PORT']='5001';"
         "import app.config;"
         "print(os.environ['FLASK_PORT'])"
     )
-    env_path = ROOT / ".env"
-    if env_path.exists():
-        pytest.skip("echte .env vorhanden – nicht überschreiben")
-    env_path.write_text("FLASK_PORT=9999\n", encoding="utf-8")
-    try:
+    env = os.environ.copy()
+    env.pop("MIROFISH_SKIP_DOTENV", None)
+    with _root_env("FLASK_PORT=9999\n"):
+        out = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            cwd=ROOT / "backend", check=True, env=env,
+        ).stdout.strip()
+    assert out == "5001"
+
+
+def test_skip_dotenv_ignores_root_env_file():
+    code = (
+        "import os\n"
+        "os.environ.pop('FLASK_PORT', None)\n"
+        "os.environ.pop('LLM_PROVIDER', None)\n"
+        "os.environ.pop('LLM_BASE_URL', None)\n"
+        "import app.config\n"
+        "from app.config import Config\n"
+        "assert os.environ.get('FLASK_PORT', 'UNSET') == 'UNSET'\n"
+        "assert Config.LLM_PROVIDER == 'openai'\n"
+        "assert '11434' not in Config.LLM_BASE_URL\n"
+        "print('ok')\n"
+    )
+    with _root_env(
+        "FLASK_PORT=9999\nLLM_PROVIDER=ollama\nLLM_BASE_URL=http://127.0.0.1:11434/v1\n"
+    ):
         out = subprocess.run(
             [sys.executable, "-c", code], capture_output=True, text=True,
             cwd=ROOT / "backend", check=True,
-        ).stdout.strip()
-    finally:
-        env_path.unlink()
-    assert out == "5001"
+        )
+    assert out.stdout.strip() == "ok", out.stderr
 
 
 def test_entrypoint_strips_flask_port_from_copy():

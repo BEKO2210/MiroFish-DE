@@ -15,11 +15,14 @@ project_root_env = os.path.join(os.path.dirname(__file__), '../../.env')
 _PROCESS_WINS = ('FLASK_HOST', 'FLASK_PORT')
 _process_values = {k: os.environ[k] for k in _PROCESS_WINS if k in os.environ}
 
-if os.path.exists(project_root_env):
-    load_dotenv(project_root_env, override=True)
-else:
-    # Wenn keine .env im Wurzelverzeichnis, Umgebungsvariablen laden (für Produktionsumgebung)
-    load_dotenv(override=True)
+# Tests setzen MIROFISH_SKIP_DOTENV=1, bevor dieses Modul geladen wird.
+_SKIP_DOTENV = os.environ.get('MIROFISH_SKIP_DOTENV', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+if not _SKIP_DOTENV:
+    if os.path.exists(project_root_env):
+        load_dotenv(project_root_env, override=True)
+    else:
+        # Wenn keine .env im Wurzelverzeichnis, Umgebungsvariablen laden (für Produktionsumgebung)
+        load_dotenv(override=True)
 os.environ.update(_process_values)
 
 

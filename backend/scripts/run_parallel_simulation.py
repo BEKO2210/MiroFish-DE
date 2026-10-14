@@ -100,13 +100,15 @@ from app.services.blind_feed import (
     is_blind_feed,
 )
 
-# Laden der .env-Datei aus dem Projektwurzelverzeichnis (enthält Konfigurationen wie LLM_API_KEY)
+# Laden der .env-Datei aus dem Projektwurzelverzeichnis (enthält Konfigurationen wie LLM_API_KEY).
+# Dieselbe Abschaltung wie in app/config.py: Tests setzen MIROFISH_SKIP_DOTENV=1.
 from dotenv import load_dotenv
 _env_file = os.path.join(_project_root, '.env')
-if os.path.exists(_env_file):
+_skip_dotenv = os.environ.get('MIROFISH_SKIP_DOTENV', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+if not _skip_dotenv and os.path.exists(_env_file):
     load_dotenv(_env_file)
     print(f"Umgebungskonfiguration geladen: {_env_file}")
-else:
+elif not _skip_dotenv:
     # Versuche backend/.env zu laden
     _backend_env = os.path.join(_backend_dir, '.env')
     if os.path.exists(_backend_env):

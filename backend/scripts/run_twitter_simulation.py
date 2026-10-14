@@ -36,15 +36,18 @@ _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
 sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
-# Laden der .env-Datei im Projektwurzelverzeichnis (enthält LLM_API_KEY usw. Konfigurationen)
+# Laden der .env-Datei im Projektwurzelverzeichnis (enthält LLM_API_KEY usw. Konfigurationen).
+# Dieselbe Abschaltung wie in app/config.py: Tests setzen MIROFISH_SKIP_DOTENV=1.
 from dotenv import load_dotenv
 _env_file = os.path.join(_project_root, '.env')
-if os.path.exists(_env_file):
-    load_dotenv(_env_file)
-else:
-    _backend_env = os.path.join(_backend_dir, '.env')
-    if os.path.exists(_backend_env):
-        load_dotenv(_backend_env)
+_skip_dotenv = os.environ.get('MIROFISH_SKIP_DOTENV', '').strip().lower() in {'1', 'true', 'yes', 'on'}
+if not _skip_dotenv:
+    if os.path.exists(_env_file):
+        load_dotenv(_env_file)
+    else:
+        _backend_env = os.path.join(_backend_dir, '.env')
+        if os.path.exists(_backend_env):
+            load_dotenv(_backend_env)
 
 
 import re
