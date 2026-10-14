@@ -106,7 +106,7 @@ Statistik, angeglichene Nullarme); die Zahlen oben wurden damit nicht neu erhobe
 | Fälle | 7: Karlsfeld, Kehl, Kuppenheim, Neuwied, Niederkassel, Unterschleißheim, Wanzleben (Freiburg nicht gestartet) |
 | Arme | `baseline` (Schwarm, S), `null_document` (D), `null_personas` (P) |
 | Seeds / Takt / Zeitraum | 5 Seeds, 240 Minuten je Runde, 336 Stunden (84 Runden) |
-| Modelle | Textarme `gemma4:e4b-it-qat`; Klassifikation `gemma4:12b-it-qat` + `qwen3.5:9b-agent32k`, kein Seed-Fallback |
+| Modelle | Textarme `gemma4:e4b-it-qat`; Klassifikation `gemma4:12b-it-qat` (Haupt) + Gemini 3.8 Flash High über agy (Zweit, nachträglich; Nachtrag 14.10.2026), kein Seed-Fallback |
 | GPU-Schätzung (RTX 3070) | 33–72 h, Mitte rund 50 (Schätzung aus Prüfung 2, nicht gemessen) |
 | Entscheidungsregel | „bestanden“ nur, wenn Skill(S,D) und Skill(S,P) ganz über 0 liegen (95-%-Fall-Bootstrap), Kappa ≥ 0,6 und alle 7 Fälle gewertet; sonst „nicht bestanden“ oder „nicht prüfbar“ (`PROTOKOLL-V5.md`) |
 
@@ -143,3 +143,7 @@ soll das prüfen, ersetzt es aber nicht).
 - Protokoll (Vorregistrierung, Kodierbuch, Entscheidungsregel, Betrieb): [PROTOKOLL-V5.md](PROTOKOLL-V5.md)
 - Fälle und Quellen: [faelle/README.md](faelle/README.md); Zweitkodierung: [zweitkodierung/uebersicht.md](zweitkodierung/uebersicht.md)
 - Umsetzung und Statistikgrenzen: [../VALIDIERUNG.md](../VALIDIERUNG.md); Planung: [../ROADMAP.md](../ROADMAP.md)
+
+### Nachtrag 14.10.2026 (nach Probelauf 2 und Bewerter-Benchmark, vor dem Pilot)
+- Probelauf 2 (`ens_fa210821f611`): Technik sauber, Primärergebnis-Kappa 0,0 (qwen3.5 bewertete die 4 Nullmodell-Erzählungen fälschlich mit Nein). Benchmark gegen Gemini-Referenz: gemma4:12b 81,7 % (Kappa 0,59), qwen3.5:9b-agent32k 55 % (Kappa 0,00).
+- Entscheidung: Zweitbewerter = Gemini 3.8 Flash (High) über agy, nachträglich, gleiche Prompts und Belegprüfung; Hauptbewerter bleibt gemma4:12b. Einschränkungen: Cloud-Modell, nicht exakt reproduzierbar (Bewertungsdatum wird protokolliert); Referenz ebenfalls Gemini; Gemini kein Goldstandard; Kappa ist keine Validität. Details in `PROTOKOLL-V5.md`.
