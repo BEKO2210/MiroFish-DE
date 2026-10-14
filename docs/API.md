@@ -157,9 +157,8 @@ Nicht enthalten sind Seeds und interne Steuerfelder. `GET /list` liefert dieselb
 
 **`reliability[ergebnis_id]`**: `agreement` (Anteil gleicher Urteile), `kappa` (Cohens Kappa), `n_pairs` und `label`:
 `messbar` (κ ≥ 0,6), `unsicher` (κ ≥ 0,4), sonst `nicht messbar`. Das Endurteil ist konservativ: Ja nur, wenn beide
-Bewerter Ja sagen; Dissens zählt als `disputed`. Hinweis zu `kappa`: in diesem Stand liefert die API bei konstanten,
-identischen Reihen `1.0` und ohne Paare `0.0`. Der Zweig `v5gate` (noch nicht gemerged) gibt stattdessen `null`
-zurück, wenn Kappa mangels Varianz nicht definiert ist; Skripte sollten `null` daher tolerieren.
+Bewerter Ja sagen; Dissens zählt als `disputed`. Fehlt die Varianz (beide Urteilsreihen konstant), ist `kappa`
+`null` und `label` `nicht messbar`. Ohne auswertbares Paar bleibt `kappa` `0.0`.
 
 **`run_stats[variante]`**: je Lauf `run`, `post_count`, `character_count` (bei Nullmodellen Länge der Erzählung,
 `post_count` = 0), `batch_count` (Klassifikationsstapel) sowie die Fremdnutzung im blinden Feed:

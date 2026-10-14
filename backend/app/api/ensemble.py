@@ -70,6 +70,21 @@ def cancel_ensemble(ensemble_id: str):
         return _error(str(error), 400)
 
 
+@ensemble_bp.route("/<ensemble_id>/resume", methods=["POST"])
+def resume_ensemble(ensemble_id: str):
+    try:
+        return jsonify({"success": True, "data": service.resume(ensemble_id)})
+    except FileNotFoundError:
+        return _error(f"Ensemble nicht gefunden: {ensemble_id}", 404)
+    except RuntimeError as error:
+        return _error(str(error), 409)
+    except ValueError as error:
+        return _error(str(error), 400)
+    except Exception as error:
+        logger.exception("Ensemble konnte nicht fortgesetzt werden")
+        return _error(str(error), 500)
+
+
 @ensemble_bp.route("/<ensemble_id>/reclassify", methods=["POST"])
 def reclassify_ensemble(ensemble_id: str):
     try:

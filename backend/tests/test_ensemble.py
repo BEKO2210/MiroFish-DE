@@ -25,6 +25,7 @@ from app.services.ensemble import (
     build_null_run_manifest,
     build_post_batches,
     canonical_outcome_rows,
+    SEED_ATTEMPTS,
     cohens_kappa,
     combine_rater_results,
     compute_run_stats,
@@ -84,12 +85,14 @@ def test_cohens_kappa_known_value_and_no_variance_edges():
     ])
     assert metric == {"agreement": 0.75, "kappa": 0.5, "n_pairs": 8}
     assert cohens_kappa([(True, True)] * 4) == {
-        "agreement": 1.0, "kappa": 1.0, "n_pairs": 4,
+        "agreement": 1.0, "kappa": None, "n_pairs": 4,
     }
+    assert cohens_kappa([(False, False)] * 3)["kappa"] is None
     assert cohens_kappa([]) == {"agreement": 0.0, "kappa": 0.0, "n_pairs": 0}
     assert reliability_label(0.6) == "messbar"
     assert reliability_label(0.4) == "unsicher"
     assert reliability_label(0.3999) == "nicht messbar"
+    assert reliability_label(None) == "nicht messbar"
 
 
 def test_joint_verdict_requires_two_yes_and_disagreement_is_not_no():
@@ -134,7 +137,13 @@ def test_custom_outcomes_validation_and_normalization():
     ])
     assert [item["id"] for item in custom] == ["c1", "c2"]
     assert all(item["source"] == "user" for item in custom)
-    assert custom[1]["polarity"] == "absence"
+    assert custom[1]["polarity"] == "presence"
+    assert validate_custom_outcomes(
+        [{"text_de": "Die Stadt kann die Zahl nicht beziffern", "polarity": "absence"}]
+    )[0]["polarity"] == "absence"
+    assert validate_custom_outcomes(
+        [{"text_de": "Die Stadt kann die Zahl nicht beziffern"}]
+    )[0]["polarity"] == "presence"
     with pytest.raises(ValueError, match="höchstens 20"):
         validate_custom_outcomes([{"text_de": str(i)} for i in range(21)])
     with pytest.raises(ValueError, match="1 bis 200"):
@@ -147,12 +156,14 @@ def test_checklist_polarity_is_explicit_or_inferred():
     parsed = parse_checklist({"outcomes": [
         {"text_de": "Im Zeitraum geschieht etwas", "definition": "sichtbar", "polarity": "presence"},
         {"text_de": "Im Zeitraum gibt es keine Reaktion", "definition": "bleibt aus"},
+        {"text_de": "Ausdrückliche Abwesenheit", "definition": "sichtbar", "polarity": "absence"},
     ] + [
         {"text_de": f"Weiteres Ergebnis {i}", "definition": "sichtbar"}
         for i in range(3)
     ]})
     assert parsed[0]["polarity"] == "presence"
-    assert parsed[1]["polarity"] == "absence"
+    assert parsed[1]["polarity"] == "presence"
+    assert parsed[2]["polarity"] == "absence"
 
 
 def test_checklist_kind_is_explicit_or_migrated_from_text():
@@ -590,6 +601,200 @@ def test_state_machine_with_mocked_runner(tmp_path, monkeypatch):
     assert "Rundentakt 120 Minuten" in md
 
 
+class FlakyRunner:
+    calls = []
+    states = {}
+
+    @classmethod
+    def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+        cls.calls.append(simulation_id)
+        if len(cls.calls) == 1:
+            state = SimpleNamespace(runner_status="failed", current_round=0, error="gpu ausgefallen")
+            cls.states[simulation_id] = state
+            return state
+        return FakeRunner.start_simulation(simulation_id, simulation_dir, **kwargs)
+
+    @classmethod
+    def get_run_state(cls, simulation_id):
+        if simulation_id in FakeRunner.states:
+            return FakeRunner.states[simulation_id]
+        return cls.states[simulation_id]
+
+
+def _wait_ensemble(service, ensemble_id):
+    deadline = time.time() + 3
+    state = service.get(ensemble_id)
+    while time.time() < deadline:
+        state = service.get(ensemble_id)
+        if state["status"] in {"completed", "failed"}:
+            break
+        time.sleep(0.01)
+    return state
+
+
+def test_failed_seed_is_retried_and_kept_in_n(tmp_path, monkeypatch):
+    FlakyRunner.calls, FlakyRunner.states = [], {}
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    service = EnsembleService(
+        runner_cls=FlakyRunner, llm_factory=FakeLLM,
+        root=tmp_path / "ensembles", poll_interval=0.001,
+    )
+    started = service.start("sim_test", 1, 2, ["baseline"])
+    state = _wait_ensemble(service, started["ensemble_id"])
+    assert state["status"] == "completed", state.get("error")
+    assert len(FlakyRunner.calls) == 2
+    assert state["results"]["baseline"]["o1"]["n"] == 1
+    stored = service._load(started["ensemble_id"])
+    assert stored["seed_attempts"]["baseline:1"] == 2
+
+
+def test_resume_continues_incomplete_ensemble(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    ensemble_id = "ens_bbbbbbbbbbbb"
+    root = tmp_path / "ensembles" / ensemble_id
+    run_dir = root / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    checklist = [{
+        "id": f"o{i}", "text_de": f"Ergebnis {i}", "definition": "sichtbar",
+        "polarity": "presence", "source": "auto",
+    } for i in range(1, 6)]
+    result = {
+        f"o{i}": {
+            "yes": i == 1, "evidence": [], "unclassified": False, "disputed": False,
+            "raters": {"a": {"yes": i == 1}, "b": {"yes": i == 1}},
+        }
+        for i in range(1, 6)
+    }
+    (run_dir / "classification.json").write_text(
+        json.dumps({"result": result}), encoding="utf-8"
+    )
+    state = {
+        "ensemble_id": ensemble_id, "simulation_id": "sim_test", "question": "Was geschieht?",
+        "status": "failed", "error": "Seed abgestürzt", "created_at": "2026-01-01T00:00:00",
+        "finished_at": "2026-01-01T01:00:00", "runs": 2, "hours": 12, "start_hour": 7,
+        "variants": [{"key": "baseline", "label_de": "Basislauf", "label_en": "Baseline",
+                      "status": "failed", "done": 1, "total": 2}],
+        "checklist": checklist, "custom_outcomes": [], "primary_outcome_id": "o1",
+        "results": {}, "comparisons": [], "reliability": {}, "consistency_warnings": [],
+        "current": None, "eta_seconds": None, "base_seed": 11, "cancel_requested": False,
+        "current_runner_id": None, "seed_attempts": {"baseline:1": 1},
+    }
+    (root / "ensemble.json").write_text(json.dumps(state), encoding="utf-8")
+    calls = []
+
+    class RecordingRunner(FakeRunner):
+        @classmethod
+        def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+            calls.append(simulation_id)
+            return super().start_simulation(simulation_id, simulation_dir, **kwargs)
+
+    service = EnsembleService(
+        runner_cls=RecordingRunner, llm_factory=FakeLLM, root=tmp_path / "ensembles",
+        poll_interval=0.001,
+    )
+    service.resume(ensemble_id)
+    finished = _wait_ensemble(service, ensemble_id)
+    assert finished["status"] == "completed", finished.get("error")
+    assert calls == [f"{ensemble_id}_baseline_2"]
+    assert finished["variants"][0]["done"] == 2
+    assert finished["results"]["baseline"]["o1"]["n"] == 2
+    assert finished["results"]["baseline"]["o1"]["yes"] == 2
+    assert SEED_ATTEMPTS == 3
+
+
+def test_resume_records_run_stats_and_minutes_per_round(tmp_path, monkeypatch):
+    FakeRunner.states = {}
+    monkeypatch.setattr(Config, "UPLOAD_FOLDER", str(tmp_path))
+    _prepared_simulation(tmp_path)
+    ensemble_id = "ens_cccccccccccc"
+    root = tmp_path / "ensembles" / ensemble_id
+    run_dir = root / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    stored_text = "Gespeicherter Beitrag des ersten Seeds."
+    db = sqlite3.connect(run_dir / "twitter_simulation.db")
+    db.execute(
+        "CREATE TABLE user (user_id INTEGER, agent_id INTEGER, name TEXT, user_name TEXT)"
+    )
+    db.execute("INSERT INTO user VALUES (0, 0, 'Ada', 'ada')")
+    db.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
+    db.execute("INSERT INTO post VALUES (1, 0, ?)", (stored_text,))
+    db.commit()
+    db.close()
+    checklist = [{
+        "id": f"o{i}", "text_de": f"Ergebnis {i}", "definition": "sichtbar",
+        "polarity": "presence", "source": "auto",
+    } for i in range(1, 6)]
+    result = {
+        f"o{i}": {
+            "yes": i == 1, "evidence": [], "unclassified": False, "disputed": False,
+            "raters": {"a": {"yes": i == 1}, "b": {"yes": i == 1}},
+        }
+        for i in range(1, 6)
+    }
+    (run_dir / "classification.json").write_text(json.dumps({
+        "result": result,
+        "raters": {"a": {"batches": [{}]}},
+    }), encoding="utf-8")
+    state = {
+        "ensemble_id": ensemble_id, "simulation_id": "sim_test", "question": "Was geschieht?",
+        "status": "failed", "error": "Seed abgestürzt", "created_at": "2026-01-01T00:00:00",
+        "finished_at": "2026-01-01T01:00:00", "runs": 2, "hours": 12, "start_hour": 7,
+        "minutes_per_round": 240,
+        "variants": [{"key": "baseline", "label_de": "Basislauf", "label_en": "Baseline",
+                      "status": "failed", "done": 1, "total": 2}],
+        "checklist": checklist, "custom_outcomes": [], "primary_outcome_id": "o1",
+        "results": {}, "comparisons": [], "reliability": {}, "consistency_warnings": [],
+        "current": None, "eta_seconds": None, "base_seed": 11, "cancel_requested": False,
+        "current_runner_id": None, "seed_attempts": {"baseline:1": 1},
+    }
+    (root / "ensemble.json").write_text(json.dumps(state), encoding="utf-8")
+    calls = []
+
+    class RecordingRunner(FakeRunner):
+        @classmethod
+        def start_simulation(cls, simulation_id, simulation_dir, **kwargs):
+            calls.append(simulation_id)
+            return super().start_simulation(simulation_id, simulation_dir, **kwargs)
+
+    service = EnsembleService(
+        runner_cls=RecordingRunner, llm_factory=FakeLLM, root=tmp_path / "ensembles",
+        poll_interval=0.001,
+    )
+    service.resume(ensemble_id)
+    finished = _wait_ensemble(service, ensemble_id)
+    assert finished["status"] == "completed", finished.get("error")
+    assert calls == [f"{ensemble_id}_baseline_2"]
+    assert finished["minutes_per_round"] == 240
+    assert not (run_dir / "simulation_config.json").is_file()
+    resumed_posts = load_simulation_posts(run_dir)
+    assert resumed_posts[0]["text"] == stored_text
+    fresh_config = json.loads(
+        (root / "baseline" / "run_2" / "simulation_config.json").read_text(encoding="utf-8")
+    )
+    assert fresh_config["time_config"]["minutes_per_round"] == 240
+    rows = finished["run_stats"]["baseline"]
+    assert [row["run"] for row in rows] == [1, 2]
+    assert rows[0] == {
+        "run": 1,
+        "post_count": 1,
+        "character_count": len(stored_text),
+        "batch_count": 1,
+        "search_action_count": 0,
+        "trend_action_count": 0,
+        "foreign_interaction_count": 0,
+    }
+    assert rows[1]["post_count"] == 1
+    assert rows[1]["character_count"] == len("Ein neuer Aufruf wird veröffentlicht.")
+    assert rows[1]["batch_count"] >= 1
+    md = ensemble_markdown(finished)
+    assert "Rundentakt 240 Minuten" in md
+    assert f"| Basislauf | 1 | 1 | {len(stored_text)} | 1 |" in md
+
+
 class BatchLLM:
     def __init__(self, fail=False, positive=False):
         self.calls = 0
@@ -674,6 +879,22 @@ def test_100000_char_posts_are_classified_in_multiple_audited_batches(tmp_path):
     assert result["o1"]["yes"] is False
 
 
+def test_negated_wording_without_polarity_stays_presence(tmp_path):
+    llm = BatchLLM(positive=False)
+    service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
+    result = service._classify_posts(
+        {"checklist": [{
+            "id": "o1",
+            "text_de": "Im simulierten Zeitraum gibt es keine Medienreaktion",
+            "definition": "Die Reaktion bleibt aus",
+        }]},
+        [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
+        seed=1,
+        run_number=3,
+    )
+    assert result["o1"]["yes"] is False
+
+
 def test_absence_is_yes_only_when_positive_event_is_not_found(tmp_path):
     llm = BatchLLM(positive=False)
     service = EnsembleService(llm_factory=lambda: llm, root=tmp_path / "ensembles")
@@ -682,6 +903,7 @@ def test_absence_is_yes_only_when_positive_event_is_not_found(tmp_path):
             "id": "o1",
             "text_de": "Im simulierten Zeitraum gibt es keine Medienreaktion",
             "definition": "Die Reaktion bleibt aus",
+            "polarity": "absence",
         }]},
         [{"platform": "twitter", "post_id": "twitter:1", "agent": "Ada", "text": "Anderes"}],
         seed=1,
