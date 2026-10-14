@@ -84,7 +84,7 @@ PILOT_V5_FRAME = {
         "cold_question_models": ["gemma4:e4b-it-qat", "gemma4:12b-it-qat"]},
     "probelauf": {"case": "synthetisch, nicht gewertet", "seeds": 2},
     "min_classified_per_arm": 4,
-    "min_posts": "agent_count",
+    "min_posts": 3,
     "valid_runs_per_case": 1,
     "decision_date": "2026-10-14",
 }
@@ -434,6 +434,16 @@ def check_contamination(case_label: str, llm: Any = None,
         for _, prompt in prompts:
             if forbidden in prompt:
                 raise ValueError("Der Ordnername darf nicht an das Modell gesendet werden")
+    if hidden_outcomes or str(verlauf or "").strip() or secret:
+        # Ausgangslage und Ort/Jahr der Kaltfrage sind sichtbar; alles andere Starke darf nicht in den Prompt.
+        strong = hidden_terms(hidden_outcomes, f"{material or ''}\n{case_label}",
+                              verlauf=verlauf, quellen=quellen)["strong"]
+        for kind, prompt in prompts:
+            leaked = contamination_hits(prompt, {"strong": strong, "weak": []})["strong_hits"]
+            if leaked:
+                raise ValueError(
+                    f"Kaltabruf abgebrochen: Prompt ({kind}) enthält versteckte Begriffe "
+                    f"aus verlauf/quellen/ergebnisse: {', '.join(leaked[:10])}")
     probes: List[Dict[str, Any]] = []
     try:
         for model in chosen:

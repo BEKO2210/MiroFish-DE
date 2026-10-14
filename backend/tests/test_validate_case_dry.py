@@ -301,7 +301,7 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         assert body["arm_model"] == PILOT_V5_FRAME["models"]["agent_model"]
         assert body["strict_second_rater"] is True
         assert body["min_classified"] == PILOT_V5_FRAME["min_classified_per_arm"]
-        assert body["min_posts"] == "agent_count"
+        assert body["min_posts"] == 3
         blinded = json.dumps(body["custom_outcomes"], ensure_ascii=False)
         assert "eingetreten" not in blinded
         assert "quellenluecke" not in blinded

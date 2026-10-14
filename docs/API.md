@@ -88,7 +88,7 @@ curl -X POST http://127.0.0.1:5001/api/ensemble/start -H "Content-Type: applicat
 | `arm_model` | Hauptmodell der LLM-Konfiguration | Modell der Nullarme (`null_document`, `null_personas`, Alias `null_model`) |
 | `strict_second_rater` | `false` | Boolean. `true`: der Zweitbewerter muss ein anderes, vorhandenes Modell sein; kein Rückfall auf das Hauptmodell mit anderem Seed (siehe unten) |
 | `min_classified` | `runs` | ganze Zahl 1 bis `runs`: Mindestzahl klassifizierter Läufe je Variante und Ergebnis, damit es „messbar“ ist |
-| `min_posts` | 1 | ganze Zahl ≥ 1 oder genau `agent_count` (wird zur Zahl der Agenten aufgelöst und so gespeichert). Gilt für Simulationsarme. Nullarme zählen die Erzählung als 1 Beitrag und brauchen kein `actions.jsonl` |
+| `min_posts` | 1 | ganze Zahl ≥ 1 oder genau `agent_count` (wird zur Zahl der Agenten aufgelöst und so gespeichert; der Pilotrahmen nutzt fest 3). Gilt für Simulationsarme. Nullarme zählen die Erzählung als 1 Beitrag und brauchen kein `actions.jsonl` |
 | `max_agent_error_rate` | 0.5 | Zahl 0–1: höchste zulässige Fehlerquote der Agentenaktionen je Lauf |
 
 Alle Zahlen müssen echte ganze Zahlen sein (keine Strings, keine Booleans); `min_posts` darf zusätzlich genau
@@ -108,10 +108,18 @@ Modellverfügbarkeit geprüft; bei Ausfall wartet der Lauf bis zu 30 Minuten und
 wenn das Zweitmodell fehlt oder nicht antwortet (Vermerk `fallback_reason` im Audit). Mit `true` schlägt der Versuch
 stattdessen fehl.
 
-**Lauf-Qualität**: Ein Simulationslauf mit weniger als `min_posts` Beiträgen, ohne verwertbares `actions.jsonl`
-(Fehlerquote `unbekannt`) oder mit einer Agenten-Fehlerquote über `max_agent_error_rate` gilt als technischer
-Fehlschlag und wird wiederholt (bis zu 3 Versuche je Seed). Nullarme zählen nur die Erzählung (mindestens 1) und
+**Lauf-Qualität**: Ein Simulationslauf mit weniger als `min_posts` Beiträgen oder mit einer Agenten-Fehlerquote über
+`max_agent_error_rate` gilt als technischer Fehlschlag und wird wiederholt (bis zu 3 Versuche je Seed; danach
+`attempts_exhausted`, die Meldung nennt die Ursache). Ein fehlendes, leeres oder aktionsloses `actions.jsonl`
+(`action_log_status` in `run_stats`: `fehlt`, `leer`, `ohne_aktionen`, `vorhanden`) macht die Fehlerquote
+`unbekannt`; sie wird dann nicht geprüft, über den Lauf entscheidet nur `min_posts`. Nullarme zählen nur die
+Erzählung (mindestens 1) und
 verlangen kein Aktionslog.
+
+**Start-Aufräumen**: `MIROFISH_SKIP_STALE_SWEEP=1` (oder `SKIP_STALE_SWEEP` an der Config) lässt `create_app` das
+Abbrechen verwaister Läufe überspringen (Prüfskripte, zweite Instanz). Ohne Schalter fasst es nur Ensembles an, die
+vor dem Start dieses Prozesses zuletzt geschrieben wurden und keinem lebenden Thread oder Prozess gehören; der
+OASIS-Prozess bekommt SIGTERM, nach 10 s SIGKILL.
 
 **Varianten (`variants`)**
 

@@ -74,9 +74,12 @@ class SyntheticRunner:
         )
         connection.execute("INSERT INTO user VALUES (1, 1, 'Verein', 'verein')")
         connection.execute("CREATE TABLE post (post_id INTEGER, user_id INTEGER, content TEXT)")
-        connection.execute(
-            "INSERT INTO post VALUES (1, 1, 'Der Verein veröffentlicht eine deutliche Stellungnahme.')"
-        )
+        for post_id, text in enumerate((
+            "Der Verein veröffentlicht eine deutliche Stellungnahme.",
+            "Der Verein bekräftigt seine Stellungnahme erneut.",
+            "Der Verein ruft zu einer Aussprache auf.",
+        ), start=1):
+            connection.execute("INSERT INTO post VALUES (?, 1, ?)", (post_id, text))
         connection.commit()
         connection.close()
         actions = run_dir / "twitter" / "actions.jsonl"
@@ -335,7 +338,7 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
         assert [item["key"] for item in state["variants"]] == frame["arms"]
         assert state["strict_second_rater"] is True
         assert state["min_classified"] == frame["min_classified_per_arm"]
-        assert state["min_posts"] == 1
+        assert state["min_posts"] == 3
         assert state["models"]["agents"] == agent_model
         assert state["models"]["null_arms"] == agent_model
         assert set(state["arm_models"].values()) == {agent_model}

@@ -58,6 +58,8 @@ ALLOWED_MINUTES_PER_ROUND = frozenset({60, 120, 240})
 DEFAULT_MIN_FREE_BYTES = 5 * 1024**3
 DEFAULT_MAX_AGENT_ERROR_RATE = 0.5
 OLLAMA_WAIT_SECONDS = 30 * 60
+ORPHAN_TERM_WAIT_SECONDS = 10.0
+PROCESS_START_TIME = time.time()
 
 
 class ModelServiceUnavailable(RuntimeError):
@@ -1038,13 +1040,17 @@ def compute_run_stats(
         "foreign_interaction_count": 0,
     }
     action_count = agent_error_count = 0
+    logs_present = logs_nonblank = 0
     if run_dir:
         for platform in ("twitter", "reddit"):
             log_path = Path(run_dir) / platform / "actions.jsonl"
             if not log_path.is_file():
                 continue
+            logs_present += 1
             try:
                 lines = log_path.read_text(encoding="utf-8").splitlines()
+                if any(line.strip() for line in lines):
+                    logs_nonblank += 1
                 for line in lines:
                     try:
                         row = json.loads(line)
@@ -1060,6 +1066,14 @@ def compute_run_stats(
     contribution_count = 1 if narrative.strip() else post_count
     # Simulationslauf ohne zählbare Aktion: die Quote ist nicht 0, sondern unbekannt.
     # Eine Erzählung (Nullarm) hat absichtlich kein Aktionslog.
+    if action_count > 0:
+        action_log_status = "vorhanden"
+    elif logs_present == 0:
+        action_log_status = "fehlt"
+    elif logs_nonblank == 0:
+        action_log_status = "leer"
+    else:
+        action_log_status = "ohne_aktionen"
     if run_dir and not narrative.strip() and action_count == 0:
         agent_error_rate: Any = "unbekannt"
     else:
@@ -1072,6 +1086,7 @@ def compute_run_stats(
         "agent_action_count": action_count,
         "agent_error_count": agent_error_count,
         "agent_error_rate": agent_error_rate,
+        "action_log_status": action_log_status,
         **leak_stats,
     }
 
@@ -1880,13 +1895,70 @@ class EnsembleService:
         if cwd != run_dir.resolve() or "run_parallel_simulation.py" not in command:
             return False
         try:
-            os.killpg(os.getpgid(pid), signal.SIGTERM)
+            pgid = os.getpgid(pid)
+            if pgid == os.getpgrp():
+                os.kill(pid, signal.SIGTERM)
+            else:
+                os.killpg(pgid, signal.SIGTERM)
         except (OSError, ProcessLookupError):
             return False
+        if not self._wait_gone(pid, ORPHAN_TERM_WAIT_SECONDS):
+            try:
+                if pgid == os.getpgrp():
+                    os.kill(pid, signal.SIGKILL)
+                else:
+                    os.killpg(pgid, signal.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass
+            self._wait_gone(pid, 2.0)
         logger.warning(
             "Verwaisten Ensemble-Prozess im Laufordner %s (PID %s) beendet", run_dir, pid
         )
         return True
+
+    @staticmethod
+    def _wait_gone(pid: int, seconds: float) -> bool:
+        deadline = time.monotonic() + seconds
+        while True:
+            try:
+                state = Path(f"/proc/{pid}/stat").read_text().rpartition(")")[2].split()[0]
+            except (OSError, IndexError):
+                return True
+            if state in {"Z", "X"}:
+                return True
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.1)
+
+    @staticmethod
+    def _pid_alive(pid: Any) -> bool:
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 1:
+            return False
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except OSError:
+            return True
+        return True
+
+    def _owned_by_live_process(self, ensemble_id: str, state: Dict[str, Any]) -> bool:
+        """Gehört das Ensemble einem lebenden Thread/Prozess oder wurde es nach unserem Start geschrieben?"""
+        with self._threads_lock:
+            thread = self._threads.get(ensemble_id)
+            if thread is not None and thread.is_alive():
+                return True
+        owner = state.get("owner_pid")
+        if owner != os.getpid() and self._pid_alive(owner):
+            return True
+        root = self._path(ensemble_id)
+        for path in [root / "ensemble.json", *root.glob("*/run_*/run_state.json")]:
+            try:
+                if path.stat().st_mtime >= PROCESS_START_TIME:
+                    return True
+            except OSError:
+                continue
+        return False
 
     def _terminate_owned_orphan(self, state: Dict[str, Any]) -> bool:
         """Beendet den OASIS-Prozess dieses Ensembles, auch wenn current schon fehlt."""
@@ -1947,6 +2019,8 @@ class EnsembleService:
         for path in self.root.glob("ens_*/ensemble.json"):
             state = _read_json(path)
             if state.get("status") not in {"queued", "running"}:
+                continue
+            if self._owned_by_live_process(str(state.get("ensemble_id") or path.parent.name), state):
                 continue
             state["status"] = "failed"
             state["error"] = "Backend wurde neu gestartet, Ensemble abgebrochen"
@@ -2921,14 +2995,13 @@ class EnsembleService:
         if null_arm(key or ""):
             return int(stats.get("contribution_count", 0) or 0) >= 1
         rate = stats.get("agent_error_rate", 0.0)
-        if rate == "unbekannt":
+        minimum = int(state.get("min_posts", 1) or 1)
+        if int(stats.get("contribution_count", stats.get("post_count", 0)) or 0) < minimum:
             return False
-        return (
-            int(stats.get("contribution_count", stats.get("post_count", 0)) or 0)
-            >= int(state.get("min_posts", 1) or 1)
-            and float(rate or 0.0)
-            <= float(state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
-        )
+        if rate == "unbekannt":
+            return True
+        return float(rate or 0.0) <= float(
+            state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
 
     def _validate_run_quality(self, state: Dict[str, Any], key: str, run_dir: Path) -> None:
         stats = self._stats_for_run(key, run_dir)
@@ -2936,16 +3009,19 @@ class EnsembleService:
             if int(stats.get("contribution_count", 0) or 0) < 1:
                 raise RuntimeError("Technischer Fehlschlag: Nullarm ohne Erzählung")
             return
-        if stats.get("agent_error_rate") == "unbekannt":
-            raise RuntimeError(
-                "Technischer Fehlschlag: Agenten-Fehlerquote unbekannt "
-                "(Aktionslog fehlt oder ohne Aktionen)"
-            )
+        log_status = {
+            "fehlt": "Aktionslog fehlt", "leer": "Aktionslog leer",
+            "ohne_aktionen": "Aktionslog ohne Aktionen",
+        }.get(str(stats.get("action_log_status")), "")
         if int(stats.get("contribution_count", 0)) < int(state.get("min_posts", 1)):
             raise RuntimeError(
                 f"Technischer Fehlschlag: nur {stats.get('contribution_count', 0)} Beiträge "
                 f"(Minimum {state.get('min_posts', 1)})"
+                + (f"; {log_status}" if log_status else "")
             )
+        if stats.get("agent_error_rate") == "unbekannt":
+            # Ohne Aktionen ist die Quote nicht prüfbar; über den Lauf entscheidet min_posts.
+            return
         rate = float(stats.get("agent_error_rate", 0.0) or 0.0)
         limit = float(state.get("max_agent_error_rate", DEFAULT_MAX_AGENT_ERROR_RATE))
         if rate > limit:
@@ -3049,6 +3125,7 @@ class EnsembleService:
                 if self._cancelled(state):
                     raise InterruptedError
                 state["status"] = "running"
+                state["owner_pid"] = os.getpid()
                 self._save(state)
                 context = load_simulation_context(state["simulation_id"])
                 if not state.get("checklist"):
@@ -3142,7 +3219,9 @@ class EnsembleService:
                             self._save(state)
                             raise RuntimeError(
                                 f"Seed {key} Lauf {run_number} nach {SEED_ATTEMPTS} Versuchen "
-                                f"fehlgeschlagen: {last_error}"
+                                f"fehlgeschlagen und gesperrt (attempts_exhausted): {last_error}"
+                                + (" – zu wenige Beiträge: min_posts prüfen, nicht zwingend ein Modellfehler"
+                                   if "Beiträge" in str(last_error) else "")
                             )
                         run_stats[key].append({
                             "run": run_number,

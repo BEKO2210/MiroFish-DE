@@ -2,6 +2,7 @@
 
 import csv
 import json
+import os
 import sqlite3
 import time
 from pathlib import Path
@@ -858,6 +859,7 @@ def test_resume_records_run_stats_and_minutes_per_round(tmp_path, monkeypatch):
         "agent_action_count": 1,
         "agent_error_count": 0,
         "agent_error_rate": 0.0,
+        "action_log_status": "vorhanden",
         "search_action_count": 0,
         "trend_action_count": 0,
         "foreign_interaction_count": 0,
@@ -1770,6 +1772,7 @@ def test_run_stats_and_markdown_table():
         "agent_action_count": 0,
         "agent_error_count": 0,
         "agent_error_rate": 0.0,
+        "action_log_status": "fehlt",
         "search_action_count": 0,
         "trend_action_count": 0,
         "foreign_interaction_count": 0,
@@ -2036,11 +2039,36 @@ def test_run_stats_agent_error_rate_and_quality_gate(tmp_path):
 
     missing = tmp_path / "missing-log"
     missing.mkdir()
-    assert compute_run_stats([{"text": "Beitrag"}], run_dir=missing)["agent_error_rate"] == "unbekannt"
-    with pytest.raises(RuntimeError, match="unbekannt"):
+    assert compute_run_stats([{"text": "Beitrag"}], run_dir=missing)["action_log_status"] == "fehlt"
+    # Entscheidung allein über min_posts: genug Beiträge ohne Aktionslog sind kein Fehlschlag
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(
+        service, "_stats_for_run",
+        lambda _key, _run_dir: compute_run_stats([{"text": "Beitrag"}], run_dir=missing),
+    )
+    service._validate_run_quality(
+        {"min_posts": 1, "max_agent_error_rate": 1.0}, "baseline", missing,
+    )
+    monkeypatch.undo()
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(
+        service, "_stats_for_run", lambda _key, _run_dir: compute_run_stats([], run_dir=missing)
+    )
+    with pytest.raises(RuntimeError, match="Aktionslog fehlt"):
         service._validate_run_quality(
             {"min_posts": 1, "max_agent_error_rate": 1.0}, "baseline", missing,
         )
+    monkeypatch.undo()
+    blank = tmp_path / "blank-log"
+    (blank / "twitter").mkdir(parents=True)
+    (blank / "twitter" / "actions.jsonl").write_text("", encoding="utf-8")
+    assert compute_run_stats([{"text": "x"}], run_dir=blank)["action_log_status"] == "leer"
+    events_only = tmp_path / "events-log"
+    (events_only / "twitter").mkdir(parents=True)
+    (events_only / "twitter" / "actions.jsonl").write_text('{"event": "x"}\n', encoding="utf-8")
+    assert compute_run_stats(
+        [{"text": "x"}], run_dir=events_only
+    )["action_log_status"] == "ohne_aktionen"
     null_dir = tmp_path / "null_document"
     null_dir.mkdir()
     (null_dir / "narrative.txt").write_text("Eine kurze Erzählung.", encoding="utf-8")
@@ -2076,7 +2104,8 @@ def test_strict_second_rater_rejects_model_missing_from_ollama(tmp_path, monkeyp
         )
 
 
-def test_stale_backend_restart_does_not_consume_attempt(tmp_path):
+def test_stale_backend_restart_does_not_consume_attempt(tmp_path, monkeypatch):
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() + 60)
     service = EnsembleService(root=tmp_path / "ensembles")
     path = tmp_path / "ensembles" / "ens_aaaaaaaaaaaa" / "ensemble.json"
     path.parent.mkdir(parents=True)
@@ -2165,6 +2194,7 @@ def test_orphan_without_current_kills_only_that_run_folder(tmp_path, monkeypatch
         "seed_attempts": {"baseline:1": 1},
     }), encoding="utf-8")
     killed.clear()
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() + 60)
     assert service.mark_stale_runs() == 1
     assert service._load(ensemble_id)["current"] is None
     assert killed == [(4321, ensemble_module.signal.SIGTERM)]
@@ -2275,17 +2305,159 @@ def test_missing_action_log_is_unknown_and_retries_the_seed(tmp_path, monkeypatc
     bare.mkdir()
     (bare / "twitter").mkdir()
     (bare / "twitter" / "actions.jsonl").write_text('{"success": false}\n', encoding="utf-8")
-    assert compute_run_stats([{"text": "Beitrag"}], run_dir=bare)["agent_error_rate"] == "unbekannt"
+    assert compute_run_stats([{"text": "Beitrag"}], run_dir=bare)["action_log_status"] == "ohne_aktionen"
     service = EnsembleService(
         runner_cls=NoActionLogRunner, llm_factory=FakeLLM,
         root=tmp_path / "ensembles", poll_interval=0.001,
     )
-    started = service.start("sim_test", 1, 2, ["baseline"])
+    started = service.start("sim_test", 1, 2, ["baseline"], min_posts=5)
     state = _wait_ensemble(service, started["ensemble_id"])
     assert state["status"] == "failed", state.get("error")
-    assert "unbekannt" in (state.get("error") or "")
-    assert "0.0" not in (state.get("error") or "")
+    assert "Beiträge" in (state.get("error") or "")
+    assert "Aktionslog fehlt" in (state.get("error") or "")
+    assert "attempts_exhausted" in (state.get("error") or "")
     assert state["attempts_exhausted"] is True
     assert len(NoActionLogRunner.calls) == SEED_ATTEMPTS
     stored = service._load(started["ensemble_id"])
     assert stored["seed_attempts"]["baseline:1"] == SEED_ATTEMPTS
+
+
+def _running_ensemble(tmp_path, ensemble_id="ens_cccccccccccc", owner_pid=None):
+    path = tmp_path / "ensembles" / ensemble_id / "ensemble.json"
+    path.parent.mkdir(parents=True)
+    state = {
+        "ensemble_id": ensemble_id, "status": "running",
+        "current": {"variant": "baseline", "run": 1, "attempt": 1},
+        "seed_attempts": {"baseline:1": 1},
+    }
+    if owner_pid is not None:
+        state["owner_pid"] = owner_pid
+    path.write_text(json.dumps(state), encoding="utf-8")
+    return path
+
+
+def test_stale_sweep_ignores_runs_written_after_backend_start(tmp_path):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    _running_ensemble(tmp_path)
+    assert service.mark_stale_runs() == 0
+    assert service._load("ens_cccccccccccc")["status"] == "running"
+
+
+def test_stale_sweep_ignores_run_state_written_after_backend_start(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    path = _running_ensemble(tmp_path)
+    run_state = path.parent / "baseline" / "run_1" / "run_state.json"
+    run_state.parent.mkdir(parents=True)
+    run_state.write_text("{}", encoding="utf-8")
+    old = time.time() - 600
+    os.utime(path, (old, old))
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() - 60)
+    assert service.mark_stale_runs() == 0
+
+
+def test_stale_sweep_ignores_ensemble_of_live_foreign_process(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    path = _running_ensemble(tmp_path, owner_pid=os.getppid())
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() + 60)
+    assert os.getppid() != os.getpid()
+    assert service.mark_stale_runs() == 0
+    path.write_text(path.read_text().replace(str(os.getppid()), "999999999"), encoding="utf-8")
+    assert service.mark_stale_runs() == 1
+
+
+def test_stale_sweep_ignores_ensemble_with_live_thread(tmp_path, monkeypatch):
+    import threading
+    service = EnsembleService(root=tmp_path / "ensembles")
+    _running_ensemble(tmp_path)
+    monkeypatch.setattr(ensemble_module, "PROCESS_START_TIME", time.time() + 60)
+    release = threading.Event()
+    thread = threading.Thread(target=release.wait, daemon=True)
+    thread.start()
+    service._threads["ens_cccccccccccc"] = thread
+    try:
+        assert service.mark_stale_runs() == 0
+    finally:
+        release.set()
+        thread.join()
+        service._threads.pop("ens_cccccccccccc", None)
+    assert service.mark_stale_runs() == 1
+
+
+def _orphan_setup(tmp_path, monkeypatch):
+    service = EnsembleService(root=tmp_path / "ensembles")
+    ensemble_id = "ens_dddddddddddd"
+    run_dir = tmp_path / "ensembles" / ensemble_id / "baseline" / "run_1"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run_state.json").write_text(json.dumps({"process_pid": 4321}), encoding="utf-8")
+    monkeypatch.setattr(ensemble_module.os, "readlink", lambda _path: str(run_dir))
+    monkeypatch.setattr(Path, "read_bytes", lambda _path: b"python run_parallel_simulation.py\0")
+    return service, run_dir
+
+
+def test_orphan_kill_skips_own_process_group(tmp_path, monkeypatch):
+    service, run_dir = _orphan_setup(tmp_path, monkeypatch)
+    sent = []
+    monkeypatch.setattr(ensemble_module.os, "getpgid", lambda pid: os.getpgrp())
+    monkeypatch.setattr(ensemble_module.os, "killpg", lambda pgid, sig: sent.append(("pg", sig)))
+    monkeypatch.setattr(ensemble_module.os, "kill", lambda pid, sig: sent.append((pid, sig)))
+    monkeypatch.setattr(EnsembleService, "_wait_gone", staticmethod(lambda pid, s: True))
+    assert service._kill_oasis_in_run_dir(run_dir) is True
+    assert all(entry[0] != "pg" for entry in sent)
+
+
+def test_orphan_kill_escalates_to_sigkill_after_wait(tmp_path, monkeypatch):
+    service, run_dir = _orphan_setup(tmp_path, monkeypatch)
+    sent, waits = [], []
+    monkeypatch.setattr(ensemble_module.os, "getpgid", lambda pid: 7777)
+    monkeypatch.setattr(ensemble_module.os, "killpg", lambda pgid, sig: sent.append(sig))
+
+    def wait(pid, seconds):
+        waits.append(seconds)
+        return False
+
+    monkeypatch.setattr(EnsembleService, "_wait_gone", staticmethod(wait))
+    assert service._kill_oasis_in_run_dir(run_dir) is True
+    assert sent == [ensemble_module.signal.SIGTERM, ensemble_module.signal.SIGKILL]
+    assert waits[0] == ensemble_module.ORPHAN_TERM_WAIT_SECONDS
+
+
+def test_orphan_kill_no_sigkill_when_process_exits(tmp_path, monkeypatch):
+    service, run_dir = _orphan_setup(tmp_path, monkeypatch)
+    sent = []
+    monkeypatch.setattr(ensemble_module.os, "getpgid", lambda pid: 7777)
+    monkeypatch.setattr(ensemble_module.os, "killpg", lambda pgid, sig: sent.append(sig))
+    monkeypatch.setattr(EnsembleService, "_wait_gone", staticmethod(lambda pid, s: True))
+    assert service._kill_oasis_in_run_dir(run_dir) is True
+    assert sent == [ensemble_module.signal.SIGTERM]
+
+
+def test_create_app_skips_stale_sweep_on_switch(tmp_path):
+    import subprocess
+    import sys
+    backend = Path(__file__).resolve().parents[1]
+    script = (
+        "import os\n"
+        "from unittest.mock import patch\n"
+        "from app import create_app\n"
+        "from app.config import Config\n"
+        "Config.TESTING = True\n"
+        "calls = []\n"
+        "with patch('app.api.ensemble.mark_stale_ensembles', lambda: calls.append('ens')), "
+        "patch('app.api.pipeline.mark_stale_runs', lambda: calls.append('pipe')), "
+        "patch('app.api.system.list_models', return_value=(True, [])):\n"
+        "    create_app(Config)\n"
+        "print('CALLS=' + ','.join(calls))\n"
+    )
+
+    def run(value):
+        env = {**os.environ, "UPLOAD_FOLDER": str(tmp_path)}
+        env.pop("MIROFISH_SKIP_STALE_SWEEP", None)
+        if value:
+            env["MIROFISH_SKIP_STALE_SWEEP"] = value
+        done = subprocess.run([sys.executable, "-c", script], cwd=backend, env=env,
+                              capture_output=True, text=True, timeout=120)
+        assert done.returncode == 0, done.stderr
+        return next(line for line in done.stdout.splitlines() if line.startswith('CALLS='))[6:]
+
+    assert run("1") == ""
+    assert run("") == "ens,pipe"

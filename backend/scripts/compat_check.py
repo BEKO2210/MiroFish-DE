@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -98,6 +99,8 @@ def run_checks(upload_root: Path) -> list[Check]:
     from app.config import Config
 
     Config.TESTING = True
+    Config.SKIP_STALE_SWEEP = True
+    os.environ["MIROFISH_SKIP_STALE_SWEEP"] = "1"
     Config.UPLOAD_FOLDER = str(upload_root)
     Config.OASIS_SIMULATION_DATA_DIR = str(upload_root / "simulations")
     Config.LLM_PROVIDER = "ollama"

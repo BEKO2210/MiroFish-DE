@@ -189,10 +189,16 @@ def create_app(config_class=Config):
     app.register_blueprint(report_bp, url_prefix='/api/report')
     from .api.ensemble import ensemble_bp, mark_stale_ensembles
     app.register_blueprint(ensemble_bp, url_prefix='/api/ensemble')
-    mark_stale_ensembles()
+    skip_sweep = bool(
+        os.environ.get('MIROFISH_SKIP_STALE_SWEEP', '').strip().lower() in {'1', 'true', 'yes'}
+        or getattr(config_class, 'SKIP_STALE_SWEEP', False)
+    )
+    if not skip_sweep:
+        mark_stale_ensembles()
     from .api.pipeline import pipeline_bp, mark_stale_runs
     app.register_blueprint(pipeline_bp, url_prefix='/api/pipeline')
-    mark_stale_runs()
+    if not skip_sweep:
+        mark_stale_runs()
     
     # Gesundheitscheck
     @app.route('/health')

@@ -111,7 +111,7 @@ def test_ensemble_start_options_only_from_frame():
                        "arm_model": vc.PILOT_V5_FRAME["models"]["agent_model"],
                        "strict_second_rater": True,
                        "min_classified": vc.PILOT_V5_FRAME["min_classified_per_arm"],
-                       "min_posts": "agent_count"}
+                       "min_posts": 3}
 
 
 def test_probe_frame_is_two_seeds_single_case():
