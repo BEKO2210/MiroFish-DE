@@ -297,6 +297,9 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         assert body["minutes_per_round"] == 240
         assert body["variants"] == ARMS
         assert body["primary_outcome_id"] == "c1"
+        assert body["text_model"] == PILOT_V5_FRAME["models"]["agent_model"]
+        assert body["strict_second_rater"] is True
+        assert body["min_classified"] == PILOT_V5_FRAME["min_classified_per_arm"]
         blinded = json.dumps(body["custom_outcomes"], ensure_ascii=False)
         assert "eingetreten" not in blinded
         assert "quellenluecke" not in blinded
@@ -314,7 +317,7 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
     assert b"verlauf.md" not in blob
     for case in folders:
         assert (case / "verlauf.md").read_bytes() not in blob
-    assert state.chats == 14
+    assert state.chats == 28  # 2 Modelle x 2 Fragen x 7 Fälle
     for ensemble in state.ensembles.values():
         assert ensemble["status"] == "completed"
         for key in ("results", "comparisons", "reliability", "run_stats"):
@@ -354,14 +357,14 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         labels[folder.name] = found.pop()
     identity = [prompt for prompt in state.chat_prompts if "\nFall: " in prompt]
     sheets = [prompt for prompt in state.chat_prompts if "folgenden Bogen" in prompt]
-    assert len(identity) == 7 and len(sheets) == 7
+    assert len(identity) == 14 and len(sheets) == 14
     for name, label in labels.items():
         hits = [prompt for prompt in identity if f"Fall: {label}\n" in prompt]
         if name == FREIBURG:
             assert hits == []
             assert all(label not in prompt for prompt in state.chat_prompts)
         else:
-            assert len(hits) == 1
+            assert len(hits) == 2
         assert all(label not in prompt for prompt in sheets)
     blob_text = blob.decode("utf-8", errors="replace")
     for folder in folders:
@@ -385,5 +388,33 @@ def test_dry_run_covers_all_eight_cases(tmp_path):
         assert saved["rahmen"]["id"] == "pilot-v5"
         assert saved["contaminated"] is False
         assert saved["contamination_check"]["known"] is False
-        assert saved["contamination_check"]["answer"]["known"] is False
+        assert len(saved["contamination_check"]["probes"]) == 4
+        assert {p["model"] for p in saved["contamination_check"]["probes"]} == set(PILOT_V5_FRAME["models"]["cold_question_models"])
+        assert all(p["prompt"] and p["answer"] for p in saved["contamination_check"]["probes"])
+        assert len(saved["ensemble_ids"]) == 1
         assert saved["primary_metrics"]["baseline"]["n"] == 1
+
+
+def test_probe_mode_runs_two_seeds_and_is_not_scored(tmp_path):
+    probe = CASES.parent / "probe"
+    state = DryRun()
+    server = _Server(_build_app(state))
+    server.start()
+    base = f"http://127.0.0.1:{server.port}"
+    results = tmp_path / "probe-out"
+    env = dict(os.environ, LLM_BASE_URL=base + "/v1", LLM_API_KEY="dry", LLM_MODEL_NAME="dry-run")
+    try:
+        done = subprocess.run(
+            [sys.executable, str(SCRIPT), "--probe", "--base", base, "--results-dir", str(results)],
+            cwd=SCRIPT.parent.parent, env=env, capture_output=True, text=True, timeout=120,
+            check=False)
+    finally:
+        server.stop()
+    assert done.returncode == 0, done.stderr
+    assert len(state.starts) == 1
+    assert state.starts[0]["body"]["runs"] == 2
+    saved = json.loads((results / "probe.json").read_text(encoding="utf-8"))
+    assert saved["rahmen"]["id"] == "probe-v5"
+    summary = json.loads((results / "GESAMT.json").read_text(encoding="utf-8"))
+    assert summary["clean"]["preregistered_criterion"]["status"] == "Probelauf, nicht gewertet"
+    assert (probe / "ausgangslage.md").exists()
