@@ -219,10 +219,7 @@ class SimulationRunner:
     """
     
     # Speicherverzeichnis für Laufstatus
-    RUN_STATE_DIR = os.path.join(
-        os.path.dirname(__file__),
-        '../../uploads/simulations'
-    )
+    RUN_STATE_DIR = os.path.join(Config.UPLOAD_FOLDER, 'simulations')
     
     # Skriptverzeichnis
     SCRIPTS_DIR = os.path.join(

@@ -196,7 +196,7 @@ def generate_report():
         }), 500
 
 
-@report_bp.route('/generate/status', methods=['POST'])
+@report_bp.route('/generate/status', methods=['GET', 'POST'])
 def get_generate_status():
     """
     Fortschritt der Berichtsgenerierungsaufgabe abfragen
@@ -219,10 +219,35 @@ def get_generate_status():
         }
     """
     try:
-        data = request.get_json() or {}
+        data = request.get_json(silent=True) or request.args.to_dict()
         
         task_id = data.get('task_id')
         simulation_id = data.get('simulation_id')
+        report_id = data.get('report_id')
+
+        # Der Browser fragt diesen lesenden Endpunkt mit der report_id per GET
+        # ab. Ältere gespeicherte Berichte besitzen keine zugehörige Task-Datei.
+        if report_id:
+            report = ReportManager.get_report(report_id)
+            if not report:
+                return jsonify({
+                    "success": False,
+                    "error": f"Bericht nicht gefunden: {report_id}"
+                }), 404
+            progress = ReportManager.get_progress(report_id) or {}
+            return jsonify({
+                "success": True,
+                "data": {
+                    **progress,
+                    "report_id": report.report_id,
+                    "simulation_id": report.simulation_id,
+                    "status": report.status.value,
+                    "progress": progress.get(
+                        "progress", 100 if report.status == ReportStatus.COMPLETED else 0
+                    ),
+                    "already_completed": report.status == ReportStatus.COMPLETED,
+                }
+            })
         
         # Wenn simulation_id angegeben, zuerst prüfen ob bereits ein fertiger Bericht vorhanden ist
         if simulation_id:
@@ -243,7 +268,7 @@ def get_generate_status():
         if not task_id:
             return jsonify({
                 "success": False,
-                "error": "Bitte geben Sie eine task_id oder simulation_id an"
+                "error": "Bitte geben Sie eine task_id, simulation_id oder report_id an"
             }), 400
         
         task_manager = TaskManager()
