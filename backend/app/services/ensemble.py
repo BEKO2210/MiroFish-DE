@@ -354,6 +354,23 @@ def combine_rater_results(
     return combined
 
 
+def primary_only_results(
+    rater_a: Dict[str, Dict[str, Any]], checklist: Sequence[Dict[str, Any]],
+) -> Dict[str, Dict[str, Any]]:
+    """Vorläufiges Urteil für Läufe, deren unabhängige Zweitbewertung noch aussteht."""
+    result: Dict[str, Dict[str, Any]] = {}
+    for item in checklist:
+        oid = str(item["id"])
+        judgment = rater_a.get(
+            oid, {"yes": False, "evidence": [], "unclassified": True},
+        )
+        record = dict(judgment)
+        record["raters"] = {"a": judgment}
+        record["preliminary"] = True
+        result[oid] = record
+    return result
+
+
 def _merge_mechanism_edges(
     left: Dict[str, Any], right: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
@@ -1703,7 +1720,7 @@ class EnsembleService:
             models.get("null_arms") or Config.get_llm_config()["model"],
             models.get("classification_primary") or Config.get_llm_config()["model"],
         ]
-        if state.get("strict_second_rater"):
+        if state.get("strict_second_rater") and state.get("second_rater") != "deferred":
             required.append(
                 models.get("classification_secondary")
                 or str(os.environ.get(
@@ -1783,6 +1800,7 @@ class EnsembleService:
         text_model: Optional[str] = None,
         arm_model: Optional[str] = None,
         strict_second_rater: bool = False,
+        second_rater: Optional[str] = None,
         min_classified: Optional[int] = None,
         min_posts: Any = 1,
         max_agent_error_rate: float = DEFAULT_MAX_AGENT_ERROR_RATE,
@@ -1818,6 +1836,8 @@ class EnsembleService:
         variants = validate_variants(variants)
         if not isinstance(strict_second_rater, bool):
             raise ValueError("strict_second_rater muss boolesch sein")
+        if second_rater not in (None, "deferred"):
+            raise ValueError("second_rater muss 'deferred' sein oder fehlen")
         if min_classified is None:
             min_classified = runs
         if (
@@ -1838,9 +1858,10 @@ class EnsembleService:
         second_model = str(os.environ.get(
             "ENSEMBLE_SECOND_RATER_MODEL", Config.ENSEMBLE_SECOND_RATER_MODEL
         ) or "").strip()
-        if strict_second_rater and not second_model:
+        deferred = second_rater == "deferred"
+        if strict_second_rater and not deferred and not second_model:
             raise ValueError("strict_second_rater verlangt ein konfiguriertes Zweitmodell")
-        if strict_second_rater:
+        if strict_second_rater and not deferred:
             primary_model = str(Config.get_llm_config().get("model") or "").strip()
             if primary_model and primary_model == second_model:
                 raise ValueError(
@@ -1939,6 +1960,9 @@ class EnsembleService:
             "cancel_requested": False,
             "current_runner_id": None,
             "strict_second_rater": bool(strict_second_rater),
+            "second_rater": second_rater,
+            "second_rater_status": "ausstehend" if deferred else "vollständig",
+            "results_preliminary": bool(deferred),
             "min_classified": min_classified,
             "min_posts": min_posts,
             "max_agent_error_rate": float(max_agent_error_rate),
@@ -1946,7 +1970,7 @@ class EnsembleService:
                 "agents": str(text_model or Config.LLM_MODEL_NAME),
                 "null_arms": str(arm_model or Config.get_llm_config()["model"]),
                 "classification_primary": str(Config.get_llm_config()["model"]),
-                "classification_secondary": second_model or None,
+                "classification_secondary": None if deferred else (second_model or None),
             },
             "arm_models": {
                 key: str(
@@ -1956,7 +1980,7 @@ class EnsembleService:
                 for key in variants
             },
         }
-        if strict_second_rater:
+        if strict_second_rater and not deferred:
             self._check_models_once(state)
         self._path(ensemble_id).mkdir(parents=True, exist_ok=False)
         self._save(state)
@@ -2765,6 +2789,24 @@ class EnsembleService:
         primary = self._llm_for_model(
             (state.get("models") or {}).get("classification_primary")
         )
+        if state.get("second_rater") == "deferred":
+            primary_context = self._classification_context(primary)
+            result_a, audit_a = self._classify_posts_once(
+                state, posts, seed, run_number, run_dir, primary, primary_context
+            )
+            combined = primary_only_results(result_a, state["checklist"])
+            audit_document = {
+                "run": run_number, "post_count": len(posts),
+                "second_rater_status": "ausstehend",
+                "raters": {"a": {
+                    "model": self._llm_model(primary), "seed": seed, **audit_a,
+                }},
+                "result": combined,
+            }
+            if run_dir is not None:
+                _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
+            _raise_if_fully_unclassified(combined, audit_a)
+            return combined
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
@@ -3044,6 +3086,24 @@ class EnsembleService:
         primary = self._llm_for_model(
             (state.get("models") or {}).get("classification_primary")
         )
+        if state.get("second_rater") == "deferred":
+            primary_context = self._classification_context(primary)
+            result_a, audit_a = self._classify_narrative_once(
+                state, narrative, seed, run_number, primary, variant_key, primary_context
+            )
+            combined = primary_only_results(result_a, state["checklist"])
+            audit_document = {
+                "run": run_number, "post_count": 1,
+                "second_rater_status": "ausstehend",
+                "raters": {"a": {
+                    "model": self._llm_model(primary), "seed": seed, **audit_a,
+                }},
+                "result": combined,
+            }
+            if run_dir is not None:
+                _write_json_atomic(Path(run_dir) / "classification.json", audit_document)
+            _raise_if_fully_unclassified(combined, audit_a)
+            return combined
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
@@ -3204,6 +3264,8 @@ class EnsembleService:
             metric["label"] = reliability_label(metric["kappa"])
             reliability[oid] = metric
         state["reliability"] = reliability
+        if state.get("second_rater_status") == "ausstehend":
+            state["reliability"] = {}
         rows = canonical_outcome_rows(state.get("checklist") or [])
         folded_into = {
             collapsed: row["outcome_id"]
@@ -3277,7 +3339,9 @@ class EnsembleService:
             comparison["holm_p"] = _round(holm_p, 6)
         for comparison in comparisons:
             comparison.setdefault("holm_p", None)
-        state["comparisons"] = comparisons
+        state["comparisons"] = (
+            [] if state.get("second_rater_status") == "ausstehend" else comparisons
+        )
         state["analysis"] = {
             "primary_outcome_id": primary,
             "confirmatory": "exact_mcnemar",
@@ -3790,6 +3854,12 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
         "| Variante | Ergebnis | Ja / N | Strittig | Unklassifiziert | Anteil (95-%-Wilson-Intervall) |",
         "|---|---|---:|---:|---:|---:|",
     ]
+    if state.get("second_rater_status") == "ausstehend":
+        lines[2:2] = [
+            "**Vorläufig: wartet auf die nachträgliche Zweitbewertung; "
+            "Kappa und Variantenvergleiche fehlen bis zum Import.**",
+            "",
+        ]
     for variant in state["variants"]:
         key = variant["key"]
         for oid, value in state["results"].get(key, {}).items():

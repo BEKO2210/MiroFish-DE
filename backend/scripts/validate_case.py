@@ -60,6 +60,7 @@ DECISION_RULE_CONFIRMATORY = (
     "Bedingung 4 mit der Fallmenge des dann festgeschriebenen Rahmens, und zusätzlich liegt die "
     "Kalibrierungssteigung von S im Intervall [0,5; 1,5].")
 NOT_TESTABLE = "nicht prüfbar"
+WAITING_SECOND_RATER = "wartet auf Zweitbewertung"
 PROBE_STATUS = "Probelauf, nicht gewertet"
 PROBE_CASE_ID = "probe"
 PILOT_V5_FRAME = {
@@ -79,7 +80,8 @@ PILOT_V5_FRAME = {
         "wanzleben-grundschule-2025"],
     "models": {
         "agent_model": "gemma4:e4b-it-qat-16k", "arms_s_d_p": "agent_model",
-        "classification_main": "gemma4:12b-it-qat-16k", "classification_second": "qwen3.5:9b-agent32k",
+        "classification_main": "gemma4:12b-it-qat-16k",
+        "classification_second": "gemini-3.8-flash-high (agy, nachträglich)",
         "seed_fallback": False,
         "cold_question_models": ["gemma4:e4b-it-qat-16k", "gemma4:12b-it-qat-16k"]},
     "probelauf": {"case": "synthetisch, nicht gewertet", "seeds": 2},
@@ -599,6 +601,8 @@ def ensemble_start_options(rahmen: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         options["arm_model"] = models["agent_model"]
     if models.get("seed_fallback") is False:
         options["strict_second_rater"] = True
+    if "nachträglich" in str(models.get("classification_second") or ""):
+        options["second_rater"] = "deferred"
     if isinstance(rahmen.get("min_classified_per_arm"), int):
         options["min_classified"] = rahmen["min_classified_per_arm"]
     if rahmen.get("min_posts") is not None:
@@ -819,6 +823,7 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
             "quellenluecke": any(item.get("quellenluecke") is True for item in outcomes),
             "contamination_check": contamination, "simulation_id": ensemble.get("simulation_id"),
             "ensemble_id": ensemble.get("ensemble_id"),
+            "second_rater_status": ensemble.get("second_rater_status", "vollständig"),
             "ensemble_ids": list(ensemble_ids or [{"ensemble_id": ensemble.get("ensemble_id")}]),
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "rows": rows, "metrics": metrics(scored), "primary_metrics": metrics(primary),
@@ -851,6 +856,11 @@ def case_markdown(result: Dict[str, Any]) -> str:
              "tatsächlicher Verlauf wurden nicht an die Simulation gesendet.", "",
              "| Ergebnis | Typ | tatsächlich | " + " | ".join(ARM_LABELS[a] for a in arms) + " | Kappa |",
              "|---|---|---:|" + "---:|" * len(arms) + "---:|"]
+    if result.get("second_rater_status") == "ausstehend":
+        lines[4:4] = [
+            "**Vorläufig: wartet auf die nachträgliche Zweitbewertung; kein Bestehensurteil.**",
+            "",
+        ]
     for row in result["rows"]:
         values = [
             (f"{row['arms'][arm]['yes']}/{row['arms'][arm]['n']} "
@@ -1107,6 +1117,13 @@ def build_summary(case_results: Iterable[Dict[str, Any]],
             declared.append({"case": item.get("case"), "quelle": flag.get("quelle"),
                              "datum": flag.get("datum")})
     group = _summary_group(clean, frame=frame, issues=issues)
+    waiting = [
+        item.get("case") for item in candidates
+        if item.get("second_rater_status") == "ausstehend"
+    ]
+    if waiting:
+        group["preregistered_criterion"]["status"] = WAITING_SECOND_RATER
+        group["preregistered_criterion"]["waiting_cases"] = waiting
     probe = frame is not None and frame.get("id") == "probe-v5"
     if probe:
         group["preregistered_criterion"]["status"] = PROBE_STATUS
@@ -1276,6 +1293,41 @@ def update_summary(results_dir: Path, frame: Optional[Dict[str, Any]] = None) ->
     return summary
 
 
+def refresh_deferred_results(
+    results_dir: Path, ensemble_root: Path, frame: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Fallberichte aus den importierten Ensemble-Dateien neu aufbauen, dann GESAMT schreiben."""
+    for path in sorted(results_dir.glob("*.json")):
+        if path.name == "GESAMT.json" or path.name.endswith(".state.json"):
+            continue
+        previous = _load_json(path)
+        if not isinstance(previous, dict) or not previous.get("rows"):
+            continue
+        ensemble_id = str(previous.get("ensemble_id") or "")
+        ensemble_path = ensemble_root / ensemble_id / "ensemble.json"
+        if not ensemble_path.is_file():
+            continue
+        ensemble = _load_json(ensemble_path)
+        outcomes = [{
+            "text_de": row["question"],
+            "eingetreten": bool(row["actual"]),
+            "primaer": bool(row.get("primary")),
+            "quelle": row.get("source"),
+            "in_material": bool(row.get("in_material")),
+        } for row in previous["rows"]]
+        refreshed = build_case_result(
+            previous["case"], outcomes, ensemble,
+            runs=int(previous["runs"]), hours=int(previous["hours"]),
+            arms=list(previous["arms"]), contamination=previous.get("contamination_check"),
+            minutes_per_round=int(previous.get("minutes_per_round", 60)),
+            rahmen=previous.get("rahmen"), ensemble_ids=previous.get("ensemble_ids"),
+        )
+        refreshed["quellenluecke"] = previous.get("quellenluecke", False)
+        _write_json_atomic(path, refreshed)
+        _write_text_atomic(path.with_suffix(".md"), case_markdown(refreshed))
+    return update_summary(results_dir, frame)
+
+
 def _write_contaminated(results_dir: Path, case_name: str, result: Dict[str, Any], note: str,
                         frame: Optional[Dict[str, Any]] = None) -> None:
     _write_json_atomic(results_dir / f"{case_name}.json", result)
@@ -1427,6 +1479,10 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--ort", dest="location")
     parser.add_argument("--jahr", dest="year")
     parser.add_argument("--thema", dest="topic")
+    parser.add_argument("--nur-gesamt", action="store_true",
+                        help="Fallberichte nach Zweitimport aus Ensemble-Dateien und GESAMT neu berechnen")
+    parser.add_argument("--ensemble-root", type=Path,
+                        default=REPOSITORY_ROOT / "backend" / "uploads" / "ensembles")
     return parser.parse_args(argv)
 
 
@@ -1440,6 +1496,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             raise ValueError("--probe und --rahmen schließen sich aus")
         if arguments.probe and arguments.case_dir is None:
             arguments.case_dir = PROBE_DIR
+        if arguments.nur_gesamt:
+            chosen = resolve_invocation(arguments)
+            results_dir = arguments.results_dir or (
+                DEFAULT_RESULTS_DIR / chosen["rahmen"]["id"]
+                if chosen["rahmen"] else DEFAULT_RESULTS_DIR)
+            summary = refresh_deferred_results(
+                results_dir, arguments.ensemble_root, chosen["rahmen"],
+            )
+            print("GESAMT neu berechnet: "
+                  + summary["clean"]["preregistered_criterion"]["status"])
+            return 0
         if arguments.case_dir is None:
             raise ValueError("Fallordner fehlt")
         chosen = resolve_invocation(arguments)

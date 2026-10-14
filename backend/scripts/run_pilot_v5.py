@@ -49,7 +49,7 @@ class RunLog:
 
 def required_models(frame: Dict[str, Any]) -> List[str]:
     models = frame["models"]
-    names = [models["agent_model"], models["classification_main"], models["classification_second"],
+    names = [models["agent_model"], models["classification_main"],
              *models.get("cold_question_models", [])]
     return list(dict.fromkeys(names))
 
@@ -80,7 +80,7 @@ def preflight(client: Any, frame: Dict[str, Any], *, data_dir: Path, min_free_gb
             problems.append("Modellserver (Ollama) nicht erreichbar")
         elif models["missing"]:
             problems.append("Modelle fehlen in Ollama: " + ", ".join(models["missing"])
-                            + " (kein seed_fallback, der Zweitbewerter muss vorhanden sein)")
+                            + " (für den lokalen Lauf erforderlich)")
     except (vc.ApiError, OSError) as error:
         problems.append(f"Modellliste nicht abrufbar: {error}")
     busy: List[Dict[str, Any]] = []
