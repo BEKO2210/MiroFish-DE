@@ -264,7 +264,7 @@ test.describe('Flows', () => {
     await settle(page)
     const ensHint = page.getByTestId('reliability-hint')
     await expect(ensHint).toBeVisible()
-    await expect(ensHint).toContainText(/keine Wahrscheinlichkeiten für die echte Welt/i)
+    await expect(ensHint).toContainText(/keine Wahrscheinlichkeiten für die Realität/i)
     await expect(page.locator('.results:visible .material-in-hint').first()).toBeVisible()
     await expectNoHorizontalScroll(page)
 

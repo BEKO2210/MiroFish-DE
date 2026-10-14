@@ -712,9 +712,9 @@
   },
   "reliability": {
     "eyebrow": "Guide",
-    "singleRunHint": "A single run shows one possible path, not a forecast",
-    "ensembleHint": "These shares are ranges from multiple runs – not real-world probabilities",
-    "inMaterialHint": "was already in your material – not a new insight",
+    "singleRunHint": "A single run shows one possible path, not a forecast.",
+    "ensembleHint": "These values show ranges from multiple runs – not real-world probabilities.",
+    "inMaterialHint": "Already in your material – not a new insight.",
     "link": "How reliable is this?",
     "dismiss": "Dismiss hint",
     "settingsLink": "How reliable is MiroFish?"

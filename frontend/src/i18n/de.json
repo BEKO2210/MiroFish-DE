@@ -712,9 +712,9 @@
   },
   "reliability": {
     "eyebrow": "Leitfaden",
-    "singleRunHint": "Ein Einzellauf zeigt einen denkbaren Verlauf, keine Vorhersage",
-    "ensembleHint": "Die Anteile sind Spannen aus mehreren Läufen – keine Wahrscheinlichkeiten für die echte Welt",
-    "inMaterialHint": "stand schon in deinem Material – keine neue Erkenntnis",
+    "singleRunHint": "Ein einzelner Durchlauf zeigt einen denkbaren Verlauf, keine Vorhersage.",
+    "ensembleHint": "Diese Werte zeigen eine Bandbreite aus mehreren Durchläufen – keine Wahrscheinlichkeiten für die Realität.",
+    "inMaterialHint": "Stand schon in deinem Material – keine neue Erkenntnis.",
     "link": "Wie verlässlich ist das?",
     "dismiss": "Hinweis schließen",
     "settingsLink": "Wie verlässlich ist MiroFish?"
