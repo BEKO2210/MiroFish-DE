@@ -63,6 +63,12 @@ im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über 
 
 ### Stand Validierung 14.10.2026 (aktuell)
 
+Gesamtübersicht für Außenstehende: `docs/validation/README.md`. Kurz: Die Nutzenbehauptung ist **nicht belegt**; der
+Nachtlauf `ens_9c4647555d4b` trägt sie nicht (Gutachten), V5 wurde noch nicht gemessen. Drei Prüfrunden vor dem
+GPU-Pilot (Grok 2×, Copilot 1×, `docs/validation/PRUEFUNG-V5-*.md`) lauteten jeweils auf Freigabe **Nein**; die
+Befunde sind laut Commits umgesetzt, eine erneute unabhängige Prüfung steht aus. Pilotrahmen
+(`docs/validation/rahmen-pilot-v5.json`): vorgeschlagen, Start erst nach Freigabe des Projektinhabers.
+
 **Erledigt**
 - Ablation `blind_feed` (Feed ohne Suche/Trend/Fremdinteraktion; Nutzung je Lauf in `run_stats` gemessen).
 - Rundentakt wählbar (`minutes_per_round` 60/120/240, Teilbarkeitsregel gegen abgeschnittene Stunden).
@@ -74,7 +80,7 @@ im Mehrfachlauf wiederverwendet). 10 Läufe ≈ 2–3 h, Ablationen 3×10 über 
 - KI-Zweitkodierung (zweiter Bewerter je Klassifikation, konservatives Endurteil, Dissens = „strittig“).
 
 **Offen**
-- V5-GPU-Pilot: Rahmen noch festzulegen; Schätzung ca. 48 GPU-Stunden bei 4-h-Takt und 5 Seeds.
+- V5-GPU-Pilot: Rahmen vorgeschlagen (7 Fälle, 3 Arme, 5 Seeds, 4-h-Takt, 336 h; 33–72 GPU-Stunden, Mitte rund 50), nicht gestartet; Start erst nach Freigabe des Projektinhabers.
 - Menschliche Zweitkodierung (Stichprobe der Belege durch Menschen, Übereinstimmung mit der KI-Kodierung).
 - Mindestens 25 Fälle für eine konfirmatorische Aussage (bisher 7 primär, also Pilotcharakter).
 - Weiter offen aus früheren Stufen: V4b Sensitivität (Eingriffsstärke als Variable).
