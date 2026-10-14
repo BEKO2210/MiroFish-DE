@@ -4,9 +4,9 @@
 
 <a href="https://trendshift.io/repositories/16144" target="_blank"><img src="https://trendshift.io/api/badge/repositories/16144" alt="666ghj%2FMiroFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
+Schwarm-Simulation mit KI-Agenten – denkbare Verläufe durchspielen
 </br>
-<em>A Simple and Universal Swarm Intelligence Engine, Predicting Anything</em>
+<em>A Simple and Universal Swarm Intelligence Engine – Simulating Possible Scenarios</em>
 
 ## 🚀 Neu in dieser Fassung (Oktober 2026)
 
@@ -30,19 +30,19 @@ Elegante universelle Schwarm-Intelligenz-Engine – Alles vorhersagen
 
 ## ⚡ Projektübersicht
 
-**MiroFish** ist eine neue Generation von KI-Vorhersage-Engines basierend auf Multi-Agent-Technologie. Durch die Extraktion von Realwelt-Daten (wie Breaking News, Richtlinienentwürfe, Finanzsignale) wird automatisch eine detailgetreue parallele digitale Welt erstellt. In diesem Raum interagieren und entwickeln sich Tausende von Agenten mit unabhängigen Persönlichkeiten, Langzeitgedächtnis und Verhaltenslogik frei. Über die "Gott-Perspektive" können dynamisch Variablen injiziert werden, um zukünftige Entwicklungen präzise zu antizipieren – **Lass die Zukunft im digitalen Sandkasten vorausspielen, lass Entscheidungen nach hunderten Simulationen triumphieren**.
+**MiroFish** ist eine Schwarm-Simulation auf Basis von Multi-Agent-Technologie. Sie liefert keine Vorhersage, sondern einen denkbaren Verlauf (siehe [Verlässlichkeit](docs/VERLAESSLICHKEIT.md)). Durch die Extraktion von Realwelt-Daten (wie Breaking News, Richtlinienentwürfe, Finanzsignale) wird automatisch eine detailgetreue parallele digitale Welt erstellt. In diesem Raum interagieren und entwickeln sich viele KI-Agenten (lokal typischerweise 10–30) mit unabhängigen Persönlichkeiten, Langzeitgedächtnis und Verhaltenslogik frei. Über die "Gott-Perspektive" können dynamisch Variablen injiziert werden, um zu sehen, wie sich ein Szenario entwickeln könnte – **Spiele Szenarien im digitalen Sandkasten durch**.
 
-> Du musst nur: Ausgangsmaterial hochladen (Datenanalyseberichte oder interessante Geschichten) und den Vorhersagebedarf in natürlicher Sprache beschreiben</br>
-> MiroFish liefert: Einen detaillierten Vorhersagebericht sowie eine interaktive, realitätsnahe digitale Welt
+> Du musst nur: Ausgangsmaterial hochladen (Datenanalyseberichte oder interessante Geschichten) und deine Frage in natürlicher Sprache beschreiben</br>
+> MiroFish liefert: Einen ausführlichen Simulationsbericht sowie eine interaktive, realitätsnahe digitale Welt
 
 ### Unsere Vision
 
-MiroFish strebt danach, einen Spiegel der Schwarm-Intelligenz zu schaffen, der die Realität abbildet. Durch die Erfassung des kollektiven Emergenz-Verhaltens, das durch individuelle Interaktionen entsteht, überwinden wir die Grenzen traditioneller Vorhersagen:
+MiroFish strebt danach, einen Spiegel der Schwarm-Intelligenz zu schaffen, der die Realität abbildet. Durch die Erfassung des kollektiven Emergenz-Verhaltens, das durch individuelle Interaktionen entsteht, überwinden wir die Grenzen klassischer Modelle auszuloten:
 
 - **Makro**: Wir sind das Labor für Entscheidungsträger, wo Politik und PR risikofrei getestet werden können
-- **Mikro**: Wir sind der kreative Sandkasten für individuelle Nutzer, sei es zur Vorhersage von Roman-Enden oder zum Erkunden von Ideen – alles ist interessant, unterhaltsam und greifbar
+- **Mikro**: Wir sind der kreative Sandkasten für individuelle Nutzer, sei es zum Durchspielen von Roman-Enden oder zum Erkunden von Ideen – alles ist interessant, unterhaltsam und greifbar
 
-Von seriöser Vorhersage bis hin zu unterhaltsamer Simulation – wir machen jedes "Was wäre wenn" sichtbar und ermöglichen die Vorhersage von allem.
+Von ernsthafter Szenarioanalyse bis zu unterhaltsamer Simulation – wir machen jedes "Was wäre wenn" sichtbar. Die Ergebnisse sind Gedankenspiele, keine Prognosen.
 
 ## 🌐 Live-Demo
 
@@ -84,7 +84,7 @@ Besuche die Online-Demo-Umgebung und erlebe eine Simulation zu einem aktuellen �
 
 1. **Graphen-Aufbau**: Realwelt-Daten-Extraktion & Individuen-/Gruppen-Gedächtnis-Injektion & GraphRAG-Aufbau
 2. **Umgebungsaufbau**: Entitätsbeziehungs-Extraktion & Charakter-Generierung & Umgebungskonfiguration
-3. **Simulation starten**: Duale Plattform-Parallel-Simulation & automatische Vorhersagebedarfsanalyse & dynamische Zeitreihen-Gedächtnis-Aktualisierung
+3. **Simulation starten**: Duale Plattform-Parallel-Simulation & automatische Analyse der Simulationsanforderung & dynamische Zeitreihen-Gedächtnis-Aktualisierung
 4. **Berichtsgenerierung**: ReportAgent mit reichhaltigem Toolset für tiefe Interaktion mit der simulierten Umgebung
 5. **Tiefe Interaktion**: Gespräch mit beliebiger Person in der simulierten Welt & Dialog mit dem ReportAgent
 
@@ -158,7 +158,7 @@ Für die Entwicklung mit Hot-Reload: `npm run dev` im Projektwurzelverzeichnis (
 
 ### Bedienung
 
-1. **Start**: Dokumente (PDF, Markdown, Text) hochladen, Frage stellen, „Vorhersage starten“.
+1. **Start**: Dokumente (PDF, Markdown, Text) hochladen, Frage stellen, „Simulation starten“.
 2. Der Durchlauf zeigt jeden Schritt live: Dokumente lesen → Wissensgraph → Agenten → Simulation → Bericht.
    Die Seite darf geschlossen werden; unter **Verlauf** findest du alles wieder, mit Export (ZIP) und Löschen.
 3. Wer jeden Schritt selbst steuern will, schaltet „Bis zum Bericht durchlaufen“ aus.

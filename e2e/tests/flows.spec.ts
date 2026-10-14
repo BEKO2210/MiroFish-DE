@@ -10,12 +10,12 @@ const sampleMd = path.join(__dirname, '../fixtures/sample-upload.md')
 test.describe('Flows', () => {
   test.skip(() => isLiveMode(), 'Flows brauchen API-Mocks')
 
-  test('Startseite: Vorhersage starten aktiviert nach Datei+Frage und startet Pipeline', async ({ page }) => {
+  test('Startseite: Simulation starten aktiviert nach Datei+Frage und startet Pipeline', async ({ page }) => {
     const { api } = await preparePage(page)
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await settle(page)
 
-    const cta = page.getByRole('button', { name: /Vorhersage starten/i })
+    const cta = page.getByRole('button', { name: /Simulation starten/i })
     await expect(cta).toBeDisabled()
 
     await page.locator('input[type="file"]').setInputFiles(sampleMd)

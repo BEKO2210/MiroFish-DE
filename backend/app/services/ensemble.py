@@ -2866,7 +2866,7 @@ def ensemble_markdown(state: Dict[str, Any]) -> str:
     if material:
         lines.extend([
             "",
-            "† Diese Ergebnisse stehen inhaltlich bereits im Eingabematerial und sind daher keine unabhängige Prognose:",
+            "† Diese Ergebnisse stehen inhaltlich bereits im Eingabematerial und sind daher kein unabhängiges Ergebnis:",
         ])
         for item in material:
             lines.append(f"- {item['text_de']}: {item['material_snippet']}")
