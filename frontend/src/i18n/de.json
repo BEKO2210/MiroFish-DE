@@ -1096,5 +1096,13 @@
   },
   "confirm": {
     "cancel": "Abbrechen"
+  },
+  "privacy": {
+    "local": "Lokal – Texte bleiben auf deinen Geräten",
+    "localShort": "Lokal",
+    "cloud": "Cloud: {provider} – Texte werden übertragen",
+    "cloudShort": "Cloud: {provider}",
+    "unknownProvider": "externer Anbieter",
+    "hint": "Das siehst du auch oben in jeder Ansicht am Schloss- bzw. Wolken-Symbol."
   }
 }

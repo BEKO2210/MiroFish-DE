@@ -11,6 +11,7 @@
     </nav>
     <div class="appbar__right">
       <slot />
+      <PrivacyBadge />
       <button type="button" class="appbar__icon" :aria-label="t('nav.colors')" :title="t('nav.colors')" @click="showTheme = true">
         <span class="appbar__swatch"></span>
       </button>
@@ -24,6 +25,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import ThemePicker from './ThemePicker.vue'
+import PrivacyBadge from './PrivacyBadge.vue'
 
 const route = useRoute()
 const { t } = useI18n()
