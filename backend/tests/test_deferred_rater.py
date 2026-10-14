@@ -1,5 +1,6 @@
 """Hermetische Tests für Export, Offline-Import und Deferred-Dienstmodus."""
 import json
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -103,6 +104,9 @@ def test_export_is_stable_and_import_handles_all_offline_answer_cases(tmp_path):
     assert state["results_preliminary"] is False
     assert state["models"]["classification_secondary"] == "gemini-3.8-flash-high (agy)"
     assert state["reliability"]["c1"]["n_pairs"] == 3
+    assert state["reliability"]["c1"]["pair_counts"] == {
+        "yes_yes": 2, "yes_no": 1, "no_yes": 0, "no_no": 0,
+    }
     assert state["reliability"]["c1"]["agreement"] == pytest.approx(2 / 3, abs=1e-4)
     assert state["results"]["baseline"]["c1"]["disputed"] == 1
     assert state["results"]["baseline"]["c1"]["unclassified"] == 1
@@ -111,6 +115,26 @@ def test_export_is_stable_and_import_handles_all_offline_answer_cases(tmp_path):
     run_two = json.loads((ensemble / "baseline" / "run_2" / "classification.json").read_text())
     assert run_two["result"]["c2"]["unclassified"] is True
     assert (ensemble / "baseline" / "run_2" / "classification.primary-only.json").is_file()
+
+
+def test_import_writes_only_to_renamed_ensemble_copy(tmp_path):
+    original = _ensemble(tmp_path)
+    prompts = tmp_path / "prompts"
+    assert export_prompts(original, prompts) == 4
+    answer = json.dumps({"results": [
+        {"outcome_id": "c1", "yes": True, "post_ids": ["twitter:1"], "snippet": "Ereignis eins"},
+        {"outcome_id": "c2", "yes": False},
+    ]})
+    for run in range(1, 5):
+        _answer(prompts / "baseline" / f"run_{run}" / "batch_1.json", answer)
+
+    copied = original.parent / "umbenannte-arbeitskopie"
+    shutil.copytree(original, copied)
+    state = import_second_rater(copied, prompts, "gemini-3.8-flash-high (agy)")
+
+    assert json.loads((copied / "ensemble.json").read_text())["second_rater_status"] == "vollständig"
+    assert json.loads((original / "ensemble.json").read_text())["second_rater_status"] == "ausstehend"
+    assert state["ensemble_id"] == original.name
 
 
 class _PrimaryLLM:

@@ -6,6 +6,7 @@ import argparse
 import json
 import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -102,7 +103,10 @@ def import_second_rater(
     for variant in state.get("variants") or []:
         variant.setdefault("classification_models", {})["secondary"] = model
     service._aggregate(state, per_run)
-    service._save(state)
+    # Der Aufrufer kann eine umbenannte Arbeitskopie importieren. EnsembleService._save
+    # leitet den Pfad dagegen erneut aus ensemble_id ab und würde in das Original schreiben.
+    state["updated_at"] = datetime.now().isoformat()
+    _write_json_atomic(state_path, state)
     return state
 
 

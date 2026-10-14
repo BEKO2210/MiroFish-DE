@@ -281,7 +281,9 @@ def test_probe_summary_renders_null_yes_rates_as_unmeasurable():
 
 def _summary_case(name, actual, rates, *, contaminated=False, exploratory_rate=None):
     rows = [{"primary": True, "measurable": True, "actual": actual,
-             "reliability": {"kappa": .8},
+             "reliability": {"kappa": .8, "n_pairs": 20, "pair_counts": {
+                 "yes_yes": 9, "yes_no": 1, "no_yes": 1, "no_no": 9,
+             }},
              "arms": {arm: {"rate": rate} for arm, rate in rates.items()}}]
     if exploratory_rate is not None:
         rows.append({"primary": False, "measurable": True, "actual": 1 - actual,
@@ -624,49 +626,48 @@ def test_source_gap_stays_in_primary_and_drops_from_sensitivity(tmp_path):
     assert resumed.posts == []
 
 
-def test_low_primary_kappa_is_counted_and_fails_the_instrument():
-    good = _with_distance(_summary_case("ok", 1, {
-        "baseline": 1, "null_document": .5, "null_personas": .4,
-    }))
-    bad = _summary_case("leak", 1, {"baseline": 1, "null_document": .5, "null_personas": .4})
-    bad["rows"][0]["measurable"] = False
-    bad["rows"][0]["reliability"] = {"kappa": .4}
-    alone = _summarize([good])["clean"]["preregistered_criterion"]["status"]
-    assert alone == "bestanden"
-    summary = _summarize([good, bad])
+def test_pooled_kappa_is_measurable_despite_degenerate_case_kappas():
+    yes = _with_distance(_skill_case("ja", 1, 1, .5, personas=.4))
+    no = _with_distance(_skill_case("nein", 0, 0, .5, personas=.6))
+    yes["rows"][0]["reliability"] = {"kappa": None, "n_pairs": 10, "pair_counts": {
+        "yes_yes": 10, "yes_no": 0, "no_yes": 0, "no_no": 0,
+    }}
+    no["rows"][0]["reliability"] = {"kappa": None, "n_pairs": 10, "pair_counts": {
+        "yes_yes": 0, "yes_no": 0, "no_yes": 0, "no_no": 10,
+    }}
+
+    clean = _summarize([yes, no])["clean"]
+    assert clean["pooled_primary_kappa"]["kappa"] == 1.0
+    assert clean["pooled_primary_kappa"]["n_pairs"] == 20
+    assert clean["minimum_kappa"] is None
+    assert clean["preregistered_criterion"]["checks"]["kappa_at_least_0_6"] is True
+    assert clean["preregistered_criterion"]["status"] == "bestanden"
+
+
+def test_pooled_kappa_below_threshold_fails_instrument():
+    case = _with_distance(_skill_case("schlecht", 1, 1, .5, personas=.4))
+    case["rows"][0]["reliability"] = {"kappa": 0.0, "n_pairs": 8, "pair_counts": {
+        "yes_yes": 2, "yes_no": 2, "no_yes": 2, "no_no": 2,
+    }}
+
+    summary = _summarize([case])
     clean = summary["clean"]
-    assert clean["kappa_excluded_primary_count"] == 1
-    assert clean["kappa_excluded_primary_share"] > 0
-    assert clean["kappa_excluded_primary"] == [{"case": "leak", "kappa": .4}]
-    assert clean["scored_primary_cases"] == 1
-    assert clean["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+    assert clean["pooled_primary_kappa"]["kappa"] == 0.0
     assert clean["preregistered_criterion"]["checks"]["kappa_at_least_0_6"] is False
-    text = summary_markdown(summary)
-    assert "Instrument unzuverlässig" in text
-    assert "leak" in text
-
-    missing = _summary_case("leer", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
-    missing["rows"][0]["measurable"] = False
-    missing["rows"][0]["reliability"] = {"kappa": None}
-    gap = _summarize([missing])["clean"]
-    assert gap["kappa_excluded_primary"] == []
-    assert gap["preregistered_criterion"]["status"] == "nicht prüfbar"
+    assert clean["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+    assert "Instrument unzuverlässig" in summary_markdown(summary)
 
 
-def test_undefined_kappa_is_not_testable_defined_zero_fails_instrument():
-    undefined = _summary_case("leer", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
-    undefined["rows"][0]["measurable"] = False
-    undefined["rows"][0]["reliability"] = {"kappa": None, "n_pairs": 0}
-    gap = _summarize([undefined])["clean"]
-    assert gap["kappa_excluded_primary"] == []
-    assert gap["preregistered_criterion"]["status"] == "nicht prüfbar"
+def test_degenerate_pooled_kappa_is_not_testable():
+    case = _with_distance(_skill_case("gleich", 1, 1, .5, personas=.4))
+    case["rows"][0]["reliability"] = {"kappa": None, "n_pairs": 12, "pair_counts": {
+        "yes_yes": 12, "yes_no": 0, "no_yes": 0, "no_no": 0,
+    }}
 
-    zero = _summary_case("null", 0, {"baseline": 0, "null_document": 1, "null_personas": 0})
-    zero["rows"][0]["measurable"] = False
-    zero["rows"][0]["reliability"] = {"kappa": 0.0, "n_pairs": 0}
-    failed = _summarize([zero])["clean"]
-    assert failed["kappa_excluded_primary"] == [{"case": "null", "kappa": 0.0}]
-    assert failed["preregistered_criterion"]["status"] == KAPPA_INSTRUMENT_STATUS
+    clean = _summarize([case])["clean"]
+    assert clean["pooled_primary_kappa"]["kappa"] is None
+    assert clean["preregistered_criterion"]["checks"]["kappa_at_least_0_6"] is None
+    assert clean["preregistered_criterion"]["status"] == "nicht prüfbar"
 
 
 def test_directed_rule_requires_s_better_than_p():

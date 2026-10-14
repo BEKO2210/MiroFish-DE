@@ -304,6 +304,14 @@ def cohens_kappa(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, Any]:
     return {"agreement": _round(agreement), "kappa": kappa, "n_pairs": n}
 
 
+def rater_pair_counts(pairs: Sequence[Tuple[bool, bool]]) -> Dict[str, int]:
+    """Verlustfreie 2x2-Zählung für späteres Pooling über Ensembles."""
+    counts = {"yes_yes": 0, "yes_no": 0, "no_yes": 0, "no_no": 0}
+    for left, right in pairs:
+        counts[("yes_" if left else "no_") + ("yes" if right else "no")] += 1
+    return counts
+
+
 def reliability_label(kappa: Optional[float]) -> str:
     if not isinstance(kappa, (int, float)) or isinstance(kappa, bool):
         return "nicht messbar"
@@ -3261,6 +3269,7 @@ class EnsembleService:
                     ):
                         pairs.append((bool(left["yes"]), bool(right["yes"])))
             metric = cohens_kappa(pairs)
+            metric["pair_counts"] = rater_pair_counts(pairs)
             metric["label"] = reliability_label(metric["kappa"])
             reliability[oid] = metric
         state["reliability"] = reliability

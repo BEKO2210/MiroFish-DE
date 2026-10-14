@@ -17,6 +17,8 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 import requests
 
+from app.services.ensemble import cohens_kappa
+
 QUESTION = ("Wie reagieren Bürgerinnen, Vereine, Medien und Politik in den ersten zwei "
             "Wochen nach der Bekanntgabe?")
 ALLOWED_ARMS = ("baseline", "null_document", "null_personas", "isolated")
@@ -37,22 +39,22 @@ PILOT_RULE_CONDITIONS = (
     "1. das 95-%-Fall-Bootstrap-Intervall von `Skill(S,D) = 1 − BS_S / BS_D` liegt vollständig über 0;",
     "2. das 95-%-Fall-Bootstrap-Intervall von `Skill(S,P) = 1 − BS_S / BS_P` liegt vollständig über 0 "
     "(S ist im Brier-Sinn genauer als P; ein bloß von 0 verschiedener Abstand der Ja-Anteile genügt nicht);",
-    "3. Kappa beträgt für jedes gewertete Primärergebnis mindestens 0,6 (die KI-Zweitkodierung der "
-    "realen Akte liefert 1,0, ersetzt aber keine menschliche Zweitkodierung);",
+    "3. das über alle Bewerterpaare des Primärergebnisses in allen gewerteten Fällen, Armen und Seeds "
+    "gepoolte Kappa beträgt mindestens 0,6 (ein Paar je Lauf, nur wenn beide Bewerter klassifiziert haben; "
+    "fallweises Kappa wird nur informativ ausgewiesen);",
     "4. alle 7 Fälle des Rahmens sind gewertet (Fallmenge exakt wie im Rahmen, ein gültiger Lauf je Fall, "
     "Messbarkeit mindestens 4 von 5 klassifizierte Läufe je Arm).",
 )
 PILOT_RULE_CLOSING = (
     "Liegt das Intervall von `Skill(S,D)` vollständig unter 0, lautet der Status „nicht bestanden“, "
     "auch wenn andere Größen fehlen. Ist eine andere prüfbare Bedingung verletzt (insbesondere Intervall "
-    "von `Skill(S,P)` nicht ganz über 0 oder Kappa unter 0,6), lautet das Urteil „nicht bestanden“. "
+    "von `Skill(S,P)` nicht ganz über 0 oder gepooltes Kappa unter 0,6), lautet das Urteil „nicht bestanden“. "
     "Fehlt eine Größe, ist die Fallmenge nicht exakt die des Rahmens oder ist das Instrument nicht "
-    "prüfbar (degeneriertes Kappa ohne Varianz, Fälle nicht messbar), lautet das Urteil „nicht prüfbar“. "
-    "„bestanden“ wird nicht nachträglich aufgeweicht. Wird mindestens ein Primärergebnis wegen Kappa "
-    "unter 0,6 aus der Wertung genommen, zählt `GESAMT` diese Fälle mit Anteil; ist der Anteil größer "
-    "als 0, lautet das Pilot-Urteil „nicht bestanden (Instrument unzuverlässig)“. Ein nicht definiertes "
-    "Kappa wegen fehlender Varianz ist davon ausgenommen und führt zu „nicht prüfbar“ (siehe Kodierbuch, "
-    "degeneriertes Kappa). Die Kalibrierungssteigung wird nur ausgewiesen, mit dem festen Hinweis "
+    "prüfbar (degeneriertes gepooltes Kappa ohne Varianz, Fälle nicht messbar), lautet das Urteil "
+    "„nicht prüfbar“. „bestanden“ wird nicht nachträglich aufgeweicht. Liegt das definierte gepoolte "
+    "Kappa unter 0,6, lautet das Pilot-Urteil „nicht bestanden (Instrument unzuverlässig)“. Ist das "
+    "gepoolte Kappa wegen fehlender Varianz nicht definiert, lautet das Urteil „nicht prüfbar“. "
+    "Die Kalibrierungssteigung wird nur ausgewiesen, mit dem festen Hinweis "
     "„Pilot, keine Kalibrierungsaussage“, und ist kein Bestehenskriterium.")
 DECISION_RULE_PILOT = "\n".join([PILOT_RULE_INTRO, *PILOT_RULE_CONDITIONS, PILOT_RULE_CLOSING])
 DECISION_RULE_CONFIRMATORY = (
@@ -800,15 +802,20 @@ def build_case_result(case_name: str, outcomes: Sequence[Dict[str, Any]], ensemb
         rel = reliability.get(outcome_id) or {}
         in_material = outcome.get("in_material") is True or bool(item.get("in_material", False))
         beyond = beyond_simulated_horizon(outcome, hours)
+        primary = outcome.get("primaer") is True
         kappa = rel.get("kappa")
-        measurable = (isinstance(kappa, (int, float)) and not isinstance(kappa, bool)
-                      and float(kappa) >= .6 and not in_material and not beyond
+        primary_double_rated = primary and ensemble.get("second_rater_status", "vollständig") != "ausstehend"
+        reliable = (primary_double_rated
+                    or (not primary and isinstance(kappa, (int, float))
+                        and not isinstance(kappa, bool) and float(kappa) >= .6))
+        measurable = (reliable and not in_material and not beyond
                       and all(int(value.get("n") or 0) >= min_classified for value in arm_values.values()))
         rows.append({"outcome_id": outcome_id, "question": text,
-                     "primary": outcome.get("primaer") is True,
+                     "primary": primary,
                      "actual": int(outcome["eingetreten"]), "source": outcome.get("quelle"),
                      "in_material": in_material, "beyond_horizon": beyond, "arms": arm_values,
-                     "reliability": {key: rel.get(key) for key in ("agreement", "kappa", "n_pairs", "label")},
+                     "reliability": {key: rel.get(key) for key in
+                                     ("agreement", "kappa", "n_pairs", "pair_counts", "label")},
                      "measurable": measurable})
     def metrics(selected: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         actual = [row["actual"] for row in selected]
@@ -877,8 +884,11 @@ def case_markdown(result: Dict[str, Any]) -> str:
         lines.append(f"| {ARM_LABELS[arm]} | {_display(result['metrics'][arm]['brier'])} | "
                      f"{_display(result['primary_metrics'][arm]['brier'])} |")
     lines += ["", "Das Primärergebnis ist konfirmatorisch; alle anderen Ergebnisse sind explorativ. "
-              "Punkte mit Kappa < 0,6, ohne definiertes Kappa, mit zu wenigen klassifizierten Läufen, mit Fenster "
-              "jenseits der simulierten Stunden oder mit in_material in der Akte werden nicht gescored. "
+              "Das fallweise Kappa des Primärergebnisses ist informativ; für das Vorab-Kriterium wird es "
+              "in GESAMT gepoolt. "
+              "Explorative Punkte mit Kappa < 0,6 oder ohne definiertes Kappa sowie Punkte mit zu wenigen "
+              "klassifizierten Läufen, mit Fenster jenseits der simulierten Stunden oder mit in_material "
+              "in der Akte werden nicht gescored. "
               "Der Sammel-Brier ist nicht zitierfähig."]
     return "\n".join(lines) + "\n"
 
@@ -923,9 +933,36 @@ def _kappa_number(row: Dict[str, Any]) -> Optional[float]:
     return float(kappa)
 
 
-def _primary_kappa_ok(row: Dict[str, Any]) -> bool:
-    value = _kappa_number(row)
-    return value is not None and value >= .6
+_PAIR_COUNT_TO_PAIR = {
+    "yes_yes": (True, True),
+    "yes_no": (True, False),
+    "no_yes": (False, True),
+    "no_no": (False, False),
+}
+
+
+def _pooled_primary_kappa(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    """Kappa aus allen gespeicherten Primärergebnis-Paaren mit der Dienstfunktion."""
+    totals = {key: 0 for key in _PAIR_COUNT_TO_PAIR}
+    complete = True
+    for row in rows:
+        counts = (row.get("reliability") or {}).get("pair_counts")
+        if not isinstance(counts, dict):
+            complete = False
+            continue
+        for key in totals:
+            value = counts.get(key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                complete = False
+                break
+            totals[key] += value
+    pairs = [pair for key, pair in _PAIR_COUNT_TO_PAIR.items() for _ in range(totals[key])]
+    metric = cohens_kappa(pairs)
+    if not complete:
+        metric = {"agreement": None, "kappa": None, "n_pairs": 0}
+    metric["pair_counts"] = totals
+    metric["complete"] = complete
+    return metric
 
 
 def _primary_row(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -935,16 +972,11 @@ def _primary_row(result: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 def _summary_group(results: Sequence[Dict[str, Any]], *, frame: Optional[Dict[str, Any]] = None,
                    issues: Sequence[str] = (), decision: bool = True) -> Dict[str, Any]:
     observations = []
-    kappa_excluded = []
     for result in results:
         primary = _primary_row(result)
-        kappa = None if primary is None else _kappa_number(primary)
-        # Nur ein definiertes Kappa unter 0,6 macht das Instrument unzuverlässig; ohne Varianz ist es nicht prüfbar.
-        if primary is not None and kappa is not None and kappa < .6:
-            kappa_excluded.append({"case": result.get("case"), "kappa": kappa})
-        if primary is not None and primary.get("measurable") and _primary_kappa_ok(primary):
+        if primary is not None and primary.get("measurable"):
             observations.append({"case": result.get("case"), "actual": int(primary["actual"]),
-                                 "kappa": float(primary["reliability"]["kappa"]),
+                                 "row": primary,
                                  "p": {arm: float(primary["arms"][arm]["rate"]) for arm in result["arms"]}})
     arms = [arm for arm in ALLOWED_ARMS if observations and all(arm in item["p"] for item in observations)]
     losses = [{arm: (item["p"][arm] - item["actual"]) ** 2 for arm in arms} for item in observations]
@@ -970,7 +1002,12 @@ def _summary_group(results: Sequence[Dict[str, Any]], *, frame: Optional[Dict[st
     skill_below = None if interval is None else interval["high"] < 0
     sp_interval = (skill.get("baseline_vs_null_personas") or {}).get("ci_95")
     sp_above = None if sp_interval is None else sp_interval["low"] > 0
-    kappas = [item["kappa"] for item in observations]
+    case_kappa_rows = [{"case": item["case"], "kappa": _kappa_number(item["row"]),
+                        "n_pairs": (item["row"].get("reliability") or {}).get("n_pairs")}
+                       for item in observations]
+    case_kappas = [item["kappa"] for item in case_kappa_rows if item["kappa"] is not None]
+    pooled_kappa = _pooled_primary_kappa([item["row"] for item in observations])
+    pooled_value = pooled_kappa["kappa"] if pooled_kappa["complete"] else None
     distances = []
     paired_cases = []
     scored_names = {item["case"] for item in observations}
@@ -985,11 +1022,10 @@ def _summary_group(results: Sequence[Dict[str, Any]], *, frame: Optional[Dict[st
                              "table": result["primary_s_vs_p"].get("table"),
                              "distance": round(float(distance), 6)})
     distance_ci = bootstrap_mean_ci(distances) if len(distances) == len(observations) else None
-    kappa_share = round(len(kappa_excluded) / len(results), 6) if results else None
     checks = {"skill_interval_above_zero": skill_above,
               "skill_interval_below_zero": skill_below,
               "skill_s_vs_p_interval_above_zero": sp_above,
-              "kappa_at_least_0_6": False if kappa_excluded else (None if not kappas else min(kappas) >= .6)}
+              "kappa_at_least_0_6": None if pooled_value is None else pooled_value >= .6}
     if not pilot:
         slope = (calibration.get("baseline") or {}).get("slope")
         checks["calibration_slope_0_5_to_1_5"] = None if slope is None else .5 <= slope <= 1.5
@@ -1008,7 +1044,7 @@ def _summary_group(results: Sequence[Dict[str, Any]], *, frame: Optional[Dict[st
     decisive = {key: value for key, value in checks.items() if key != "skill_interval_below_zero"}
     if not decision:
         status = "nicht Teil der Entscheidung"
-    elif kappa_excluded:
+    elif pooled_value is not None and pooled_value < .6:
         status = KAPPA_INSTRUMENT_STATUS
     elif skill_below is True:
         status = "nicht bestanden"
@@ -1026,10 +1062,9 @@ def _summary_group(results: Sequence[Dict[str, Any]], *, frame: Optional[Dict[st
             "calibration": calibration,
             "s_vs_p": {"mean_distance": _rounded(sum(distances) / len(distances)) if distances else None,
                        "ci_95": distance_ci, "cases": paired_cases},
-            "minimum_kappa": _rounded(min(kappas)) if kappas else None,
-            "kappa_excluded_primary": kappa_excluded,
-            "kappa_excluded_primary_count": len(kappa_excluded),
-            "kappa_excluded_primary_share": kappa_share,
+            "pooled_primary_kappa": pooled_kappa,
+            "case_kappa_informative": case_kappa_rows,
+            "minimum_kappa": _rounded(min(case_kappas)) if case_kappas else None,
             "preregistered_criterion": {"status": status, "checks": checks}}
 
 
@@ -1208,6 +1243,7 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
               "mit Fall-Bootstrap. Nur ausgewiesen, kein Bestehenskriterium; maßgeblich ist Skill(S,P).", "",
               f"Mittel: {_display(contrast.get('mean_distance'))}, 95-%-KI: {contrast_rendered}.", ""]
     criterion = group["preregistered_criterion"]
+    pooled = group.get("pooled_primary_kappa") or {}
     contaminated_line = (
         f"Kontaminierte Fälle ({summary['contaminated']['case_count']}): "
         + (", ".join(summary["contaminated_cases"]) or "keine")
@@ -1218,6 +1254,17 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         detail = "; ".join(
             f"{row['case']} ({row.get('datum') or '–'}: {row.get('quelle') or '–'})" for row in declared)
         contaminated_line += f" Vorab festgelegt: {detail}."
+    lines += ["## Gepooltes Kappa des Primärergebnisses", "",
+              "Gepoolt über alle Bewerterpaare der gewerteten Fälle, Arme und Seeds; "
+              "fallweise Kappa-Werte sind nur informativ.", "",
+              f"Kappa: {_display(pooled.get('kappa'))}, Übereinstimmung: "
+              f"{_display(pooled.get('agreement'), percent=True)}, Paare: {pooled.get('n_pairs', 0)}.", ""]
+    case_kappas = group.get("case_kappa_informative") or []
+    if case_kappas:
+        lines += ["Fallweise Werte (nur informativ):", "", "| Fall | Kappa | Paare |", "|---|---:|---:|"]
+        lines.extend(f"| {_escape(item['case'])} | {_display(item.get('kappa'))} | {item.get('n_pairs', 0)} |"
+                     for item in case_kappas)
+        lines.append("")
     lines += ["## Vorab-Kriterium", "", f"**{criterion['status']}**", "", DECISION_RULE_PILOT, ""]
     if group.get("pilot") is False:
         lines += [DECISION_RULE_CONFIRMATORY, ""]
@@ -1242,15 +1289,6 @@ def summary_markdown(summary: Dict[str, Any]) -> str:
         lines += ["Alle ensemble_id je Fall: " + "; ".join(
             f"{row['case']}: " + ", ".join(str(entry.get("ensemble_id")) for entry in row["ensemble_ids"])
             for row in listed) + ".", ""]
-    excluded = group.get("kappa_excluded_primary") or []
-    if excluded:
-        rendered = ", ".join(
-            f"{item.get('case')} (Kappa {_display(item.get('kappa'))})" for item in excluded)
-        lines.append(
-            f"Wegen Kappa aus der Wertung des Primärergebnisses: "
-            f"{group.get('kappa_excluded_primary_count')} von {group['case_count']} "
-            f"(Anteil {group.get('kappa_excluded_primary_share')}). {rendered}.")
-        lines.append("")
     rahmen = summary.get("rahmen")
     if isinstance(rahmen, dict) and rahmen.get("conflict"):
         lines += ["Rahmen widersprüchlich, kein einheitlicher Pilotrahmen.", ""]

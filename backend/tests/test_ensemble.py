@@ -111,7 +111,9 @@ def test_empty_rater_pairs_stay_undefined_in_the_report(tmp_path):
     }]})
     metric = state["reliability"]["o1"]
     assert metric == {
-        "agreement": None, "kappa": None, "n_pairs": 0, "label": "nicht messbar",
+        "agreement": None, "kappa": None, "n_pairs": 0,
+        "pair_counts": {"yes_yes": 0, "yes_no": 0, "no_yes": 0, "no_no": 0},
+        "label": "nicht messbar",
     }
     report = ensemble_markdown(state)
     assert "| Ereignis | – | – | 0 | nicht messbar |" in report

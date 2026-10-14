@@ -418,7 +418,9 @@ def test_probe_and_two_real_cases_reach_real_service(pilot_stack, tmp_path):
     assert imported_probe["results"]["baseline"]["c1"]["n"] == 1
     assert imported_probe["results"]["baseline"]["c1"]["unclassified"] == 1
     assert imported_probe["reliability"]["c1"] == {
-        "agreement": 1.0, "kappa": 1.0, "n_pairs": 5, "label": "messbar",
+        "agreement": 1.0, "kappa": 1.0, "n_pairs": 5,
+        "pair_counts": {"yes_yes": 1, "yes_no": 0, "no_yes": 0, "no_no": 4},
+        "label": "messbar",
     }
 
     vc.refresh_deferred_results(
