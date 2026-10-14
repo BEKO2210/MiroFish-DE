@@ -101,8 +101,11 @@ Ensemble-Datenverzeichnis (mindestens 5 GiB, sonst 500 mit „Zu wenig freier Sp
 `strict_second_rater: true` wird zusätzlich Ollama (`/api/tags`) abgefragt; fehlt ein benötigtes Modell (Agenten-,
 Nullarm-, Haupt- und Zweitbewerter) oder ist der Server nicht erreichbar, gibt es 500 mit „Benötigte Ollama-Modelle
 fehlen: …“. `strict_second_rater: true` ohne konfiguriertes Zweitmodell (`ENSEMBLE_SECOND_RATER_MODEL`, Standard
-`qwen3.5:9b`) ergibt 400, ebenso gleiche Modellnamen von Haupt- und Zweitbewerter. Während des Laufs wird vor jedem Versuch erneut Plattenplatz und (bei Ollama als Anbieter) die
+`qwen3.5:9b-agent32k`) ergibt 400, ebenso gleiche Modellnamen von Haupt- und Zweitbewerter. Während des Laufs wird vor jedem Versuch erneut Plattenplatz und (bei Ollama als Anbieter) die
 Modellverfügbarkeit geprüft; bei Ausfall wartet der Lauf bis zu 30 Minuten und verbraucht dabei keinen Versuch.
+Vor jeder Klassifikation wird außerdem der modellbezogene Ollama-Kontext über `/api/show` geprüft (ohne `num_ctx`:
+konservativ 4096); das abgeleitete Eingabebudget steht zusammen mit fehlenden Ergebnis-IDs vor und nach bis zu zwei
+gezielten Nachfragen im Klassifikationsaudit.
 
 **Zweitbewerter**: Ohne `strict_second_rater` fällt die Klassifikation auf das Hauptmodell mit anderem Seed zurück,
 wenn das Zweitmodell fehlt oder nicht antwortet (Vermerk `fallback_reason` im Audit). Mit `true` schlägt der Versuch

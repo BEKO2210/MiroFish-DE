@@ -47,6 +47,10 @@ VARIANT_LABELS = {
 }
 # Erster Versuch plus zwei Wiederholungen eines fehlgeschlagenen Stapels oder Seeds.
 BATCH_ATTEMPTS = 3
+MISSING_ID_FOLLOWUP_ROUNDS = 2
+DEFAULT_OLLAMA_NUM_CTX = 4096
+CLASSIFICATION_OUTPUT_TOKENS = 3000
+CLASSIFICATION_CONTEXT_BUFFER = 256
 SEED_ATTEMPTS = 3
 NULL_DOCUMENT_ARMS = frozenset({"null_model", "null_document"})
 NULL_PERSONA_ARMS = frozenset({"null_personas"})
@@ -1308,6 +1312,37 @@ def chat_json_with_retries(
     return None, raw, errors
 
 
+def _returned_outcome_ids(payload: Any, expected_ids: Iterable[str]) -> set[str]:
+    """Nur tatsächlich gelieferte, erwartete Ergebnis-IDs einer Antwort."""
+    expected = set(expected_ids)
+    rows = payload.get("results", []) if isinstance(payload, dict) else []
+    if not isinstance(rows, list):
+        return set()
+    return {
+        str(row.get("outcome_id"))
+        for row in rows
+        if isinstance(row, dict) and str(row.get("outcome_id")) in expected
+    }
+
+
+def _merge_classification_payload(base: Any, addition: Any) -> Dict[str, Any]:
+    """Ergebniszeilen einer gezielten Nachfrage in die Erstantwort übernehmen."""
+    base_rows = base.get("results", []) if isinstance(base, dict) else []
+    addition_rows = addition.get("results", []) if isinstance(addition, dict) else []
+    rows = [row for row in base_rows if isinstance(row, dict)]
+    positions = {str(row.get("outcome_id")): index for index, row in enumerate(rows)}
+    for row in addition_rows if isinstance(addition_rows, list) else []:
+        if not isinstance(row, dict):
+            continue
+        outcome_id = str(row.get("outcome_id"))
+        if outcome_id in positions:
+            rows[positions[outcome_id]] = row
+        else:
+            positions[outcome_id] = len(rows)
+            rows.append(row)
+    return {"results": rows}
+
+
 def _render_post(post: Dict[str, Any]) -> str:
     return f"[{post['post_id']}] {post['agent']}: {post['text']}"
 
@@ -1370,6 +1405,7 @@ class EnsembleService:
         root: Optional[Path] = None,
         poll_interval: float = 1.0,
         health_check: Optional[Callable[[], Sequence[str]]] = None,
+        ollama_show: Optional[Callable[[str], Dict[str, Any]]] = None,
         sleep: Callable[[float], None] = time.sleep,
         min_free_bytes: int = DEFAULT_MIN_FREE_BYTES,
         ollama_wait_seconds: float = OLLAMA_WAIT_SECONDS,
@@ -1379,6 +1415,7 @@ class EnsembleService:
         self.root = Path(root or Path(Config.UPLOAD_FOLDER) / "ensembles")
         self.poll_interval = poll_interval
         self.health_check = health_check
+        self.ollama_show = ollama_show
         self.sleep = sleep
         self.min_free_bytes = int(min_free_bytes)
         self.ollama_wait_seconds = float(ollama_wait_seconds)
@@ -1488,6 +1525,73 @@ class EnsembleService:
             for item in payload.get("models", [])
             if isinstance(item, dict)
         ]
+
+    def _ollama_model_show(self, model: str) -> Dict[str, Any]:
+        if self.ollama_show is not None:
+            return self.ollama_show(model)
+        base = str(Config.LOCAL_LLM_BASE_URL).rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        body = json.dumps({"model": model}).encode("utf-8")
+        request = urllib.request.Request(
+            base + "/api/show",
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(request, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(payload, dict):
+            raise ValueError("Ollama /api/show lieferte kein JSON-Objekt")
+        return payload
+
+    @staticmethod
+    def _num_ctx_from_show(payload: Dict[str, Any]) -> Optional[int]:
+        parameters = payload.get("parameters")
+        if isinstance(parameters, dict):
+            value = parameters.get("num_ctx")
+            try:
+                return int(value) if value is not None else None
+            except (TypeError, ValueError):
+                return None
+        if isinstance(parameters, str):
+            match = re.search(r"(?m)^\s*num_ctx\s+(\d+)\s*$", parameters)
+            return int(match.group(1)) if match else None
+        return None
+
+    def _classification_context(self, llm: Any) -> Dict[str, Any]:
+        """Modellbezogenes Eingabebudget; Ollama ohne num_ctx konservativ mit 4096."""
+        model = self._llm_model(llm)
+        configured_budget = int(os.environ.get(
+            "ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET",
+            str(Config.ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET),
+        ))
+        if self._ollama_enabled():
+            try:
+                show = self._ollama_model_show(model)
+            except Exception as error:
+                raise ModelServiceUnavailable(
+                    f"Ollama /api/show für Bewertermodell {model} nicht erreichbar: {error}"
+                ) from error
+            declared = self._num_ctx_from_show(show)
+            num_ctx = declared or DEFAULT_OLLAMA_NUM_CTX
+            source = "ollama_parameter" if declared else "ollama_default"
+        else:
+            num_ctx = int(os.environ.get("LOCAL_LLM_CONTEXT", str(Config.LOCAL_LLM_CONTEXT)))
+            source = "configured_local_context"
+        input_budget = min(
+            configured_budget,
+            num_ctx - CLASSIFICATION_OUTPUT_TOKENS - CLASSIFICATION_CONTEXT_BUFFER,
+        )
+        return {
+            "model": model,
+            "num_ctx": num_ctx,
+            "num_ctx_source": source,
+            "configured_input_budget": configured_budget,
+            "output_tokens": CLASSIFICATION_OUTPUT_TOKENS,
+            "buffer_tokens": CLASSIFICATION_CONTEXT_BUFFER,
+            "input_budget": input_budget,
+        }
 
     @staticmethod
     def _model_present(required: str, available: Sequence[str]) -> bool:
@@ -2282,6 +2386,7 @@ class EnsembleService:
         run_number: int,
         run_dir: Optional[Path] = None,
         llm: Any = None,
+        context_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist_items = [
             dict(
@@ -2297,27 +2402,33 @@ class EnsembleService:
             f"{item['id']}: {_positive_event_text(item) if item['polarity'] == 'absence' else (str(item.get('text_de', '')) + ' -- ' + str(item.get('definition', '')))}"
             for item in checklist_items
         )
-        instruction = (
+        rules = (
             "Für jedes aufgeführte positive Ereignis: yes=true nur bei einem eindeutigen Beleg. "
             "Ein konkreter aufgeführter Punkt kann zugleich ein allgemeineres positives Ereignis "
             "belegen; verwende dann dieselben Beitrags-IDs für alle passenden outcome_ids. "
-            "Nenne ausschließlich vorhandene IDs und liefere genau eine Zeile je outcome_id. "
+            "Nenne ausschließlich vorhandene IDs. Liefere FÜR JEDE der folgenden IDs genau "
+            "einen Eintrag, ausdrücklich auch bei yes=false; keine ID darf ausgelassen werden. "
             "yes=true nur zusammen mit einer kurzen wörtlichen Textspanne aus dem genannten Beitrag. "
             "JSON: {\"results\":[{\"outcome_id\":\"o1\",\"yes\":true,"
-            "\"post_ids\":[\"twitter:1\"],\"snippet\":\"wörtliche Spanne\"}]}.\n\n"
+            "\"post_ids\":[\"twitter:1\"],\"snippet\":\"wörtliche Spanne\"}]}."
+        )
+        instruction = (
+            f"{rules}\n\n"
             f"Zu prüfende positive Ereignisse:\n{checklist}\n\nBeiträge:\n"
         )
         system = "Klassifiziere streng nur anhand der gelieferten Beiträge."
-        output_tokens = 3000
-        configured_budget = int(os.environ.get(
-            "ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET",
-            str(Config.ENSEMBLE_CLASSIFICATION_TOKEN_BUDGET),
-        ))
-        context = int(os.environ.get("LOCAL_LLM_CONTEXT", str(Config.LOCAL_LLM_CONTEXT)))
-        token_budget = min(configured_budget, context - output_tokens - 256)
-        prefix = f"{system}\n{instruction}"
-        batches = build_post_batches(posts, prefix, token_budget)
         llm = llm or self._llm()
+        context_info = dict(context_info or self._classification_context(llm))
+        output_tokens = int(context_info["output_tokens"])
+        token_budget = int(context_info["input_budget"])
+        prefix = f"{system}\n{instruction}"
+        try:
+            batches = build_post_batches(posts, prefix, token_budget)
+        except ValueError as error:
+            raise ValueError(
+                f"Klassifikationskontext für Modell {context_info['model']} zu klein "
+                f"(num_ctx={context_info['num_ctx']}, Eingabebudget={token_budget}): {error}"
+            ) from error
         interaction_groups = {
             str(item["id"]): self._interaction_groups(
                 llm, item, posts, seed, run_dir
@@ -2329,6 +2440,7 @@ class EnsembleService:
         batch_results: List[Dict[str, Dict[str, Any]]] = []
         for index, batch in enumerate(batches, 1):
             compact = "\n".join(_render_post(post) for post in batch)
+            expected_ids = [str(item["id"]) for item in checklist_items]
             messages = [
                 {"role": "system", "content": system},
                 {"role": "user", "content": instruction + compact},
@@ -2357,7 +2469,72 @@ class EnsembleService:
                 }
                 audit["error"] = errors[-1] if errors else "Stapel fehlgeschlagen"
                 audit["errors"] = errors
+                audit["missing_ids_before_followup"] = list(expected_ids)
+                audit["missing_ids_after_followup"] = list(expected_ids)
+                audit["followups"] = []
             else:
+                missing = [
+                    outcome_id for outcome_id in expected_ids
+                    if outcome_id not in _returned_outcome_ids(payload, expected_ids)
+                ]
+                audit["missing_ids_before_followup"] = list(missing)
+                followups: List[Dict[str, Any]] = []
+                for followup_round in range(1, MISSING_ID_FOLLOWUP_ROUNDS + 1):
+                    if not missing:
+                        break
+                    missing_set = set(missing)
+                    missing_checklist = "\n".join(
+                        f"{item['id']}: {_positive_event_text(item) if item['polarity'] == 'absence' else (str(item.get('text_de', '')) + ' -- ' + str(item.get('definition', '')))}"
+                        for item in checklist_items if str(item["id"]) in missing_set
+                    )
+                    followup_instruction = (
+                        f"{rules}\n\n"
+                        "In der vorigen Antwort fehlten Ergebnis-IDs. Klassifiziere jetzt NUR "
+                        "die unten genannten fehlenden IDs nach exakt denselben Regeln und anhand "
+                        "derselben Beiträge.\n\n"
+                        f"Fehlende positive Ereignisse:\n{missing_checklist}\n\nBeiträge:\n{compact}"
+                    )
+                    followup_messages = [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": followup_instruction},
+                    ]
+                    if estimate_tokens(followup_messages) > token_budget:
+                        raise ValueError(
+                            f"Gezielte Klassifikationsnachfrage für Modell "
+                            f"{context_info['model']} überschreitet das Eingabebudget "
+                            f"{token_budget} bei num_ctx={context_info['num_ctx']}"
+                        )
+                    extra, extra_raw, extra_errors = chat_json_with_retries(
+                        llm,
+                        followup_messages,
+                        temperature=0,
+                        max_tokens=output_tokens,
+                        max_attempts=2,
+                        seed=seed,
+                    )
+                    followup_audit: Dict[str, Any] = {
+                        "round": followup_round,
+                        "requested_ids": list(missing),
+                        "attempts": ((len(extra_errors) + 1) if extra is not None
+                                     else len(extra_errors)),
+                        "raw_response": extra_raw,
+                    }
+                    if extra is None:
+                        followup_audit["error"] = (
+                            extra_errors[-1] if extra_errors else "Nachfrage fehlgeschlagen"
+                        )
+                        followup_audit["errors"] = extra_errors
+                    else:
+                        payload = _merge_classification_payload(payload, extra)
+                        followup_audit["parsed_response"] = extra
+                    missing = [
+                        outcome_id for outcome_id in expected_ids
+                        if outcome_id not in _returned_outcome_ids(payload, expected_ids)
+                    ]
+                    followup_audit["missing_ids_after"] = list(missing)
+                    followups.append(followup_audit)
+                audit["followups"] = followups
+                audit["missing_ids_after_followup"] = list(missing)
                 verified = verify_classification_evidence(
                     payload, batch, checklist_items, run_number
                 )
@@ -2439,6 +2616,7 @@ class EnsembleService:
             "run": run_number,
             "post_count": len(posts),
             "token_budget": token_budget,
+            "context": context_info,
             "batches": audits,
             "interaction_groups": interaction_groups,
             "interaction_checks": interaction_checks,
@@ -2457,9 +2635,6 @@ class EnsembleService:
         primary = self._llm_for_model(
             (state.get("models") or {}).get("classification_primary")
         )
-        result_a, audit_a = self._classify_posts_once(
-            state, posts, seed, run_number, run_dir, primary
-        )
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
@@ -2470,9 +2645,16 @@ class EnsembleService:
         else:
             secondary_setup_error = ""
         self._reject_same_rater_model(state, primary, secondary)
+        primary_context = self._classification_context(primary)
+        secondary_context = (
+            primary_context if secondary is primary else self._classification_context(secondary)
+        )
+        result_a, audit_a = self._classify_posts_once(
+            state, posts, seed, run_number, run_dir, primary, primary_context
+        )
         second_seed = seed + 1_000_003
         result_b, audit_b = self._classify_posts_once(
-            state, posts, second_seed, run_number, run_dir, secondary
+            state, posts, second_seed, run_number, run_dir, secondary, secondary_context
         )
         if secondary_setup_error:
             audit_b["fallback_reason"] = (
@@ -2488,7 +2670,7 @@ class EnsembleService:
             secondary = primary
             seed_fallback = True
             result_b, audit_b = self._classify_posts_once(
-                state, posts, second_seed, run_number, run_dir, secondary
+                state, posts, second_seed, run_number, run_dir, secondary, primary_context
             )
             audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
         combined = combine_rater_results(result_a, result_b, state["checklist"])
@@ -2520,30 +2702,103 @@ class EnsembleService:
         run_number: int,
         llm: Any,
         variant_key: str = "null_model",
+        context_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
         checklist = "\n".join(
             f"{o['id']}: {_positive_event_text(o) if stored_polarity(o) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
             for o in state["checklist"]
         )
+        context_info = dict(context_info or self._classification_context(llm))
+        narrative_rules = (
+            "Prüfe die aufgeführten positiven Ereignisse. JSON: {\"results\":[{"
+            "\"outcome_id\":\"o1\",\"yes\":true,\"snippet\":\"wörtliche kurze "
+            "Textstelle\"}]}. Liefere FÜR JEDE der folgenden IDs genau einen Eintrag, "
+            "ausdrücklich auch bei yes=false; keine ID darf ausgelassen werden. "
+            "Ja erfordert eine wörtliche Textspanne, die das Ereignis trägt, "
+            "auch bei Interaktion. Die Datenbankkante ist nicht das Ergebnis."
+        )
         messages = [
             {"role": "system", "content": "Klassifiziere streng nur anhand der Erzählung."},
             {"role": "user", "content": (
-                "Prüfe die aufgeführten positiven Ereignisse. JSON: {\"results\":[{"
-                "\"outcome_id\":\"o1\",\"yes\":true,\"snippet\":\"wörtliche kurze "
-                "Textstelle\"}]}. Ja erfordert eine wörtliche Textspanne, die das Ereignis trägt, "
-                "auch bei Interaktion. Die Datenbankkante ist nicht das Ergebnis.\n\n"
+                f"{narrative_rules}\n\n"
                 f"Ereignisse:\n{checklist}\n\nErzählung:\n{narrative}"
             )},
         ]
+        token_budget = int(context_info["input_budget"])
+        if estimate_tokens(messages) > token_budget:
+            raise ValueError(
+                f"Klassifikationskontext für Modell {context_info['model']} zu klein "
+                f"(num_ctx={context_info['num_ctx']}, Eingabebudget={token_budget}): "
+                "Anweisung, Checkliste und Erzählung passen nicht"
+            )
         payload, raw, errors = chat_json_with_retries(
             llm,
             messages,
             temperature=0,
-            max_tokens=3000,
+            max_tokens=int(context_info["output_tokens"]),
             max_attempts=2,
             seed=seed,
         )
         parse_error = errors[-1] if payload is None else None
+        expected_ids = [str(item["id"]) for item in state["checklist"]]
+        missing = (
+            expected_ids if payload is None else [
+                outcome_id for outcome_id in expected_ids
+                if outcome_id not in _returned_outcome_ids(payload, expected_ids)
+            ]
+        )
+        missing_before = list(missing)
+        followups: List[Dict[str, Any]] = []
+        if payload is not None:
+            for followup_round in range(1, MISSING_ID_FOLLOWUP_ROUNDS + 1):
+                if not missing:
+                    break
+                missing_set = set(missing)
+                missing_checklist = "\n".join(
+                    f"{o['id']}: {_positive_event_text(o) if stored_polarity(o) == 'absence' else (str(o.get('text_de', '')) + ' -- ' + str(o.get('definition', '')))}"
+                    for o in state["checklist"] if str(o["id"]) in missing_set
+                )
+                followup_messages = [
+                    {"role": "system", "content": messages[0]["content"]},
+                    {"role": "user", "content": (
+                        f"{narrative_rules}\n\n"
+                        "In der vorigen Antwort fehlten Ergebnis-IDs. Klassifiziere jetzt NUR "
+                        "die unten genannten IDs nach exakt denselben Regeln anhand derselben "
+                        "Erzählung.\n\n"
+                        f"Fehlende Ereignisse:\n{missing_checklist}\n\nErzählung:\n{narrative}"
+                    )},
+                ]
+                if estimate_tokens(followup_messages) > token_budget:
+                    raise ValueError(
+                        f"Gezielte Klassifikationsnachfrage für Modell "
+                        f"{context_info['model']} überschreitet das Eingabebudget "
+                        f"{token_budget} bei num_ctx={context_info['num_ctx']}"
+                    )
+                extra, extra_raw, extra_errors = chat_json_with_retries(
+                    llm, followup_messages, temperature=0,
+                    max_tokens=int(context_info["output_tokens"]), max_attempts=2, seed=seed,
+                )
+                followup_audit: Dict[str, Any] = {
+                    "round": followup_round,
+                    "requested_ids": list(missing),
+                    "attempts": ((len(extra_errors) + 1) if extra is not None
+                                 else len(extra_errors)),
+                    "raw_response": extra_raw,
+                }
+                if extra is None:
+                    followup_audit["error"] = (
+                        extra_errors[-1] if extra_errors else "Nachfrage fehlgeschlagen"
+                    )
+                    followup_audit["errors"] = extra_errors
+                else:
+                    payload = _merge_classification_payload(payload, extra)
+                    followup_audit["parsed_response"] = extra
+                missing = [
+                    outcome_id for outcome_id in expected_ids
+                    if outcome_id not in _returned_outcome_ids(payload, expected_ids)
+                ]
+                followup_audit["missing_ids_after"] = list(missing)
+                followups.append(followup_audit)
         rows = payload.get("results", []) if isinstance(payload, dict) else []
         by_id = {str(r.get("outcome_id")): r for r in rows if isinstance(r, dict)}
         positive: Dict[str, Tuple[bool, str]] = {}
@@ -2596,11 +2851,15 @@ class EnsembleService:
                 record["mechanism_edges"] = []
             result[outcome["id"]] = record
         audit = {
+            "context": context_info,
             "batches": [{
                 "batch": 1,
                 "attempts": (len(errors) + 1) if payload is not None else len(errors),
                 "raw_response": raw if not parse_error else None,
                 "error": parse_error,
+                "missing_ids_before_followup": missing_before,
+                "missing_ids_after_followup": list(missing),
+                "followups": followups,
                 "verified": result,
             }],
             "result": result,
@@ -2619,9 +2878,6 @@ class EnsembleService:
         primary = self._llm_for_model(
             (state.get("models") or {}).get("classification_primary")
         )
-        result_a, audit_a = self._classify_narrative_once(
-            state, narrative, seed, run_number, primary, variant_key
-        )
         try:
             secondary, seed_fallback = self._second_rater_llm(primary)
         except Exception as error:
@@ -2632,9 +2888,17 @@ class EnsembleService:
         else:
             secondary_setup_error = ""
         self._reject_same_rater_model(state, primary, secondary)
+        primary_context = self._classification_context(primary)
+        secondary_context = (
+            primary_context if secondary is primary else self._classification_context(secondary)
+        )
+        result_a, audit_a = self._classify_narrative_once(
+            state, narrative, seed, run_number, primary, variant_key, primary_context
+        )
         second_seed = seed + 1_000_003
         result_b, audit_b = self._classify_narrative_once(
-            state, narrative, second_seed, run_number, secondary, variant_key
+            state, narrative, second_seed, run_number, secondary, variant_key,
+            secondary_context,
         )
         if secondary_setup_error:
             audit_b["fallback_reason"] = (
@@ -2647,7 +2911,8 @@ class EnsembleService:
             secondary = primary
             seed_fallback = True
             result_b, audit_b = self._classify_narrative_once(
-                state, narrative, second_seed, run_number, secondary, variant_key
+                state, narrative, second_seed, run_number, secondary, variant_key,
+                primary_context,
             )
             audit_b["fallback_reason"] = "Zweitmodell nicht erreichbar; Hauptmodell mit anderem Seed"
         combined = combine_rater_results(result_a, result_b, state["checklist"])

@@ -106,7 +106,7 @@ Statistik, angeglichene Nullarme); die Zahlen oben wurden damit nicht neu erhobe
 | Fälle | 7: Karlsfeld, Kehl, Kuppenheim, Neuwied, Niederkassel, Unterschleißheim, Wanzleben (Freiburg nicht gestartet) |
 | Arme | `baseline` (Schwarm, S), `null_document` (D), `null_personas` (P) |
 | Seeds / Takt / Zeitraum | 5 Seeds, 240 Minuten je Runde, 336 Stunden (84 Runden) |
-| Modelle | Textarme `gemma4:e4b-it-qat`; Klassifikation `gemma4:12b-it-qat` + `qwen3.5:9b`, kein Seed-Fallback |
+| Modelle | Textarme `gemma4:e4b-it-qat`; Klassifikation `gemma4:12b-it-qat` + `qwen3.5:9b-agent32k`, kein Seed-Fallback |
 | GPU-Schätzung (RTX 3070) | 33–72 h, Mitte rund 50 (Schätzung aus Prüfung 2, nicht gemessen) |
 | Entscheidungsregel | „bestanden“ nur, wenn Skill(S,D) und Skill(S,P) ganz über 0 liegen (95-%-Fall-Bootstrap), Kappa ≥ 0,6 und alle 7 Fälle gewertet; sonst „nicht bestanden“ oder „nicht prüfbar“ (`PROTOKOLL-V5.md`) |
 
