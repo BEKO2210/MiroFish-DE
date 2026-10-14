@@ -274,6 +274,43 @@ test.describe('Flows', () => {
     await expect(page).toHaveURL(/\/verlaesslichkeit/)
   })
 
+  for (const vp of [
+    { width: 375, height: 560 },
+    { width: 1280, height: 600 },
+  ]) {
+    test(`Mehrfachlauf-Dialog passt in den Viewport ${vp.width}x${vp.height} und bleibt bedienbar`, async ({ page }) => {
+      const { api } = await preparePage(page)
+      await page.setViewportSize(vp)
+      const sheet = await openMehrfachlaufSheet(page)
+
+      // Einblend-Animation (translateY) abwarten, dann Lage prüfen
+      await expect
+        .poll(async () => {
+          const b = await sheet.boundingBox()
+          return b ? b.y + b.height : Infinity
+        })
+        .toBeLessThanOrEqual(vp.height + 0.5)
+      const box = await sheet.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.y).toBeGreaterThanOrEqual(-0.5)
+      expect(box!.x).toBeGreaterThanOrEqual(-0.5)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(vp.width + 0.5)
+
+      await expect(sheet.locator('.sheet__actions')).toBeInViewport({ ratio: 1 })
+
+      const scrollable = await sheet.locator('.sheet__body').evaluate((el) => ({
+        scroll: el.scrollHeight,
+        client: el.clientHeight,
+      }))
+      expect(scrollable.scroll).toBeGreaterThan(scrollable.client)
+
+      api!.reset()
+      await sheet.getByRole('button', { name: /^Starten$/i }).click()
+      await expect(page).toHaveURL(/\/ensemble\/ens_e2e_started/)
+      lastEnsembleStartBody(api!)
+    })
+  }
+
   test('Einstellungen: Farbwähler Voll und Reset', async ({ page }) => {
 
     await preparePage(page)
